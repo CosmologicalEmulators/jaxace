@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "jaxace"
+version = "0.1.0"
+description = "JAX/Flax implementation of AbstractCosmologicalEmulators.jl interface"
+authors = ["marcobonici <bonici.marco@gmail.com>"]
+readme = "README.md"
+packages = [{include = "jaxace"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+jax = "^0.4.30"
+jaxlib = "^0.4.30"
+flax = "^0.10.0"
+numpy = "^1.24.0"
+quadax = "^0.2.9"
+interpax = "^0.3.9"
+diffrax = "^0.6.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-cov = "^4.0"
+pytest-jaxtyping = "^0.3.0"
+pytest-pydocstyle = "^2.4.0"
+
+[tool.poetry.scripts]
+test = "pytest:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["jaxace"]
+omit = ["tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError:",
+]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
