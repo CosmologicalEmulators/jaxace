@@ -19,8 +19,6 @@ diffrax = "^0.6.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
 pytest-cov = "^4.0"
-pytest-jaxtyping = "^0.3.0"
-pytest-pydocstyle = "^2.4.0"
 
 [tool.poetry.scripts]
 test = "pytest:main"
