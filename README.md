@@ -1,7 +1,7 @@
 # jaxace
 
-[![Tests](https://github.com/CosmologicalEmulator/jaxace/actions/workflows/tests.yml/badge.svg)](https://github.com/CosmologicalEmulator/jaxace/actions/workflows/tests.yml)
-[![codecov](https://codecov.io/gh/CosmologicalEmulator/jaxace/branch/main/graph/badge.svg)](https://codecov.io/gh/CosmologicalEmulator/jaxace)
+[![Tests](https://github.com/CosmologicalEmulators/jaxace/actions/workflows/tests.yml/badge.svg)](https://github.com/CosmologicalEmulators/jaxace/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/CosmologicalEmulators/jaxace/graph/badge.svg?token=8DGPCJR8KX)](https://codecov.io/gh/CosmologicalEmulators/jaxace)
 
 JAX/Flax implementation of cosmological emulators with automatic JIT compilation.
 
