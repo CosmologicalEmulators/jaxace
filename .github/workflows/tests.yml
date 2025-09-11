@@ -60,6 +60,9 @@ jobs:
         echo "=== Coverage Summary ==="
         poetry run coverage report --show-missing
         echo "========================"
+        echo ""
+        echo "📊 Coverage reports are available as artifacts above"
+        echo "💡 To enable Codecov integration, see CODECOV_SETUP.md"
     
     - name: Upload coverage reports as artifacts
       if: matrix.os == 'ubuntu-latest'
@@ -83,17 +86,19 @@ jobs:
         VERBOSE: true
       continue-on-error: true
     
-    - name: Upload coverage to Codecov (if token available)
-      if: matrix.os == 'ubuntu-latest'
+    # Codecov upload - only runs if CODECOV_TOKEN is set in repository secrets
+    # To enable: Add CODECOV_TOKEN to repository secrets (see CODECOV_SETUP.md)
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-py${{ matrix.python-version }}
-        fail_ci_if_error: false  # Don't fail the workflow
-        verbose: false  # Reduce noise when token is missing
+        fail_ci_if_error: false
+        verbose: false
         token: ${{ secrets.CODECOV_TOKEN }}
-      continue-on-error: true  # Always continue even if this step fails
+      continue-on-error: true
 
   lint:
     name: Linting
