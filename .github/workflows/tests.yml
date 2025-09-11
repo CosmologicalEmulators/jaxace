@@ -71,18 +71,31 @@ jobs:
           htmlcov/
         retention-days: 7
     
+    - name: Coverage Comment
+      if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+      uses: py-cov-action/python-coverage-comment-action@v3
+      with:
+        GITHUB_TOKEN: ${{ github.token }}
+        MINIMUM_GREEN: 70
+        MINIMUM_ORANGE: 50
+        ANNOTATE_MISSING_LINES: true
+        ANNOTATION_TYPE: warning
+        VERBOSE: true
+      continue-on-error: true
+    
     - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest'  # Upload from all Python versions on Ubuntu
+      if: matrix.os == 'ubuntu-latest' && github.repository == 'CosmologicalEmulators/jaxace'  # Only for main repo
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-py${{ matrix.python-version }}
-        fail_ci_if_error: true  # Fail if upload fails
+        fail_ci_if_error: false  # Don't fail if token is missing
         verbose: true  # Enable verbose output for debugging
         token: ${{ secrets.CODECOV_TOKEN }}
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      continue-on-error: true  # Don't fail the whole workflow if codecov fails
 
   lint:
     name: Linting
