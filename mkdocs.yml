@@ -137,5 +137,5 @@ nav:
 
 copyright: Copyright &copy; 2024 CosmologicalEmulators
 
-strict: false  # Set to true once all warnings are fixed
+strict: true
 use_directory_urls: true

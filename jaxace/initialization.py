@@ -1,7 +1,7 @@
 """
 Neural network initialization functions matching AbstractCosmologicalEmulators.jl
 """
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Type, Optional
 import numpy as np
 import jax.numpy as jnp
 import flax.linen as nn
@@ -168,9 +168,9 @@ def _init_flaxemulator(nn_dict: Dict[str, Any], weight: np.ndarray) -> FlaxEmula
 
 def init_emulator(nn_dict: Dict[str, Any], 
                   weight: np.ndarray, 
-                  emulator_type=FlaxEmulator,
+                  emulator_type: Type[FlaxEmulator] = FlaxEmulator,
                   validate: bool = True,
-                  validate_weights: bool = None) -> FlaxEmulator:
+                  validate_weights: Optional[bool] = None) -> FlaxEmulator:
     """
     Initialize an emulator from neural network dictionary and weights.
     Matches Julia's init_emulator function.
