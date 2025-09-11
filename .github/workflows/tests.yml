@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
   workflow_dispatch:
 
 jobs:
@@ -14,159 +14,157 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12']
+        python-version: ["3.10", "3.11", "3.12"]
         os: [ubuntu-latest, macos-latest]
-        
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: 2.1.4
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-        installer-parallel: true
-    
-    - name: Load cached venv
-      id: cached-poetry-dependencies
-      uses: actions/cache@v4
-      with:
-        path: .venv
-        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
-    
-    - name: Check lock file
-      run: poetry check --lock
-    
-    - name: Install dependencies
-      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: poetry install --no-interaction --no-root
-    
-    - name: Install project
-      run: poetry install --no-interaction
-    
-    - name: Run tests
-      run: |
-        poetry run pytest tests/ -v --tb=short --cov=jaxace --cov-report=term-missing --cov-report=xml --cov-report=html
-    
-    - name: Display coverage report
-      if: always()
-      run: |
-        echo "=== Coverage Summary ==="
-        poetry run coverage report --show-missing
-        echo "========================"
-        echo ""
-        echo "📊 Coverage reports are available as artifacts above"
-        echo "💡 To enable Codecov integration, see CODECOV_SETUP.md"
-    
-    - name: Upload coverage reports as artifacts
-      if: matrix.os == 'ubuntu-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-reports-py${{ matrix.python-version }}
-        path: |
-          coverage.xml
-          htmlcov/
-        retention-days: 7
-    
-    - name: Coverage Comment
-      if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
-      uses: py-cov-action/python-coverage-comment-action@v3
-      with:
-        GITHUB_TOKEN: ${{ github.token }}
-        MINIMUM_GREEN: 70
-        MINIMUM_ORANGE: 50
-        ANNOTATE_MISSING_LINES: true
-        ANNOTATION_TYPE: warning
-        VERBOSE: true
-      continue-on-error: true
-    
-    # Codecov upload - only runs if CODECOV_TOKEN is set in repository secrets
-    # To enable: Add CODECOV_TOKEN to repository secrets (see CODECOV_SETUP.md)
-    - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-py${{ matrix.python-version }}
-        fail_ci_if_error: false
-        verbose: false
-        token: ${{ secrets.CODECOV_TOKEN }}
-      continue-on-error: true
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.1.4
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Check lock file
+        run: poetry check --lock
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Run tests
+        run: |
+          poetry run pytest tests/ -v --tb=short --cov=jaxace --cov-report=term-missing --cov-report=xml --cov-report=html
+
+      - name: Display coverage report
+        if: always()
+        run: |
+          echo "=== Coverage Summary ==="
+          poetry run coverage report --show-missing
+          echo "========================"
+          echo ""
+          echo "📊 Coverage reports are available as artifacts above"
+          echo "💡 To enable Codecov integration, see CODECOV_SETUP.md"
+
+      - name: Upload coverage reports as artifacts
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports-py${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            htmlcov/
+          retention-days: 7
+
+      - name: Coverage Comment
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 70
+          MINIMUM_ORANGE: 50
+          ANNOTATE_MISSING_LINES: true
+          ANNOTATION_TYPE: warning
+          VERBOSE: true
+        continue-on-error: true
+
+      # Codecov upload - only runs if CODECOV_TOKEN is set in repository secrets
+      # To enable: Add CODECOV_TOKEN to repository secrets (see CODECOV_SETUP.md)
+      - name: Upload coverage to Codecov
+        if: ${{ always() && startsWith(matrix.os, 'ubuntu') }} # pick one OS to avoid duplicate total
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          flags: unittests,py${{ matrix.python-version }}
+          name: py${{ matrix.python-version }}-${{ matrix.os }}
+          token: ${{ secrets.CODECOV_TOKEN }} # omit if public repo & tokenless allowed
+          fail_ci_if_error: true
 
   lint:
     name: Linting
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: 2.1.4
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-    
-    - name: Check lock file
-      run: poetry check --lock
-    
-    - name: Install dependencies
-      run: |
-        poetry install --no-interaction
-    
-    - name: Run linting
-      run: |
-        poetry run python -m pip install ruff
-        poetry run ruff check jaxace/ tests/
-      continue-on-error: true
-    
-    - name: Check code formatting
-      run: |
-        poetry run python -m pip install black isort
-        poetry run black --check jaxace/ tests/
-        poetry run isort --check-only jaxace/ tests/
-      continue-on-error: true
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.1.4
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Check lock file
+        run: poetry check --lock
+
+      - name: Install dependencies
+        run: |
+          poetry install --no-interaction
+
+      - name: Run linting
+        run: |
+          poetry run python -m pip install ruff
+          poetry run ruff check jaxace/ tests/
+        continue-on-error: true
+
+      - name: Check code formatting
+        run: |
+          poetry run python -m pip install black isort
+          poetry run black --check jaxace/ tests/
+          poetry run isort --check-only jaxace/ tests/
+        continue-on-error: true
 
   test-minimal:
     name: Minimal test suite (fast)
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: 2.1.4
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-    
-    - name: Install dependencies
-      run: poetry install --no-interaction
-    
-    - name: Run core tests only
-      run: |
-        poetry run pytest tests/test_core_functionality.py tests/test_simple.py -v --tb=short
-    
-    - name: Test imports
-      run: |
-        poetry run python -c "import jaxace; print('✓ jaxace import successful')"
-        poetry run python -c "from jaxace.background import E_z, r_z, D_z, f_z; print('✓ background functions import successful')"
-        poetry run python -c "from jaxace.core import FlaxEmulator; print('✓ core import successful')"
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.1.4
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Run core tests only
+        run: |
+          poetry run pytest tests/test_core_functionality.py tests/test_simple.py -v --tb=short
+
+      - name: Test imports
+        run: |
+          poetry run python -c "import jaxace; print('✓ jaxace import successful')"
+          poetry run python -c "from jaxace.background import E_z, r_z, D_z, f_z; print('✓ background functions import successful')"
+          poetry run python -c "from jaxace.core import FlaxEmulator; print('✓ core import successful')"
