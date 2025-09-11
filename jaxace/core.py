@@ -7,9 +7,15 @@ import jax
 import jax.numpy as jnp
 import flax.linen as nn
 from dataclasses import dataclass
+import os
 
-# Configure JAX for 64-bit precision
-jax.config.update("jax_enable_x64", True)
+# Allow user to configure precision via environment variable
+if os.environ.get('JAXACE_ENABLE_X64', 'true').lower() == 'true':
+    try:
+        jax.config.update("jax_enable_x64", True)
+    except RuntimeError:
+        # Config already set, that's fine
+        pass
 
 
 class AbstractTrainedEmulator(ABC):

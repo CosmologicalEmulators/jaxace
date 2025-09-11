@@ -25,40 +25,11 @@ jaxace provides a Python/JAX equivalent of the Julia AbstractCosmologicalEmulato
 ## Installation
 
 ```bash
-pip install jaxace
-```
-
-Or for development:
-```bash
 cd jaxace
 pip install -e .
 ```
 
 ## Usage
-
-### Neural Network Emulators
-
-```python
-import jaxace
-import numpy as np
-import json
-
-# Load neural network specification and weights
-with open('nn_setup.json') as f:
-    nn_dict = json.load(f)
-weights = np.load('weights.npy')
-
-# Initialize emulator
-emulator = jaxace.init_emulator(nn_dict, weights, jaxace.FlaxEmulator)
-
-# Run emulator
-input_data = np.array([...])  # Your input
-output = jaxace.run_emulator(input_data, emulator)
-
-# Use normalization utilities
-normalized = jaxace.maximin(input_data, minmax_array)
-denormalized = jaxace.inv_maximin(output, minmax_array)
-```
 
 ### Background Cosmology
 
@@ -106,14 +77,3 @@ comoving_distance = r_z(z, cosmo.omega_b + cosmo.omega_c, cosmo.h, cosmo.m_nu)
 - `f_z(z, Ωcb0, h, mν, w0, wa)`: Linear growth rate
 - `r_z(z, Ωcb0, h, mν, w0, wa)`: Comoving distance
 - `dA_z(z, Ωcb0, h, mν, w0, wa)`: Angular diameter distance
-
-## Compatibility
-
-This package is designed to be compatible with:
-- AbstractCosmologicalEmulators.jl v0.7.0
-- Effort.jl v0.3.1
-- jaxeffort (can be used as a drop-in replacement for core functionality)
-
-## License
-
-Same as AbstractCosmologicalEmulators.jl

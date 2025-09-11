@@ -1,15 +1,26 @@
 
-# Configure JAX for 64-bit precision FIRST, before any other JAX imports
-import jax
-jax.config.update('jax_enable_x64', True)
+# Optional JAX 64-bit precision configuration
+# Users can set this before importing jaxace if they want 64-bit precision:
+# import jax
+# jax.config.update('jax_enable_x64', True)
 
+import jax
 import jax.numpy as jnp
-from typing import NamedTuple, Union
+from typing import NamedTuple, Union, Optional
 import quadax
 import interpax
 import diffrax
 from pathlib import Path
 import sys
+import os
+
+# Allow user to configure precision via environment variable
+if os.environ.get('JAXACE_ENABLE_X64', 'true').lower() == 'true':
+    try:
+        jax.config.update('jax_enable_x64', True)
+    except RuntimeError:
+        # Config already set, that's fine
+        pass
 
 __all__ = [
     'W0WaCDMCosmology',
@@ -18,6 +29,89 @@ __all__ = [
     'D_z_from_cosmo', 'f_z_from_cosmo', 'D_f_z_from_cosmo',
     'r_z', 'dA_z', 'ρc_z', 'Ωtot_z'
 ]
+
+
+def _check_nan_inputs(*args):
+    """
+    Check if any input contains NaN using JAX-compatible operations.
+    
+    Returns:
+        Boolean array indicating if any input has NaN
+    """
+    has_nan = False
+    for arg in args:
+        if arg is not None:
+            arg_array = jnp.asarray(arg)
+            # For scalars, check if NaN
+            if arg_array.ndim == 0:
+                has_nan = has_nan | jnp.isnan(arg_array)
+            else:
+                # For arrays, return element-wise NaN check
+                # We'll handle this differently in each function
+                pass
+    return has_nan
+
+
+def _get_nan_mask(*args):
+    """
+    Get element-wise NaN mask for arrays.
+    
+    Returns:
+        Boolean array with True where any input has NaN
+    """
+    nan_mask = None
+    for arg in args:
+        if arg is not None:
+            arg_array = jnp.asarray(arg)
+            if arg_array.ndim > 0:
+                if nan_mask is None:
+                    nan_mask = jnp.isnan(arg_array)
+                else:
+                    nan_mask = nan_mask | jnp.isnan(arg_array)
+    return nan_mask
+
+
+def _propagate_nan_result(has_nan, result, reference_input):
+    """
+    Propagate NaN if needed using JAX-compatible operations.
+    
+    Args:
+        has_nan: Boolean indicating if NaN should be propagated
+        result: The computed result
+        reference_input: An input to get the shape from
+        
+    Returns:
+        Result or NaN with appropriate shape
+    """
+    nan_value = jnp.full_like(reference_input, jnp.nan, dtype=result.dtype)
+    return jnp.where(has_nan, nan_value, result)
+
+
+def _handle_infinite_params(value, param_name="parameter"):
+    """
+    Handle infinite parameter values gracefully.
+    
+    Args:
+        value: Parameter value to check
+        param_name: Name of parameter for documentation
+        
+    Returns:
+        Processed value (may return NaN for problematic infinities)
+    """
+    value_array = jnp.asarray(value)
+    
+    # Check for positive infinity - often problematic
+    is_pos_inf = jnp.isposinf(value_array)
+    
+    # Check for negative infinity - sometimes acceptable depending on context
+    is_neg_inf = jnp.isneginf(value_array)
+    
+    # Return NaN for positive infinity in most cosmological parameters
+    if param_name in ['Ωcb0', 'h', 'mν'] and jnp.any(is_pos_inf):
+        return jnp.where(is_pos_inf, jnp.nan, value_array)
+    
+    return value_array
+
 
 class W0WaCDMCosmology(NamedTuple):
     ln10As: float
@@ -36,8 +130,24 @@ def a_z(z):
 
 @jax.jit
 def rhoDE_a(a, w0, wa):
-
-    return jnp.power(a, -3.0 * (1.0 + w0 + wa)) * jnp.exp(3.0 * wa * (a - 1.0))
+    """
+    Dark energy density as a function of scale factor.
+    
+    Handles extreme w0/wa values by returning NaN for unphysical results.
+    """
+    # Check for infinite w0 or wa
+    is_inf_w0 = jnp.isinf(w0)
+    is_inf_wa = jnp.isinf(wa)
+    
+    # Calculate exponent
+    exponent = -3.0 * (1.0 + w0 + wa)
+    
+    # For infinite w0, return NaN
+    # This is a physically problematic case
+    result = jnp.power(a, exponent) * jnp.exp(3.0 * wa * (a - 1.0))
+    
+    # Return NaN for infinite inputs or non-finite results
+    return jnp.where(is_inf_w0 | is_inf_wa | ~jnp.isfinite(result), jnp.nan, result)
 
 @jax.jit
 def rhoDE_z(z, w0, wa):
@@ -267,6 +377,24 @@ def E_a(a: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    """
+    Dimensionless Hubble parameter E(a) = H(a)/H0.
+    
+    Handles NaN/Inf inputs by propagating them appropriately.
+    Returns NaN for invalid parameter combinations.
+    """
+    # Convert inputs to arrays for consistent handling
+    a_array = jnp.asarray(a)
+    
+    # Check for NaN inputs
+    # For arrays, handle element-wise
+    if a_array.ndim > 0:
+        nan_mask = _get_nan_mask(a, Ωcb0, h, mν, w0, wa)
+    else:
+        # For scalars, check all inputs
+        has_nan = _check_nan_inputs(a, Ωcb0, h, mν, w0, wa)
+        nan_mask = None
+    
     # Physics constants
     Ωγ0 = 2.469e-5 / (h**2)  # Photon density parameter
     N_eff = 3.044  # Effective number of neutrino species
@@ -296,7 +424,17 @@ def E_a(a: Union[float, jnp.ndarray],
     E_squared = Ωγ_a + Ωm_a + ΩΛ_a + Ων_a
 
     # Return Hubble parameter E(a) = √[E²(a)]
-    return jnp.sqrt(E_squared)
+    result = jnp.sqrt(E_squared)
+    
+    # Propagate NaN appropriately
+    if a_array.ndim > 0 and nan_mask is not None:
+        # For arrays, apply element-wise NaN mask
+        return jnp.where(nan_mask, jnp.nan, result)
+    elif a_array.ndim == 0:
+        # For scalars, use the has_nan flag
+        return jnp.where(has_nan, jnp.nan, result)
+    else:
+        return result
 
 @jax.jit
 def Ea_from_cosmo(a: Union[float, jnp.ndarray],
@@ -314,11 +452,15 @@ def E_z(z: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-
+    """
+    Dimensionless Hubble parameter E(z) = H(z)/H0.
+    
+    Handles NaN/Inf inputs by propagating them appropriately.
+    """
     # Convert redshift to scale factor
     a = a_z(z)
 
-    # Return E(a) using existing function
+    # Return E(a) using existing function (which already has validation)
     return E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
 
 @jax.jit
@@ -429,6 +571,13 @@ def r̃_z(z: Union[float, jnp.ndarray],
           mν: Union[float, jnp.ndarray] = 0.0,
           w0: Union[float, jnp.ndarray] = -1.0,
           wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    """
+    Dimensionless comoving distance r̃(z).
+    
+    Propagates NaN values and handles invalid parameters gracefully.
+    """
+    # Check for NaN inputs (JAX-compatible)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
 
     # Convert to array for consistent handling
     z_array = jnp.asarray(z)
@@ -436,10 +585,13 @@ def r̃_z(z: Union[float, jnp.ndarray],
     # Handle both scalar and array inputs uniformly
     if z_array.ndim == 0:
         # Scalar input - use high precision
-        return r̃_z_single(z_array, Ωcb0, h, mν, w0, wa, n_points=1000)
+        result = r̃_z_single(z_array, Ωcb0, h, mν, w0, wa, n_points=1000)
     else:
         # Array input - use lower precision for speed
-        return jax.vmap(lambda z_val: r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, n_points=50))(z_array)
+        result = jax.vmap(lambda z_val: r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, n_points=50))(z_array)
+    
+    # Propagate NaN if needed
+    return jnp.where(has_nan, jnp.full_like(result, jnp.nan), result)
 
 @jax.jit
 def r̃_z_from_cosmo(z: Union[float, jnp.ndarray],
@@ -523,6 +675,11 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
     return du
 
 def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False):
+    """
+    Solve the growth factor ODE.
+    
+    Returns NaN for invalid inputs instead of crashing.
+    """
 
     # Parameter validation for non-JIT context
     try:
@@ -682,20 +839,40 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False)
 
 @jax.jit
 def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
+    """
+    Linear growth factor D(z).
+    
+    Returns NaN for NaN inputs, handles invalid parameters gracefully.
+    """
+    # Check for NaN inputs (JAX-compatible)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
+    
+    # If any input is NaN, return NaN immediately
+    # Use lax.cond to handle this in a JIT-compatible way
+    def compute_growth():
+        # Convert redshift to scale factor
+        a = a_z(z)
 
-    # Convert redshift to scale factor
-    a = a_z(z)
-
-    # Handle both scalar and array inputs
-    if jnp.isscalar(z) or jnp.asarray(z).ndim == 0:
-        a_span = jnp.array([a])
-        D_result = growth_solver(a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa)
-        return D_result[0]
-    else:
-        # For array inputs, solve once and interpolate
-        z_array = jnp.asarray(z)
-        a_array = a_z(z_array)
-        return growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+        # Handle both scalar and array inputs
+        if jnp.isscalar(z) or jnp.asarray(z).ndim == 0:
+            a_span = jnp.array([a])
+            D_result = growth_solver(a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+            return D_result[0]
+        else:
+            # For array inputs, solve once and interpolate
+            z_array = jnp.asarray(z)
+            a_array = a_z(z_array)
+            return growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    
+    def return_nan():
+        # Return NaN with appropriate shape
+        if jnp.isscalar(z) or jnp.asarray(z).ndim == 0:
+            return jnp.nan
+        else:
+            return jnp.full_like(jnp.asarray(z), jnp.nan)
+    
+    # Use conditional to avoid running solver with NaN
+    return jax.lax.cond(has_nan, return_nan, compute_growth)
 
 @jax.jit
 def D_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
@@ -705,6 +882,13 @@ def D_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
 
 @jax.jit
 def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
+    """
+    Growth rate f(z) = d log D / d log a.
+    
+    Returns NaN for NaN inputs, handles invalid parameters gracefully.
+    """
+    # Check for NaN inputs (JAX-compatible)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
 
     # Convert redshift to scale factor
     a = a_z(z)
@@ -727,7 +911,8 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         # Ensure physical bounds: 0 ≤ f ≤ 1
         f = jnp.clip(f, 0.0, 1.0)
 
-        return f
+        # Propagate NaN if needed
+        return jnp.where(has_nan, jnp.nan, f)
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
         D_array, dD_dloga_array = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, return_both=True)
@@ -742,7 +927,8 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         # Ensure physical bounds: 0 ≤ f ≤ 1
         f_array = jnp.clip(f_array, 0.0, 1.0)
 
-        return f_array
+        # Propagate NaN if needed
+        return jnp.where(has_nan, jnp.full_like(f_array, jnp.nan), f_array)
 
 @jax.jit
 def f_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
