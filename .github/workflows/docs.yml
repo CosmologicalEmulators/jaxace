@@ -2,130 +2,132 @@ name: Documentation
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: write # mkdocs + mike only need this
 
+# ──────────────────────────────────────────────
+# 1  Build docs  (all events)
+# ──────────────────────────────────────────────
 jobs:
   build-docs:
     runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Needed for git history
-    
-    - name: Configure Git Credentials
-      run: |
-        git config user.name github-actions[bot]
-        git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: 2.1.4
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-    
-    - name: Install project dependencies
-      run: |
-        poetry install --no-interaction
-    
-    - name: Install documentation dependencies
-      run: |
-        poetry run pip install mkdocs-material
-        poetry run pip install mkdocstrings[python]
-        poetry run pip install mkdocs-material-extensions
-        poetry run pip install mike
-    
-    - name: Build documentation
-      run: |
-        poetry run mkdocs build --strict --verbose
-    
-    - name: Upload documentation artifacts
-      if: github.event_name == 'pull_request'
-      uses: actions/upload-artifact@v4
-      with:
-        name: documentation-preview
-        path: site/
-        retention-days: 7
 
-  deploy-docs:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
-    needs: build-docs
-    
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    
-    - name: Configure Git Credentials
-      run: |
-        git config user.name github-actions[bot]
-        git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: 2.1.4
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-    
-    - name: Install dependencies
-      run: |
-        poetry install --no-interaction
-        poetry run pip install mkdocs-material mkdocstrings[python] mkdocs-material-extensions mike
-    
-    - name: Fetch gh-pages branch
-      run: |
-        git fetch origin gh-pages --depth=1 || true
-    
-    - name: Deploy dev version (develop branch)
-      if: github.ref == 'refs/heads/develop'
-      run: |
-        poetry run mike deploy --push --update-aliases dev latest
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Deploy stable version (main/master branch)
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      run: |
-        # Extract version from pyproject.toml or use 'stable'
-        VERSION=$(poetry version -s 2>/dev/null || echo "stable")
-        poetry run mike deploy --push --update-aliases $VERSION stable
-        poetry run mike set-default --push stable
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git history for “last updated”
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('poetry.lock') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.1.4
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install project + docs deps
+        run: |
+          poetry install --no-interaction
+          poetry run pip install "mkdocs-material>=9,<10" \
+                                 mkdocstrings[python] \
+                                 mkdocs-material-extensions \
+                                 mike
+
+      - name: Build documentation
+        run: poetry run mkdocs build --strict
+
+      # PR preview – downloadable artifact
+      - name: Upload docs artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: site/
+          retention-days: 3
+
+  # ──────────────────────────────────────────────
+  # 2  Deploy docs to gh-pages  (selected branches)
+  # ──────────────────────────────────────────────
+  deploy-docs:
+    needs: build-docs
+    if: github.event_name == 'push' && contains('refs/heads/main refs/heads/master refs/heads/develop', github.ref)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('poetry.lock') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.1.4
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install project + docs deps
+        run: |
+          poetry install --no-interaction
+          poetry run pip install "mkdocs-material>=9,<10" \
+                                 mkdocstrings[python] \
+                                 mkdocs-material-extensions \
+                                 mike
+
+      # Configure author so mike can commit
+      - name: Configure git author
+        run: |
+          git config --local user.name  "${{ github.actor }}"
+          git config --local user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+
+      # mike needs existing history for incremental deploys
+      - name: Fetch gh-pages branch
+        run: git fetch origin gh-pages --depth=1 || true
+
+      # ─── develop → dev / latest ─────────────────────────────
+      - name: Deploy dev docs
+        if: github.ref == 'refs/heads/develop'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          poetry run mike deploy --push --update-aliases dev latest
+
+      # ─── main / master → version & stable ──────────────────
+      - name: Deploy stable docs
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(poetry version -s 2>/dev/null || echo "stable")
+          poetry run mike deploy --push --update-aliases $VERSION stable
+          # set default only when deploying from main
+          if [[ "${{ github.ref }}" == 'refs/heads/main' ]]; then
+            poetry run mike set-default --push stable
+          fi
