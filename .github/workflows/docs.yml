@@ -2,9 +2,9 @@ name: Documentation
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   workflow_dispatch:
 
 permissions:
@@ -55,6 +55,7 @@ jobs:
         poetry run pip install mkdocs-material
         poetry run pip install mkdocstrings[python]
         poetry run pip install mkdocs-material-extensions
+        poetry run pip install mike
     
     - name: Build documentation
       run: |
@@ -70,7 +71,7 @@ jobs:
 
   deploy-docs:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
     needs: build-docs
     
     steps:
@@ -106,10 +107,25 @@ jobs:
     - name: Install dependencies
       run: |
         poetry install --no-interaction
-        poetry run pip install mkdocs-material mkdocstrings[python] mkdocs-material-extensions
+        poetry run pip install mkdocs-material mkdocstrings[python] mkdocs-material-extensions mike
     
-    - name: Deploy to GitHub Pages
+    - name: Fetch gh-pages branch
       run: |
-        poetry run mkdocs gh-deploy --force --clean --verbose
+        git fetch origin gh-pages --depth=1 || true
+    
+    - name: Deploy dev version (develop branch)
+      if: github.ref == 'refs/heads/develop'
+      run: |
+        poetry run mike deploy --push --update-aliases dev latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Deploy stable version (main/master branch)
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      run: |
+        # Extract version from pyproject.toml or use 'stable'
+        VERSION=$(poetry version -s 2>/dev/null || echo "stable")
+        poetry run mike deploy --push --update-aliases $VERSION stable
+        poetry run mike set-default --push stable
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

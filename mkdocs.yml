@@ -127,6 +127,7 @@ extra:
     property: !ENV GOOGLE_ANALYTICS_KEY
   version:
     provider: mike
+    default: stable
 
 nav:
   - Home:
