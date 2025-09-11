@@ -167,14 +167,14 @@ toml = ["tomli ; python_full_version <= \"3.11.0a6\""]
 
 [[package]]
 name = "diffrax"
-version = "0.6.2"
+version = "0.7.0"
 description = "GPU+autodiff-capable ODE/SDE/CDE solvers written in JAX."
 optional = false
-python-versions = "~=3.9"
+python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "diffrax-0.6.2-py3-none-any.whl", hash = "sha256:05f14cbdc1146867f35dd2468a5f3a8cd666c0faff42d8e1cb953f47add05d22"},
-    {file = "diffrax-0.6.2.tar.gz", hash = "sha256:50fde010792a2e9d6105fdf2242e024dd779da27c618b56b92c244cd842bd3d1"},
+    {file = "diffrax-0.7.0-py3-none-any.whl", hash = "sha256:aa9645c40552f11a2d32042ef6b9fcd53c1f0f6bdbe32d37cb788669ca9910be"},
+    {file = "diffrax-0.7.0.tar.gz", hash = "sha256:f3bcc578cd92a9ca86fc6f5a54c1de76c1ba62f74de69b56002624bf205316f1"},
 ]
 
 [package.dependencies]
@@ -182,9 +182,9 @@ equinox = ">=0.11.10"
 jax = ">=0.4.38"
 jaxtyping = ">=0.2.24"
 lineax = ">=0.0.5"
-optimistix = ">=0.0.7"
-typeguard = "2.13.3"
+optimistix = ">=0.0.10"
 typing-extensions = ">=4.5.0"
+wadler-lindig = ">=0.1.1"
 
 [[package]]
 name = "equinox"
@@ -1753,22 +1753,6 @@ notebook = ["ipython", "jax (>=0.4.23)", "palettable"]
 test = ["absl-py (>=1.4.0)", "jax (>=0.4.23)", "omegaconf (>=2.0.0)", "pydantic (>=2.0.0)", "pytest (>=8.2.2)", "torch (>=2.0.0)"]
 
 [[package]]
-name = "typeguard"
-version = "2.13.3"
-description = "Run-time type checker for Python"
-optional = false
-python-versions = ">=3.5.3"
-groups = ["main"]
-files = [
-    {file = "typeguard-2.13.3-py3-none-any.whl", hash = "sha256:5e3e3be01e887e7eafae5af63d1f36c849aaa94e3a0112097312aabfa16284f1"},
-    {file = "typeguard-2.13.3.tar.gz", hash = "sha256:00edaa8da3a133674796cf5ea87d9f4b4c367d77476e185e80251cc13dfbb8c4"},
-]
-
-[package.extras]
-doc = ["sphinx-autodoc-typehints (>=1.2.0)", "sphinx-rtd-theme"]
-test = ["mypy ; platform_python_implementation != \"PyPy\"", "pytest", "typing-extensions"]
-
-[[package]]
 name = "typing-extensions"
 version = "4.15.0"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -1878,4 +1862,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "6c4857f9df3ddadfa153ea22bc86223e83dbf94ee8456f847c0bc236e57ea474"
+content-hash = "ab4eca4252c79bebc40735dcd4c859b5784e019d7a950a7bef527b49a4e3d36e"
