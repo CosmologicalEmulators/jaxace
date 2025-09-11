@@ -88,15 +88,11 @@ jobs:
 
       # Codecov upload - only runs if CODECOV_TOKEN is set in repository secrets
       # To enable: Add CODECOV_TOKEN to repository secrets (see CODECOV_SETUP.md)
-      - name: Upload coverage to Codecov
-        if: ${{ always() && startsWith(matrix.os, 'ubuntu') }} # pick one OS to avoid duplicate total
+      - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
-          files: coverage.xml
-          flags: unittests,py${{ matrix.python-version }}
-          name: py${{ matrix.python-version }}-${{ matrix.os }}
-          token: ${{ secrets.CODECOV_TOKEN }} # omit if public repo & tokenless allowed
-          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: CosmologicalEmulators/jaxace
 
   lint:
     name: Linting
