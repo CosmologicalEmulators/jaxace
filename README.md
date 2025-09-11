@@ -14,7 +14,8 @@ A JAX/Flax implementation of the AbstractCosmologicalEmulators.jl interface, pro
 jaxace provides a Python/JAX equivalent of the Julia AbstractCosmologicalEmulators.jl package, offering:
 
 - Abstract emulator interfaces matching the Julia implementation
-- Flax-based neural network emulators
+- Flax-based neural network emulators with **automatic JIT compilation**
+- Automatic batch detection and optimization with vmap
 - Initialization utilities for loading trained models
 - Min-max normalization utilities
 - Validation functions for network specifications
@@ -33,7 +34,7 @@ pip install -e .
 ### Background Cosmology
 
 ```python
-from jaxace import W0WaCDMCosmology, D_z, f_z, r_z
+from jaxace import W0WaCDMCosmology, D_z, f_z, r_z, E_z
 
 # Define cosmology
 cosmo = W0WaCDMCosmology(
@@ -47,11 +48,47 @@ cosmo = W0WaCDMCosmology(
     wa=0.0
 )
 
-# Compute cosmological quantities
+# Compute cosmological quantities at redshift z
 z = 0.5
-growth_factor = D_z(z, cosmo.omega_b + cosmo.omega_c, cosmo.h, cosmo.m_nu)
-growth_rate = f_z(z, cosmo.omega_b + cosmo.omega_c, cosmo.h, cosmo.m_nu)
-comoving_distance = r_z(z, cosmo.omega_b + cosmo.omega_c, cosmo.h, cosmo.m_nu)
+
+# Option 1: Using individual parameters
+Ωcb0 = cosmo.omega_b + cosmo.omega_c
+growth_factor = D_z(z, Ωcb0, cosmo.h, cosmo.m_nu, cosmo.w0, cosmo.wa)
+growth_rate = f_z(z, Ωcb0, cosmo.h, cosmo.m_nu, cosmo.w0, cosmo.wa)
+comoving_distance = r_z(z, Ωcb0, cosmo.h, cosmo.m_nu, cosmo.w0, cosmo.wa)
+
+# Option 2: Using cosmology struct (more convenient)
+from jaxace import D_z_from_cosmo, f_z_from_cosmo, r_z_from_cosmo
+growth_factor = D_z_from_cosmo(z, cosmo)
+growth_rate = f_z_from_cosmo(z, cosmo)
+comoving_distance = r_z_from_cosmo(z, cosmo)
+```
+
+### Neural Network Emulators
+
+```python
+from jaxace import init_emulator, FlaxEmulator
+import numpy as np
+import jax.numpy as jnp
+
+# Initialize emulator from saved model
+nn_dict = {...}  # Neural network specification
+weights = np.load('weights.npy')  # Trained weights
+
+emulator = init_emulator(nn_dict, weights, FlaxEmulator)
+
+# Run emulator (with automatic JIT compilation!)
+input_data = jnp.array([...])
+
+# Option 1: Direct call (recommended)
+output = emulator(input_data)
+
+# Option 2: Explicit method
+output = emulator.run_emulator(input_data)
+
+# Automatic batch processing
+batch_input = jnp.array([[...], [...], ...])  # Shape: (n_samples, n_features)
+batch_output = emulator(batch_input)  # Automatically uses vmap+JIT
 ```
 
 ## API Reference
@@ -71,8 +108,17 @@ comoving_distance = r_z(z, cosmo.omega_b + cosmo.omega_c, cosmo.h, cosmo.m_nu)
 
 ### Background Cosmology Functions
 
-- `E_z(z, Ωcb0, h, mν, w0, wa)`: Hubble parameter E(z) = H(z)/H0
-- `D_z(z, Ωcb0, h, mν, w0, wa)`: Linear growth factor
-- `f_z(z, Ωcb0, h, mν, w0, wa)`: Linear growth rate
-- `r_z(z, Ωcb0, h, mν, w0, wa)`: Comoving distance
-- `dA_z(z, Ωcb0, h, mν, w0, wa)`: Angular diameter distance
+Functions with individual parameters:
+- `E_z(z, Ωcb0, h, mν=0, w0=-1, wa=0)`: Hubble parameter E(z) = H(z)/H0
+- `D_z(z, Ωcb0, h, mν=0, w0=-1, wa=0)`: Linear growth factor
+- `f_z(z, Ωcb0, h, mν=0, w0=-1, wa=0)`: Linear growth rate
+- `r_z(z, Ωcb0, h, mν=0, w0=-1, wa=0)`: Comoving distance
+- `dA_z(z, Ωcb0, h, mν=0, w0=-1, wa=0)`: Angular diameter distance
+- `dL_z(z, Ωcb0, h, mν=0, w0=-1, wa=0)`: Luminosity distance
+
+Functions with cosmology struct (convenient):
+- `D_z_from_cosmo(z, cosmo)`: Linear growth factor
+- `f_z_from_cosmo(z, cosmo)`: Linear growth rate
+- `r_z_from_cosmo(z, cosmo)`: Comoving distance
+- `dA_z_from_cosmo(z, cosmo)`: Angular diameter distance
+- `dL_z_from_cosmo(z, cosmo)`: Luminosity distance
