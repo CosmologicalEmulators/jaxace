@@ -7,10 +7,15 @@
     ]
   },
   {
-    "version": "0.1.0",
-    "title": "0.1.0",
+    "version": "2025.09.11",
+    "title": "2025.09.11",
     "aliases": [
       "stable"
     ]
+  },
+  {
+    "version": "0.1.0",
+    "title": "0.1.0",
+    "aliases": []
   }
 ]
