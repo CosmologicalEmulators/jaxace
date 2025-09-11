@@ -17,7 +17,7 @@ interpax = "^0.3.9"
 diffrax = "^0.6.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.0"
+pytest = "^8.4"
 pytest-cov = "^7.0"
 mike = "^2.1.3"
 
