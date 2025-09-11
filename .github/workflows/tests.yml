@@ -83,30 +83,17 @@ jobs:
         VERBOSE: true
       continue-on-error: true
     
-    - name: Check for Codecov token
-      id: check_codecov
+    - name: Upload coverage to Codecov (if token available)
       if: matrix.os == 'ubuntu-latest'
-      run: |
-        if [ -n "${{ secrets.CODECOV_TOKEN }}" ]; then
-          echo "has_token=true" >> $GITHUB_OUTPUT
-        else
-          echo "has_token=false" >> $GITHUB_OUTPUT
-          echo "ℹ️ Codecov token not found. Skipping codecov upload."
-          echo "ℹ️ Coverage reports are still available as artifacts and in the logs above."
-        fi
-    
-    - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest' && steps.check_codecov.outputs.has_token == 'true'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-py${{ matrix.python-version }}
-        fail_ci_if_error: true  # Fail if token exists but upload fails
-        verbose: true  # Enable verbose output for debugging
+        fail_ci_if_error: false  # Don't fail the workflow
+        verbose: false  # Reduce noise when token is missing
         token: ${{ secrets.CODECOV_TOKEN }}
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      continue-on-error: true  # Always continue even if this step fails
 
   lint:
     name: Linting
