@@ -52,17 +52,37 @@ jobs:
     
     - name: Run tests
       run: |
-        poetry run pytest tests/ -v --tb=short --cov=jaxace --cov-report=term-missing --cov-report=xml
+        poetry run pytest tests/ -v --tb=short --cov=jaxace --cov-report=term-missing --cov-report=xml --cov-report=html
+    
+    - name: Display coverage report
+      if: always()
+      run: |
+        echo "=== Coverage Summary ==="
+        poetry run coverage report --show-missing
+        echo "========================"
+    
+    - name: Upload coverage reports as artifacts
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports-py${{ matrix.python-version }}
+        path: |
+          coverage.xml
+          htmlcov/
+        retention-days: 7
     
     - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest'  # Upload from all Python versions on Ubuntu
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
         flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+        name: codecov-py${{ matrix.python-version }}
+        fail_ci_if_error: true  # Fail if upload fails
+        verbose: true  # Enable verbose output for debugging
         token: ${{ secrets.CODECOV_TOKEN }}
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
     name: Linting

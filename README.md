@@ -1,8 +1,7 @@
 # jaxace - JAX AbstractCosmologicalEmulators
 
-[![CI](https://github.com/marcobonici/jaxace/actions/workflows/ci.yml/badge.svg)](https://github.com/marcobonici/jaxace/actions/workflows/ci.yml)
-[![Tests](https://github.com/marcobonici/jaxace/actions/workflows/test.yml/badge.svg)](https://github.com/marcobonici/jaxace/actions/workflows/test.yml)
-[![Code Quality](https://github.com/marcobonici/jaxace/actions/workflows/code-quality.yml/badge.svg)](https://github.com/marcobonici/jaxace/actions/workflows/code-quality.yml)
+[![Tests](https://github.com/marcobonici/jaxace/actions/workflows/tests.yml/badge.svg)](https://github.com/marcobonici/jaxace/actions/workflows/tests.yml)
+[![Docs](https://github.com/marcobonici/jaxace/actions/workflows/docs.yml/badge.svg)](https://github.com/marcobonici/jaxace/actions/workflows/docs.yml)
 [![codecov](https://codecov.io/gh/marcobonici/jaxace/branch/main/graph/badge.svg)](https://codecov.io/gh/marcobonici/jaxace)
 [![Python Version](https://img.shields.io/pypi/pyversions/jaxace)](https://pypi.org/project/jaxace/)
 [![PyPI](https://img.shields.io/pypi/v/jaxace)](https://pypi.org/project/jaxace/)
