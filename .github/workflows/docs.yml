@@ -8,19 +8,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # mkdocs gh-deploy only needs this
+  contents: write # mkdocs + mike only need this
 
+# ──────────────────────────────────────────────
+# 1  Build docs  (all events)
+# ──────────────────────────────────────────────
 jobs:
-  # ──────────────────────────────────────────────
-  # 1. Build docs (all events)
-  # ──────────────────────────────────────────────
   build-docs:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # git history for mkdocs-material “last updated”
+          fetch-depth: 0 # git history for “last updated”
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,7 +41,7 @@ jobs:
           virtualenvs-create: true
           virtualenvs-in-project: true
 
-      - name: Install project + docs dependencies
+      - name: Install project + docs deps
         run: |
           poetry install --no-interaction
           poetry run pip install "mkdocs-material>=9,<10" \
@@ -62,7 +62,7 @@ jobs:
           retention-days: 3
 
   # ──────────────────────────────────────────────
-  # 2. Deploy docs to gh-pages (protected branches only)
+  # 2  Deploy docs to gh-pages  (selected branches)
   # ──────────────────────────────────────────────
   deploy-docs:
     needs: build-docs
@@ -86,14 +86,14 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('poetry.lock') }}
           restore-keys: ${{ runner.os }}-pip-
 
-      - name: Install Poetry + docs deps
+      - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
           version: 2.1.4
           virtualenvs-create: true
           virtualenvs-in-project: true
 
-      - name: Install project + docs dependencies
+      - name: Install project + docs deps
         run: |
           poetry install --no-interaction
           poetry run pip install "mkdocs-material>=9,<10" \
@@ -101,11 +101,17 @@ jobs:
                                  mkdocs-material-extensions \
                                  mike
 
-      # mike needs the existing gh-pages history for incremental deploys
+      # Configure author so mike can commit
+      - name: Configure git author
+        run: |
+          git config --local user.name  "${{ github.actor }}"
+          git config --local user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+
+      # mike needs existing history for incremental deploys
       - name: Fetch gh-pages branch
         run: git fetch origin gh-pages --depth=1 || true
 
-      # ─── develop → dev/latest ─────────────────────────────────
+      # ─── develop → dev / latest ─────────────────────────────
       - name: Deploy dev docs
         if: github.ref == 'refs/heads/develop'
         env:
@@ -113,7 +119,7 @@ jobs:
         run: |
           poetry run mike deploy --push --update-aliases dev latest
 
-      # ─── main/master → version & stable ──────────────────────
+      # ─── main / master → version & stable ──────────────────
       - name: Deploy stable docs
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         env:
