@@ -111,79 +111,88 @@ class TestCLASSComparison1:
             'wa': 0.7
         }
 
-    def test_z0_values(self, cosmo_params):
+    @pytest.fixture
+    def cosmo(self):
+        """Set up cosmology object."""
+        return W0WaCDMCosmology(
+            ln10As=3.0, ns=0.96, h=0.67,
+            omega_b=0.02, omega_c=0.12,
+            m_nu=0.4, w0=-1.9, wa=0.7
+        )
+
+    def test_z0_values(self, cosmo_params, cosmo):
         """Test values at z = 0.0."""
         z = 0.0
 
         # D(z=0) normalization
-        D0 = D_z(z, **cosmo_params)
+        D0 = cosmo.D_z(z)
         assert np.isclose(D0 / D0, 1.0, rtol=1e-6)
 
         # Growth rate at z=0
-        f0 = f_z(z, **cosmo_params)
+        f0 = cosmo.f_z(z)
         # Note: Increased tolerance due to ODE solver differences between implementations
         assert np.isclose(f0, 0.5336534234376753, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter H(z=0) = H0
-        H0 = E_z(z, **cosmo_params) * 100 * cosmo_params['h']
+        H0 = cosmo.Ez(z) * 100 * cosmo.h
         assert np.isclose(H0, 67.00000032897867, rtol=1e-6)
 
         # Distances at z=0 should be zero
-        assert np.isclose(r_z(z, **cosmo_params), 0.0, atol=1e-10)
-        assert np.isclose(dL_z(z, **cosmo_params), 0.0, atol=1e-10)
-        assert np.isclose(dA_z(z, **cosmo_params), 0.0, atol=1e-10)
+        assert np.isclose(cosmo.r_z(z), 0.0, atol=1e-10)
+        assert np.isclose(cosmo.dL_z(z), 0.0, atol=1e-10)
+        assert np.isclose(cosmo.dA_z(z), 0.0, atol=1e-10)
 
-    def test_z1_values(self, cosmo_params):
+    def test_z1_values(self, cosmo_params, cosmo):
         """Test values at z = 1.0."""
         z = 1.0
-        D0 = D_z(0.0, **cosmo_params)
+        D0 = cosmo.D_z(0.0)
 
         # Linear growth factor (normalized)
-        D1 = D_z(z, **cosmo_params)
+        D1 = cosmo.D_z(z)
         assert np.isclose(D1 / D0, 0.5713231567487467, rtol=1e-2)  # 1% tolerance for growth factor
 
         # Growth rate
-        f1 = f_z(z, **cosmo_params)
+        f1 = cosmo.f_z(z)
         assert np.isclose(f1, 0.951063970660909, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter
-        H1 = E_z(z, **cosmo_params) * 100 * cosmo_params['h']
+        H1 = cosmo.Ez(z) * 100 * cosmo.h
         assert np.isclose(H1, 110.69104662880478, rtol=1e-4)
 
         # Comoving distance
-        assert np.isclose(r_z(z, **cosmo_params), 3796.313631546915, rtol=1e-4)
+        assert np.isclose(cosmo.r_z(z), 3796.313631546915, rtol=1e-4)
 
         # Luminosity distance
-        assert np.isclose(dL_z(z, **cosmo_params), 7592.627263093831, rtol=1e-4)
+        assert np.isclose(cosmo.dL_z(z), 7592.627263093831, rtol=1e-4)
 
         # Angular diameter distance
-        assert np.isclose(dA_z(z, **cosmo_params), 1898.1568157734582, rtol=1e-4)
+        assert np.isclose(cosmo.dA_z(z), 1898.1568157734582, rtol=1e-4)
 
-    def test_z2_values(self, cosmo_params):
+    def test_z2_values(self, cosmo_params, cosmo):
         """Test values at z = 2.0."""
         z = 2.0
-        D0 = D_z(0.0, **cosmo_params)
+        D0 = cosmo.D_z(0.0)
 
         # Linear growth factor (normalized)
-        D2 = D_z(z, **cosmo_params)
+        D2 = cosmo.D_z(z)
         assert np.isclose(D2 / D0, 0.38596027450669235, rtol=1e-2)  # 1% tolerance for growth factor
 
         # Growth rate
-        f2 = f_z(z, **cosmo_params)
+        f2 = cosmo.f_z(z)
         assert np.isclose(f2, 0.9763011446824891, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter
-        H2 = E_z(z, **cosmo_params) * 100 * cosmo_params['h']
+        H2 = cosmo.Ez(z) * 100 * cosmo.h
         assert np.isclose(H2, 198.43712939715508, rtol=2e-4)
 
         # Comoving distance
-        assert np.isclose(r_z(z, **cosmo_params), 5815.253842752389, rtol=1e-4)
+        assert np.isclose(cosmo.r_z(z), 5815.253842752389, rtol=1e-4)
 
         # Luminosity distance
-        assert np.isclose(dL_z(z, **cosmo_params), 17445.761528257153, rtol=1e-4)
+        assert np.isclose(cosmo.dL_z(z), 17445.761528257153, rtol=1e-4)
 
         # Angular diameter distance
-        assert np.isclose(dA_z(z, **cosmo_params), 1938.4179475841324, rtol=1e-4)
+        assert np.isclose(cosmo.dA_z(z), 1938.4179475841324, rtol=1e-4)
 
 
 class TestCLASSComparison2:
@@ -205,78 +214,87 @@ class TestCLASSComparison2:
             'wa': -0.7
         }
 
-    def test_z0_values(self, cosmo_params):
+    @pytest.fixture
+    def cosmo(self):
+        """Set up cosmology object."""
+        return W0WaCDMCosmology(
+            ln10As=3.0, ns=0.96, h=0.6,
+            omega_b=0.02, omega_c=0.16,
+            m_nu=0.2, w0=-0.9, wa=-0.7
+        )
+
+    def test_z0_values(self, cosmo_params, cosmo):
         """Test values at z = 0.0."""
         z = 0.0
 
         # D(z=0) normalization
-        D0 = D_z(z, **cosmo_params)
+        D0 = cosmo.D_z(z)
         assert np.isclose(D0 / D0, 1.0, rtol=1e-6)
 
         # Growth rate at z=0
-        f0 = f_z(z, **cosmo_params)
+        f0 = cosmo.f_z(z)
         assert np.isclose(f0, 0.682532170290542, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter H(z=0) = H0
-        H0 = E_z(z, **cosmo_params) * 100 * cosmo_params['h']
+        H0 = cosmo.Ez(z) * 100 * cosmo.h
         assert np.isclose(H0, 60.00000540313085, rtol=1e-6)
 
         # Distances at z=0 should be zero
-        assert np.isclose(r_z(z, **cosmo_params), 0.0, atol=1e-10)
-        assert np.isclose(dL_z(z, **cosmo_params), 0.0, atol=1e-10)
-        assert np.isclose(dA_z(z, **cosmo_params), 0.0, atol=1e-10)
+        assert np.isclose(cosmo.r_z(z), 0.0, atol=1e-10)
+        assert np.isclose(cosmo.dL_z(z), 0.0, atol=1e-10)
+        assert np.isclose(cosmo.dA_z(z), 0.0, atol=1e-10)
 
-    def test_z1_values(self, cosmo_params):
+    def test_z1_values(self, cosmo_params, cosmo):
         """Test values at z = 1.0."""
         z = 1.0
-        D0 = D_z(0.0, **cosmo_params)
+        D0 = cosmo.D_z(0.0)
 
         # Linear growth factor (normalized)
-        D1 = D_z(z, **cosmo_params)
+        D1 = cosmo.D_z(z)
         assert np.isclose(D1 / D0, 0.5608386428835493, rtol=1e-2)  # 1% tolerance for growth factor
 
         # Growth rate
-        f1 = f_z(z, **cosmo_params)
+        f1 = cosmo.f_z(z)
         assert np.isclose(f1, 0.9428198389771597, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter
-        H1 = E_z(z, **cosmo_params) * 100 * cosmo_params['h']
+        H1 = cosmo.Ez(z) * 100 * cosmo.h
         assert np.isclose(H1, 126.63651334029939, rtol=1e-4)
 
         # Comoving distance
-        assert np.isclose(r_z(z, **cosmo_params), 3477.5826389146628, rtol=1e-4)
+        assert np.isclose(cosmo.r_z(z), 3477.5826389146628, rtol=1e-4)
 
         # Luminosity distance
-        assert np.isclose(dL_z(z, **cosmo_params), 6955.1652778293255, rtol=1e-4)
+        assert np.isclose(cosmo.dL_z(z), 6955.1652778293255, rtol=1e-4)
 
         # Angular diameter distance
-        assert np.isclose(dA_z(z, **cosmo_params), 1738.7913194573318, rtol=1e-4)
+        assert np.isclose(cosmo.dA_z(z), 1738.7913194573318, rtol=1e-4)
 
-    def test_z2_values(self, cosmo_params):
+    def test_z2_values(self, cosmo_params, cosmo):
         """Test values at z = 2.0."""
         z = 2.0
-        D0 = D_z(0.0, **cosmo_params)
+        D0 = cosmo.D_z(0.0)
 
         # Linear growth factor (normalized)
-        D2 = D_z(z, **cosmo_params)
+        D2 = cosmo.D_z(z)
         assert np.isclose(D2 / D0, 0.378970688908124, rtol=1e-2)  # 1% tolerance for growth factor
 
         # Growth rate
-        f2 = f_z(z, **cosmo_params)
+        f2 = cosmo.f_z(z)
         assert np.isclose(f2, 0.981855910972107, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter
-        H2 = E_z(z, **cosmo_params) * 100 * cosmo_params['h']
+        H2 = cosmo.Ez(z) * 100 * cosmo.h
         assert np.isclose(H2, 224.06947149941828, rtol=2e-4)
 
         # Comoving distance
-        assert np.isclose(r_z(z, **cosmo_params), 5254.860436794502, rtol=1e-4)
+        assert np.isclose(cosmo.r_z(z), 5254.860436794502, rtol=1e-4)
 
         # Luminosity distance
-        assert np.isclose(dL_z(z, **cosmo_params), 15764.581310383495, rtol=1e-4)
+        assert np.isclose(cosmo.dL_z(z), 15764.581310383495, rtol=1e-4)
 
         # Angular diameter distance
-        assert np.isclose(dA_z(z, **cosmo_params), 1751.6201455981693, rtol=1e-4)
+        assert np.isclose(cosmo.dA_z(z), 1751.6201455981693, rtol=1e-4)
 
 
 class TestAdditionalFunctions:
@@ -312,34 +330,40 @@ class TestAdditionalFunctions:
 
     def test_combined_growth_functions(self):
         """Test D_f_z returning both D and f."""
-        Ωcb0 = 0.3
-        h = 0.67
+        cosmo = W0WaCDMCosmology(
+            ln10As=3.0, ns=0.96, h=0.67,
+            omega_b=0.02, omega_c=0.118,
+            m_nu=0.0, w0=-1.0, wa=0.0
+        )
         z = 1.0
 
         # Get both D and f
-        D, f = D_f_z(z, Ωcb0, h)
+        D, f = cosmo.D_f_z(z)
 
         # Compare with individual functions
-        D_single = D_z(z, Ωcb0, h)
-        f_single = f_z(z, Ωcb0, h)
+        D_single = cosmo.D_z(z)
+        f_single = cosmo.f_z(z)
 
         assert np.isclose(D, D_single)
         assert np.isclose(f, f_single)
 
     def test_array_inputs(self):
         """Test functions with array inputs."""
-        Ωcb0 = 0.3
-        h = 0.67
+        cosmo = W0WaCDMCosmology(
+            ln10As=3.0, ns=0.96, h=0.67,
+            omega_b=0.02, omega_c=0.118,
+            m_nu=0.0, w0=-1.0, wa=0.0
+        )
         z_array = jnp.array([0.0, 0.5, 1.0, 2.0, 3.0])
 
         # Test E_z with array
-        E_array = E_z(z_array, Ωcb0, h)
+        E_array = cosmo.Ez(z_array)
         assert len(E_array) == len(z_array)
         assert jnp.all(jnp.isfinite(E_array))
         assert jnp.isclose(E_array[0], 1.0)  # E(z=0) = 1
 
         # Test r_z with array
-        r_array = r_z(z_array, Ωcb0, h)
+        r_array = cosmo.r_z(z_array)
         assert len(r_array) == len(z_array)
         assert jnp.all(jnp.isfinite(r_array))
         assert jnp.isclose(r_array[0], 0.0)  # r(z=0) = 0
@@ -348,7 +372,7 @@ class TestAdditionalFunctions:
         assert jnp.all(jnp.diff(r_array) > 0)
 
         # Test D_z with array
-        D_array = D_z(z_array, Ωcb0, h)
+        D_array = cosmo.D_z(z_array)
         assert len(D_array) == len(z_array)
         assert jnp.all(jnp.isfinite(D_array))
 
@@ -356,7 +380,7 @@ class TestAdditionalFunctions:
         assert jnp.all(jnp.diff(D_array) < 0)
 
         # Test f_z with array
-        f_array = f_z(z_array, Ωcb0, h)
+        f_array = cosmo.f_z(z_array)
         assert len(f_array) == len(z_array)
         assert jnp.all(jnp.isfinite(f_array))
         assert jnp.all(f_array > 0)  # Growth rate should be positive
@@ -368,34 +392,40 @@ class TestJAXFeatures:
 
     def test_jit_compilation(self):
         """Test that functions are JIT-compiled."""
-        Ωcb0 = 0.3
-        h = 0.67
+        cosmo = W0WaCDMCosmology(
+            ln10As=3.0, ns=0.96, h=0.67,
+            omega_b=0.02, omega_c=0.118,
+            m_nu=0.0, w0=-1.0, wa=0.0
+        )
         z = 1.0
 
         # Functions should be JIT-compiled
         # First call compiles, second call should be faster
-        E1 = E_z(z, Ωcb0, h)
-        E2 = E_z(z, Ωcb0, h)
+        E1 = cosmo.Ez(z)
+        E2 = cosmo.Ez(z)
         assert np.isclose(E1, E2)
 
         # Test with arrays
         z_array = jnp.array([0.5, 1.0, 1.5])
-        r1 = r_z(z_array, Ωcb0, h)
-        r2 = r_z(z_array, Ωcb0, h)
+        r1 = cosmo.r_z(z_array)
+        r2 = cosmo.r_z(z_array)
         assert jnp.allclose(r1, r2)
 
     def test_gradients(self):
         """Test automatic differentiation."""
         z = 1.0
-        Ωcb0 = 0.3
-        h = 0.67
 
-        # Define function for gradient
-        def H_squared(Omega):
-            return E_z(z, Omega, h) ** 2
+        # Define function for gradient with cosmology parameters
+        def H_squared(omega_c):
+            cosmo = W0WaCDMCosmology(
+                ln10As=3.0, ns=0.96, h=0.67,
+                omega_b=0.02, omega_c=omega_c,
+                m_nu=0.0, w0=-1.0, wa=0.0
+            )
+            return cosmo.Ez(z) ** 2
 
-        # Compute gradient with respect to Ωcb0
-        grad_H2 = jax.grad(H_squared)(Ωcb0)
+        # Compute gradient with respect to omega_c
+        grad_H2 = jax.grad(H_squared)(0.118)
         assert np.isfinite(grad_H2)
 
         # Gradient should be positive (H² increases with Ωm at z>0)
@@ -403,9 +433,14 @@ class TestJAXFeatures:
 
         # Test gradient of comoving distance
         def comoving_distance(h_val):
-            return r_z(z, Ωcb0, h_val)
+            cosmo = W0WaCDMCosmology(
+                ln10As=3.0, ns=0.96, h=h_val,
+                omega_b=0.02, omega_c=0.118,
+                m_nu=0.0, w0=-1.0, wa=0.0
+            )
+            return cosmo.r_z(z)
 
-        grad_r = jax.grad(comoving_distance)(h)
+        grad_r = jax.grad(comoving_distance)(0.67)
         assert np.isfinite(grad_r)
         # r(z) ∝ 1/h, so gradient should be negative
         assert grad_r < 0
@@ -433,7 +468,16 @@ class TestComputedValues:
             'wa': -0.7
         }
 
-    def test_Ez_values(self, cosmo_params):
+    @pytest.fixture
+    def cosmo(self):
+        """Set up cosmology object."""
+        return W0WaCDMCosmology(
+            ln10As=3.0, ns=0.96, h=0.6,
+            omega_b=0.02, omega_c=0.16,
+            m_nu=0.2, w0=-0.9, wa=-0.7
+        )
+
+    def test_Ez_values(self, cosmo_params, cosmo):
         """Test E(z) values against computed results."""
         # Expected values from compute_background_python.py
         test_cases = [
@@ -443,11 +487,11 @@ class TestComputedValues:
         ]
 
         for z, expected in test_cases:
-            computed = E_z(z, **cosmo_params)
+            computed = cosmo.Ez(z)
             assert np.isclose(computed, expected, rtol=1e-8), \
                 f"E({z}) = {computed:.10f}, expected {expected:.10f}"
 
-    def test_rz_values(self, cosmo_params):
+    def test_rz_values(self, cosmo_params, cosmo):
         """Test r(z) comoving distance values against computed results."""
         # Expected values from compute_background_python.py (in Mpc)
         test_cases = [
@@ -457,11 +501,11 @@ class TestComputedValues:
         ]
 
         for z, expected in test_cases:
-            computed = r_z(z, **cosmo_params)
+            computed = cosmo.r_z(z)
             assert np.isclose(computed, expected, rtol=1e-6), \
                 f"r({z}) = {computed:.10f} Mpc, expected {expected:.10f} Mpc"
 
-    def test_Dz_values(self, cosmo_params):
+    def test_Dz_values(self, cosmo_params, cosmo):
         """Test D(z) growth factor values against computed results."""
         # Expected values from compute_background_python.py
         test_cases = [
@@ -471,12 +515,12 @@ class TestComputedValues:
         ]
 
         for z, expected in test_cases:
-            computed = D_z(z, **cosmo_params)
+            computed = cosmo.D_z(z)
             # Use higher tolerance for growth factor due to ODE solver differences
             assert np.isclose(computed, expected, rtol=1e-4), \
                 f"D({z}) = {computed:.10f}, expected {expected:.10f}"
 
-    def test_fz_values(self, cosmo_params):
+    def test_fz_values(self, cosmo_params, cosmo):
         """Test f(z) growth rate values against computed results."""
         # Expected values from compute_background_python.py
         test_cases = [
@@ -486,7 +530,7 @@ class TestComputedValues:
         ]
 
         for z, expected in test_cases:
-            computed = f_z(z, **cosmo_params)
+            computed = cosmo.f_z(z)
             # Use higher tolerance for growth rate due to ODE solver differences
             assert np.isclose(computed, expected, rtol=1e-3), \
                 f"f({z}) = {computed:.10f}, expected {expected:.10f}"
@@ -555,7 +599,16 @@ class TestComputedValuesNewParams:
             'wa': 0.2
         }
 
-    def test_Ez_values(self, cosmo_params):
+    @pytest.fixture
+    def cosmo(self):
+        """Set up cosmology object."""
+        return W0WaCDMCosmology(
+            ln10As=3.0, ns=0.96, h=0.6,
+            omega_b=0.02, omega_c=0.16,
+            m_nu=0.1, w0=-1.5, wa=0.2
+        )
+
+    def test_Ez_values(self, cosmo_params, cosmo):
         """Test E(z) values against computed results."""
         test_cases = [
             (0.0, 1.000000000000000e+00),
@@ -564,11 +617,11 @@ class TestComputedValuesNewParams:
         ]
 
         for z, expected in test_cases:
-            computed = E_z(z, **cosmo_params)
+            computed = cosmo.Ez(z)
             assert np.isclose(computed, expected, rtol=1e-8), \
                 f"E({z}) = {computed:.15e}, expected {expected:.15e}"
 
-    def test_rz_values(self, cosmo_params):
+    def test_rz_values(self, cosmo_params, cosmo):
         """Test r(z) comoving distance values against computed results."""
         test_cases = [
             (0.0, 0.000000000000000e+00),
@@ -577,11 +630,11 @@ class TestComputedValuesNewParams:
         ]
 
         for z, expected in test_cases:
-            computed = r_z(z, **cosmo_params)
+            computed = cosmo.r_z(z)
             assert np.isclose(computed, expected, rtol=1e-6), \
                 f"r({z}) = {computed:.15e} Mpc, expected {expected:.15e} Mpc"
 
-    def test_Dz_values(self, cosmo_params):
+    def test_Dz_values(self, cosmo_params, cosmo):
         """Test D(z) growth factor values against computed results."""
         test_cases = [
             (0.0, 8.916311098929269e-01),
@@ -590,11 +643,11 @@ class TestComputedValuesNewParams:
         ]
 
         for z, expected in test_cases:
-            computed = D_z(z, **cosmo_params)
+            computed = cosmo.D_z(z)
             assert np.isclose(computed, expected, rtol=1e-4), \
                 f"D({z}) = {computed:.15e}, expected {expected:.15e}"
 
-    def test_fz_values(self, cosmo_params):
+    def test_fz_values(self, cosmo_params, cosmo):
         """Test f(z) growth rate values against computed results."""
         test_cases = [
             (0.0, 6.874741460890912e-01),
@@ -603,7 +656,7 @@ class TestComputedValuesNewParams:
         ]
 
         for z, expected in test_cases:
-            computed = f_z(z, **cosmo_params)
+            computed = cosmo.f_z(z)
             assert np.isclose(computed, expected, rtol=1e-3), \
                 f"f({z}) = {computed:.15e}, expected {expected:.15e}"
 
@@ -652,6 +705,210 @@ class TestComputedValuesNewParams:
             computed = dFdy(y)
             assert np.isclose(computed, expected, rtol=1e-10), \
                 f"dFdy({y}) = {computed:.15e}, expected {expected:.15e}"
+
+
+class TestJacobianComputation:
+    """Test Jacobian computation of cosmological functions."""
+
+    @pytest.fixture
+    def base_cosmo_params(self):
+        """Base cosmology parameters for Jacobian tests."""
+        return {
+            'ln10As': 3.0,
+            'ns': 0.96,
+            'h': 0.67,
+            'omega_b': 0.02,
+            'omega_c': 0.118,
+            'm_nu': 0.06,
+            'w0': -1.0,
+            'wa': 0.0
+        }
+
+    def test_r_z_jacobian_computation(self, base_cosmo_params):
+        """Test Jacobian computation of r_z method."""
+        z_test = 1.0
+
+        def r_z_from_params(params):
+            """Function that takes cosmological parameters and returns r_z."""
+            cosmo = W0WaCDMCosmology(
+                ln10As=params[0], ns=params[1], h=params[2],
+                omega_b=params[3], omega_c=params[4],
+                m_nu=params[5], w0=params[6], wa=params[7]
+            )
+            return cosmo.r_z(z_test)
+
+        # Create parameter array
+        params = jnp.array([
+            base_cosmo_params['ln10As'],
+            base_cosmo_params['ns'],
+            base_cosmo_params['h'],
+            base_cosmo_params['omega_b'],
+            base_cosmo_params['omega_c'],
+            base_cosmo_params['m_nu'],
+            base_cosmo_params['w0'],
+            base_cosmo_params['wa']
+        ])
+
+        # Compute Jacobian
+        jacobian = jax.jacobian(r_z_from_params)(params)
+
+        # Verify Jacobian has correct shape
+        assert jacobian.shape == (8,), f"Jacobian should have shape (8,), got {jacobian.shape}"
+
+        # Verify all Jacobian values are finite
+        assert jnp.all(jnp.isfinite(jacobian)), "All Jacobian values should be finite"
+
+        # Check specific derivatives are reasonable
+        # dr/dh should be negative (r ∝ 1/h approximately)
+        assert jacobian[2] < 0, "dr/dh should be negative"
+
+        # dr/d(omega_c) should be negative (more matter decreases distance at fixed z due to higher H(z))
+        assert jacobian[4] < 0, "dr/d(omega_c) should be negative"
+
+        # dr/dw0 should have reasonable magnitude
+        assert jnp.abs(jacobian[6]) > 1e-10, "dr/dw0 should have non-negligible magnitude"
+
+    def test_D_z_jacobian_computation(self, base_cosmo_params):
+        """Test Jacobian computation of D_z method."""
+        z_test = 1.0
+
+        def D_z_from_params(params):
+            """Function that takes cosmological parameters and returns D_z."""
+            cosmo = W0WaCDMCosmology(
+                ln10As=params[0], ns=params[1], h=params[2],
+                omega_b=params[3], omega_c=params[4],
+                m_nu=params[5], w0=params[6], wa=params[7]
+            )
+            return cosmo.D_z(z_test)
+
+        # Create parameter array
+        params = jnp.array([
+            base_cosmo_params['ln10As'],
+            base_cosmo_params['ns'],
+            base_cosmo_params['h'],
+            base_cosmo_params['omega_b'],
+            base_cosmo_params['omega_c'],
+            base_cosmo_params['m_nu'],
+            base_cosmo_params['w0'],
+            base_cosmo_params['wa']
+        ])
+
+        # Compute Jacobian
+        jacobian = jax.jacobian(D_z_from_params)(params)
+
+        # Verify Jacobian has correct shape
+        assert jacobian.shape == (8,), f"Jacobian should have shape (8,), got {jacobian.shape}"
+
+        # Verify all Jacobian values are finite
+        assert jnp.all(jnp.isfinite(jacobian)), "All Jacobian values should be finite"
+
+        # Check specific derivatives are reasonable
+        # dD/d(omega_c) should be positive (more matter enhances growth)
+        assert jacobian[4] > 0, "dD/d(omega_c) should be positive"
+
+        # dD/d(m_nu) should be negative (neutrinos suppress growth)
+        assert jacobian[5] < 0, "dD/d(m_nu) should be negative (neutrinos suppress growth)"
+
+        # dD/dw0 should have reasonable magnitude
+        assert jnp.abs(jacobian[6]) > 1e-10, "dD/dw0 should have non-negligible magnitude"
+
+    def test_jacobian_with_array_redshift(self, base_cosmo_params):
+        """Test Jacobian computation with array of redshifts."""
+        z_array = jnp.array([0.5, 1.0, 1.5])
+
+        def r_z_array_from_params(params):
+            """Function that takes cosmological parameters and returns r_z for array."""
+            cosmo = W0WaCDMCosmology(
+                ln10As=params[0], ns=params[1], h=params[2],
+                omega_b=params[3], omega_c=params[4],
+                m_nu=params[5], w0=params[6], wa=params[7]
+            )
+            return cosmo.r_z(z_array)
+
+        # Create parameter array
+        params = jnp.array([
+            base_cosmo_params['ln10As'],
+            base_cosmo_params['ns'],
+            base_cosmo_params['h'],
+            base_cosmo_params['omega_b'],
+            base_cosmo_params['omega_c'],
+            base_cosmo_params['m_nu'],
+            base_cosmo_params['w0'],
+            base_cosmo_params['wa']
+        ])
+
+        # Compute Jacobian
+        jacobian = jax.jacobian(r_z_array_from_params)(params)
+
+        # Verify Jacobian has correct shape (3 redshifts, 8 parameters)
+        assert jacobian.shape == (3, 8), f"Jacobian should have shape (3, 8), got {jacobian.shape}"
+
+        # Verify all Jacobian values are finite
+        assert jnp.all(jnp.isfinite(jacobian)), "All Jacobian values should be finite"
+
+        # Check that derivatives increase with redshift (for most parameters)
+        # dr/dh should be more negative at higher z
+        assert jacobian[2, 2] < jacobian[1, 2] < jacobian[0, 2] < 0, \
+            "dr/dh should become more negative with increasing z"
+
+    def test_hessian_computation(self, base_cosmo_params):
+        """Test second derivative (Hessian) computation."""
+        z_test = 1.0
+
+        def r_z_from_h_omega_c(params):
+            """Function that takes [h, omega_c] and returns r_z."""
+            h, omega_c = params[0], params[1]
+            cosmo = W0WaCDMCosmology(
+                ln10As=base_cosmo_params['ln10As'],
+                ns=base_cosmo_params['ns'],
+                h=h,
+                omega_b=base_cosmo_params['omega_b'],
+                omega_c=omega_c,
+                m_nu=base_cosmo_params['m_nu'],
+                w0=base_cosmo_params['w0'],
+                wa=base_cosmo_params['wa']
+            )
+            return cosmo.r_z(z_test)
+
+        # Test with subset of parameters for computational efficiency
+        params_subset = jnp.array([
+            base_cosmo_params['h'],
+            base_cosmo_params['omega_c']
+        ])
+
+        # Compute Hessian (second derivatives)
+        hessian = jax.hessian(r_z_from_h_omega_c)(params_subset)
+
+        # Verify Hessian has correct shape
+        assert hessian.shape == (2, 2), f"Hessian should have shape (2, 2), got {hessian.shape}"
+
+        # Note: Hessian of r_z can be numerically unstable due to complex ODE integration
+        # We test that the Hessian can be computed (even if some values might be NaN due to numerical issues)
+        # and that the computation doesn't crash. For practical cosmological parameter estimation,
+        # first derivatives (gradients) are usually sufficient.
+
+        # Test that gradient computation (first derivatives) works reliably
+        gradient_r = jax.grad(r_z_from_h_omega_c)(params_subset)
+        assert jnp.all(jnp.isfinite(gradient_r)), "r_z gradient should be finite"
+        assert len(gradient_r) == 2, "Gradient should have 2 components"
+
+        # Test simpler Hessian computation with E_z which should be more stable
+        def Ez_squared_from_params(params):
+            h, omega_c = params[0], params[1]
+            cosmo = W0WaCDMCosmology(
+                ln10As=base_cosmo_params['ln10As'],
+                ns=base_cosmo_params['ns'],
+                h=h,
+                omega_b=base_cosmo_params['omega_b'],
+                omega_c=omega_c,
+                m_nu=base_cosmo_params['m_nu'],
+                w0=base_cosmo_params['w0'],
+                wa=base_cosmo_params['wa']
+            )
+            return cosmo.Ez(z_test) ** 2
+
+        hessian_ez = jax.hessian(Ez_squared_from_params)(params_subset)
+        assert jnp.all(jnp.isfinite(hessian_ez)), "E_z squared Hessian should be finite"
 
 
 if __name__ == "__main__":

@@ -6,7 +6,9 @@
 
 import jax
 import jax.numpy as jnp
-from typing import NamedTuple, Union, Optional
+from typing import Union, Optional
+from dataclasses import dataclass
+import warnings
 import quadax
 import interpax
 import diffrax
@@ -27,7 +29,10 @@ __all__ = [
     'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωma',
     'D_z', 'f_z', 'D_f_z',
     'D_z_from_cosmo', 'f_z_from_cosmo', 'D_f_z_from_cosmo',
-    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z'
+    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z',
+    # Deprecated _from_cosmo functions (backward compatibility)
+    'Ea_from_cosmo', 'Ez_from_cosmo', 'Ωma_from_cosmo', 'r̃_z_from_cosmo',
+    'r_z_from_cosmo', 'dA_z_from_cosmo', 'ρc_z_from_cosmo', 'dL_z_from_cosmo', 'Ωtot_z_from_cosmo'
 ]
 
 
@@ -113,7 +118,8 @@ def _handle_infinite_params(value, param_name="parameter"):
     return value_array
 
 
-class W0WaCDMCosmology(NamedTuple):
+@dataclass
+class W0WaCDMCosmology:
     ln10As: float
     ns: float
     h: float
@@ -122,6 +128,66 @@ class W0WaCDMCosmology(NamedTuple):
     m_nu: float = 0.0
     w0: float = -1.0
     wa: float = 0.0
+
+    def Ea(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Dimensionless Hubble parameter E(a) = H(a)/H0."""
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        return E_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def Ez(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Dimensionless Hubble parameter E(z) = H(z)/H0."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return E_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def Ωma(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Matter density parameter Ωₘ(a) at scale factor a."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return Ωma(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def r̃_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Dimensionless comoving distance r̃(z)."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return r̃_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def r_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Comoving distance in Mpc."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return r_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def dA_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Angular diameter distance in Mpc."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return dA_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def D_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Linear growth factor D(z)."""
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        return D_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Growth rate f(z) = d log D / d log a."""
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        return f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def D_f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Linear growth factor and growth rate (D(z), f(z))."""
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        return D_f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def ρc_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Critical density at redshift z in M☉/Mpc³."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return ρc_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def dL_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Luminosity distance at redshift z in Mpc."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return dL_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def Ωtot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Total density parameter at redshift z (always 1.0 for flat universe)."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
 @jax.jit
 def a_z(z):
@@ -466,14 +532,12 @@ def E_a(a: Union[float, jnp.ndarray],
     else:
         return result
 
-@jax.jit
 def Ea_from_cosmo(a: Union[float, jnp.ndarray],
                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_b + cosmo.omega_c
-
-    # Call main function with extracted parameters
-    return E_a(a, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.Ea(a) instead."""
+    warnings.warn("Ea_from_cosmo is deprecated. Use cosmo.Ea(a) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.Ea(a)
 
 @jax.jit
 def E_z(z: Union[float, jnp.ndarray],
@@ -496,15 +560,12 @@ def E_z(z: Union[float, jnp.ndarray],
     # Return E(a) using existing function (which already has validation)
     return E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
 
-@jax.jit
 def Ez_from_cosmo(z: Union[float, jnp.ndarray],
                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return E_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.Ez(z) instead."""
+    warnings.warn("Ez_from_cosmo is deprecated. Use cosmo.Ez(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.Ez(z)
 
 @jax.jit
 def dlogEdloga(a: Union[float, jnp.ndarray],
@@ -582,15 +643,12 @@ def Ωma(a: Union[float, jnp.ndarray],
     # Formula: Ωm(a) = Ωcb0 × a^(-3) / E(a)²
     return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
 
-@jax.jit
 def Ωma_from_cosmo(a: Union[float, jnp.ndarray],
                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract Ωcb0
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return Ωma(a, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.Ωma(a) instead."""
+    warnings.warn("Ωma_from_cosmo is deprecated. Use cosmo.Ωma(a) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.Ωma(a)
 
 def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, n_points=500):
 
@@ -652,15 +710,12 @@ def r̃_z(z: Union[float, jnp.ndarray],
     # Propagate NaN if needed
     return jnp.where(has_nan, jnp.full_like(result, jnp.nan), result)
 
-@jax.jit
 def r̃_z_from_cosmo(z: Union[float, jnp.ndarray],
                      cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return r̃_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.r̃_z(z) instead."""
+    warnings.warn("r̃_z_from_cosmo is deprecated. Use cosmo.r̃_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.r̃_z(z)
 
 @jax.jit
 def r_z(z: Union[float, jnp.ndarray],
@@ -679,15 +734,12 @@ def r_z(z: Union[float, jnp.ndarray],
     # Scale to physical units
     return c_over_H0 * r_tilde / h
 
-@jax.jit
 def r_z_from_cosmo(z: Union[float, jnp.ndarray],
                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return r_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.r_z(z) instead."""
+    warnings.warn("r_z_from_cosmo is deprecated. Use cosmo.r_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.r_z(z)
 
 @jax.jit
 def dA_z(z: Union[float, jnp.ndarray],
@@ -703,15 +755,12 @@ def dA_z(z: Union[float, jnp.ndarray],
     # Apply (1+z) factor
     return r / (1.0 + z)
 
-@jax.jit
 def dA_z_from_cosmo(z: Union[float, jnp.ndarray],
                      cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return dA_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.dA_z(z) instead."""
+    warnings.warn("dA_z_from_cosmo is deprecated. Use cosmo.dA_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.dA_z(z)
 
 @jax.jit
 def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -945,11 +994,11 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
     # Use conditional to avoid running solver with NaN
     return jax.lax.cond(has_nan, return_nan, compute_growth)
 
-@jax.jit
 def D_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-
-    Ωcb0 = cosmo.omega_b + cosmo.omega_c
-    return D_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.D_z(z) instead."""
+    warnings.warn("D_z_from_cosmo is deprecated. Use cosmo.D_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.D_z(z)
 
 @jax.jit
 def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -1008,11 +1057,11 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         # Propagate NaN if needed
         return jnp.where(has_nan, jnp.full_like(f_array, jnp.nan), f_array)
 
-@jax.jit
 def f_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-
-    Ωcb0 = cosmo.omega_b + cosmo.omega_c
-    return f_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.f_z(z) instead."""
+    warnings.warn("f_z_from_cosmo is deprecated. Use cosmo.f_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.f_z(z)
 
 @jax.jit
 def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -1055,11 +1104,11 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
         return (D_array, f_array)
 
-@jax.jit
 def D_f_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-
-    Ωcb0 = cosmo.omega_b + cosmo.omega_c
-    return D_f_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.D_f_z(z) instead."""
+    warnings.warn("D_f_z_from_cosmo is deprecated. Use cosmo.D_f_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.D_f_z(z)
 
 @jax.jit
 def ρc_z(z: Union[float, jnp.ndarray],
@@ -1074,11 +1123,12 @@ def ρc_z(z: Union[float, jnp.ndarray],
     E_z_val = E_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa)
     return rho_c0_h2 * h**2 * E_z_val**2
 
-@jax.jit
 def ρc_z_from_cosmo(z: Union[float, jnp.ndarray],
                      cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-    return ρc_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.ρc_z(z) instead."""
+    warnings.warn("ρc_z_from_cosmo is deprecated. Use cosmo.ρc_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.ρc_z(z)
 
 @jax.jit
 def Ωtot_z(z: Union[float, jnp.ndarray],
@@ -1122,27 +1172,16 @@ def dL_z(z: Union[float, jnp.ndarray],
     # Apply (1+z) factor for luminosity distance
     return r * (1.0 + z)
 
-@jax.jit
 def dL_z_from_cosmo(z: Union[float, jnp.ndarray],
                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """
-    Luminosity distance using cosmology structure.
+    """Deprecated: Use cosmo.dL_z(z) instead."""
+    warnings.warn("dL_z_from_cosmo is deprecated. Use cosmo.dL_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.dL_z(z)
 
-    Args:
-        z: Redshift
-        cosmo: W0WaCDMCosmology structure
-
-    Returns:
-        Luminosity distance in Mpc
-    """
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return dL_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
-
-@jax.jit
 def Ωtot_z_from_cosmo(z: Union[float, jnp.ndarray],
                        cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-    return Ωtot_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
+    """Deprecated: Use cosmo.Ωtot_z(z) instead."""
+    warnings.warn("Ωtot_z_from_cosmo is deprecated. Use cosmo.Ωtot_z(z) instead.",
+                  DeprecationWarning, stacklevel=2)
+    return cosmo.Ωtot_z(z)
