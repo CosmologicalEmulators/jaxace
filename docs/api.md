@@ -33,7 +33,7 @@
 ### Density Functions
 
 ::: jaxace.ρc_z
-::: jaxace.Ω_tot_z
+::: jaxace.Ωtot_z
 
 ### Utility Functions
 

@@ -139,7 +139,7 @@ def test_background_implementation():
         "growth_ode_system", "growth_solver",
         
         # Additional functions
-        "ρc_z", "Ω_tot_z"
+        "ρc_z", "Ωtot_z"
     ]
     
     print("\nTesting background.py:")

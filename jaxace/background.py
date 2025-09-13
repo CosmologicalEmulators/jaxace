@@ -27,7 +27,7 @@ __all__ = [
     'W0WaCDMCosmology',
     'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωm_a',
     'D_z', 'f_z', 'D_f_z',
-    'r_z', 'dA_z', 'ρc_z', 'Ω_tot_z', 'dL_z'
+    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z'
 ]
 
 
@@ -179,10 +179,10 @@ class W0WaCDMCosmology:
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         return dL_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
-    def Ω_tot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def Ωtot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Total density parameter at redshift z (always 1.0 for flat universe)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return Ω_tot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
 @jax.jit
 def a_z(z):
@@ -1069,12 +1069,12 @@ def ρc_z(z: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def Ω_tot_z(z: Union[float, jnp.ndarray],
-            Ωcb0: Union[float, jnp.ndarray],
-            h: Union[float, jnp.ndarray],
-            mν: Union[float, jnp.ndarray] = 0.0,
-            w0: Union[float, jnp.ndarray] = -1.0,
-            wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def Ωtot_z(z: Union[float, jnp.ndarray],
+           Ωcb0: Union[float, jnp.ndarray],
+           h: Union[float, jnp.ndarray],
+           mν: Union[float, jnp.ndarray] = 0.0,
+           w0: Union[float, jnp.ndarray] = -1.0,
+           wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     # For flat universe: Ωtot = 1.0 exactly by construction
     # Return array of ones with same shape as input z
     z_array = jnp.asarray(z)

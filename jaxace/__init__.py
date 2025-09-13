@@ -35,7 +35,7 @@ from .background import (
     r_z,
     dA_z,
     dL_z,
-    ρc_z, Ω_tot_z
+    ρc_z, Ωtot_z
 )
 
 __version__ = "0.2.0"
@@ -66,5 +66,5 @@ __all__ = [
     "r_z",
     "dA_z",
     "dL_z",
-    "ρc_z", "Ω_tot_z"
+    "ρc_z", "Ωtot_z"
 ]

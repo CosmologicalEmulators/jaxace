@@ -517,7 +517,7 @@ class TestComputedValues:
         for z, expected in test_cases:
             computed = cosmo.D_z(z)
             # Use higher tolerance for growth factor due to ODE solver differences
-            assert np.isclose(computed, expected, rtol=1e-4), \
+            assert np.isclose(computed, expected, rtol=1e-5), \
                 f"D({z}) = {computed:.10f}, expected {expected:.10f}"
 
     def test_fz_values(self, cosmo_params, cosmo):
@@ -532,7 +532,7 @@ class TestComputedValues:
         for z, expected in test_cases:
             computed = cosmo.f_z(z)
             # Use higher tolerance for growth rate due to ODE solver differences
-            assert np.isclose(computed, expected, rtol=1e-3), \
+            assert np.isclose(computed, expected, rtol=1e-5), \
                 f"f({z}) = {computed:.10f}, expected {expected:.10f}"
 
     def test_neutrino_background_functions(self):
@@ -644,7 +644,7 @@ class TestComputedValuesNewParams:
 
         for z, expected in test_cases:
             computed = cosmo.D_z(z)
-            assert np.isclose(computed, expected, rtol=1e-4), \
+            assert np.isclose(computed, expected, rtol=1e-5), \
                 f"D({z}) = {computed:.15e}, expected {expected:.15e}"
 
     def test_fz_values(self, cosmo_params, cosmo):
@@ -657,7 +657,7 @@ class TestComputedValuesNewParams:
 
         for z, expected in test_cases:
             computed = cosmo.f_z(z)
-            assert np.isclose(computed, expected, rtol=1e-3), \
+            assert np.isclose(computed, expected, rtol=1e-5), \
                 f"f({z}) = {computed:.15e}, expected {expected:.15e}"
 
     def test_neutrino_background_functions(self):
