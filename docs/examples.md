@@ -110,30 +110,6 @@ plt.show()
 
 ![Cosmology Main Plot](images/cosmology_main.png)
 
-### Matter Power Spectrum Example
-
-For more advanced calculations, you can combine growth functions with matter density:
-
-```python
-# Compute matter density parameter evolution
-a = 1.0 / (1.0 + z)
-Omega_m = jaxace.Ωma(a, cosmo.omega_b + cosmo.omega_c, cosmo.h,
-                      mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
-
-# Plot Omega_m evolution
-plt.figure(figsize=(8, 6))
-plt.plot(z, Omega_m, linewidth=2, color='purple')
-plt.xlabel('Redshift $z$')
-plt.ylabel('$\\Omega_m(z)$')
-plt.title('Matter Density Parameter Evolution')
-plt.grid(True, alpha=0.3)
-plt.xlim(0, 3)
-plt.ylim(0.2, 1.0)
-plt.show()
-```
-
-![Omega_m Evolution](images/omega_m_evolution.png)
-
 ### Using JAX Features
 
 One of the advantages of `jaxace` is that all functions are JAX-compatible, enabling automatic differentiation and JIT compilation:
