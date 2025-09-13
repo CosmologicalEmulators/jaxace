@@ -6,7 +6,8 @@
 
 import jax
 import jax.numpy as jnp
-from typing import NamedTuple, Union, Optional
+from typing import Union, Optional
+from dataclasses import dataclass
 import quadax
 import interpax
 import diffrax
@@ -24,10 +25,9 @@ if os.environ.get('JAXACE_ENABLE_X64', 'true').lower() == 'true':
 
 __all__ = [
     'W0WaCDMCosmology',
-    'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωma',
+    'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωm_a',
     'D_z', 'f_z', 'D_f_z',
-    'D_z_from_cosmo', 'f_z_from_cosmo', 'D_f_z_from_cosmo',
-    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z'
+    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z'
 ]
 
 
@@ -113,7 +113,8 @@ def _handle_infinite_params(value, param_name="parameter"):
     return value_array
 
 
-class W0WaCDMCosmology(NamedTuple):
+@dataclass
+class W0WaCDMCosmology:
     ln10As: float
     ns: float
     h: float
@@ -122,6 +123,66 @@ class W0WaCDMCosmology(NamedTuple):
     m_nu: float = 0.0
     w0: float = -1.0
     wa: float = 0.0
+
+    def E_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Dimensionless Hubble parameter E(a) = H(a)/H0."""
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        return E_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def E_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Dimensionless Hubble parameter E(z) = H(z)/H0."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return E_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def Ωm_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Matter density parameter Ωₘ(a) at scale factor a."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return Ωm_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def r̃_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Dimensionless comoving distance r̃(z)."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return r̃_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def r_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Comoving distance in Mpc."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return r_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def dA_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Angular diameter distance in Mpc."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return dA_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def D_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Linear growth factor D(z)."""
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        return D_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Growth rate f(z) = d log D / d log a."""
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        return f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def D_f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Linear growth factor and growth rate (D(z), f(z))."""
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        return D_f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def ρc_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Critical density at redshift z in M☉/Mpc³."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return ρc_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def dL_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Luminosity distance at redshift z in Mpc."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return dL_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+
+    def Ωtot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Total density parameter at redshift z (always 1.0 for flat universe)."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
 @jax.jit
 def a_z(z):
@@ -466,14 +527,6 @@ def E_a(a: Union[float, jnp.ndarray],
     else:
         return result
 
-@jax.jit
-def Ea_from_cosmo(a: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_b + cosmo.omega_c
-
-    # Call main function with extracted parameters
-    return E_a(a, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def E_z(z: Union[float, jnp.ndarray],
@@ -496,15 +549,6 @@ def E_z(z: Union[float, jnp.ndarray],
     # Return E(a) using existing function (which already has validation)
     return E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
 
-@jax.jit
-def Ez_from_cosmo(z: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return E_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def dlogEdloga(a: Union[float, jnp.ndarray],
@@ -560,7 +604,7 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
     return (a / E_a_val) * dE_da
 
 @jax.jit
-def Ωma(a: Union[float, jnp.ndarray],
+def Ωm_a(a: Union[float, jnp.ndarray],
          Ωcb0: Union[float, jnp.ndarray],
          h: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
@@ -582,15 +626,6 @@ def Ωma(a: Union[float, jnp.ndarray],
     # Formula: Ωm(a) = Ωcb0 × a^(-3) / E(a)²
     return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
 
-@jax.jit
-def Ωma_from_cosmo(a: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract Ωcb0
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return Ωma(a, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, n_points=500):
 
@@ -652,15 +687,6 @@ def r̃_z(z: Union[float, jnp.ndarray],
     # Propagate NaN if needed
     return jnp.where(has_nan, jnp.full_like(result, jnp.nan), result)
 
-@jax.jit
-def r̃_z_from_cosmo(z: Union[float, jnp.ndarray],
-                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return r̃_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def r_z(z: Union[float, jnp.ndarray],
@@ -679,15 +705,6 @@ def r_z(z: Union[float, jnp.ndarray],
     # Scale to physical units
     return c_over_H0 * r_tilde / h
 
-@jax.jit
-def r_z_from_cosmo(z: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return r_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def dA_z(z: Union[float, jnp.ndarray],
@@ -703,15 +720,6 @@ def dA_z(z: Union[float, jnp.ndarray],
     # Apply (1+z) factor
     return r / (1.0 + z)
 
-@jax.jit
-def dA_z_from_cosmo(z: Union[float, jnp.ndarray],
-                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return dA_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -721,11 +729,11 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
     # Get cosmological functions at this scale factor
     dlogE_dloga = dlogEdloga(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
-    Omega_m_a = Ωma(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    Omega_m_a = Ωm_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
 
     # ODE system following Effort.jl exactly:
     # du[1] = dD/d(log a)
-    # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Ωma * D
+    # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Ωm_a * D
     du = jnp.array([
         dD_dloga,
         -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_m_a * D
@@ -945,11 +953,6 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
     # Use conditional to avoid running solver with NaN
     return jax.lax.cond(has_nan, return_nan, compute_growth)
 
-@jax.jit
-def D_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-
-    Ωcb0 = cosmo.omega_b + cosmo.omega_c
-    return D_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -1008,11 +1011,6 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         # Propagate NaN if needed
         return jnp.where(has_nan, jnp.full_like(f_array, jnp.nan), f_array)
 
-@jax.jit
-def f_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-
-    Ωcb0 = cosmo.omega_b + cosmo.omega_c
-    return f_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -1055,11 +1053,6 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
         return (D_array, f_array)
 
-@jax.jit
-def D_f_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-
-    Ωcb0 = cosmo.omega_b + cosmo.omega_c
-    return D_f_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def ρc_z(z: Union[float, jnp.ndarray],
@@ -1074,19 +1067,14 @@ def ρc_z(z: Union[float, jnp.ndarray],
     E_z_val = E_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa)
     return rho_c0_h2 * h**2 * E_z_val**2
 
-@jax.jit
-def ρc_z_from_cosmo(z: Union[float, jnp.ndarray],
-                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-    return ρc_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
 @jax.jit
 def Ωtot_z(z: Union[float, jnp.ndarray],
-            Ωcb0: Union[float, jnp.ndarray],
-            h: Union[float, jnp.ndarray],
-            mν: Union[float, jnp.ndarray] = 0.0,
-            w0: Union[float, jnp.ndarray] = -1.0,
-            wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+           Ωcb0: Union[float, jnp.ndarray],
+           h: Union[float, jnp.ndarray],
+           mν: Union[float, jnp.ndarray] = 0.0,
+           w0: Union[float, jnp.ndarray] = -1.0,
+           wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     # For flat universe: Ωtot = 1.0 exactly by construction
     # Return array of ones with same shape as input z
     z_array = jnp.asarray(z)
@@ -1122,27 +1110,4 @@ def dL_z(z: Union[float, jnp.ndarray],
     # Apply (1+z) factor for luminosity distance
     return r * (1.0 + z)
 
-@jax.jit
-def dL_z_from_cosmo(z: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """
-    Luminosity distance using cosmology structure.
 
-    Args:
-        z: Redshift
-        cosmo: W0WaCDMCosmology structure
-
-    Returns:
-        Luminosity distance in Mpc
-    """
-    # Extract parameters from cosmology struct
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-
-    # Call main function
-    return dL_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
-
-@jax.jit
-def Ωtot_z_from_cosmo(z: Union[float, jnp.ndarray],
-                       cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    Ωcb0 = cosmo.omega_c + cosmo.omega_b
-    return Ωtot_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
