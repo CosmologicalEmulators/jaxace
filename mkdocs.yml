@@ -137,5 +137,5 @@ nav:
 
 copyright: Copyright &copy; 2024 CosmologicalEmulators
 
-strict: true
+strict: false
 use_directory_urls: true
