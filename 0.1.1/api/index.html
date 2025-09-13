@@ -1057,13 +1057,13 @@
 
         <p>Dimensionless Hubble parameter E(a) = H(a)/H0.</p>
 <p>The normalized Hubble parameter is given by:</p>
-<div class="arithmatex">\[E(a) = \sqrt{\Omega_{\gamma,0} a^{-4} + \Omega_{cb,0} a^{-3} + \Omega_{\Lambda,0} \rho_{DE}(a) + \Omega_{\nu}(a)}\]</div>
+<div class="arithmatex">\[E(a) = \sqrt{\Omega_{\gamma,0} a^{-4} + \Omega_{\mathrm{cb},0} a^{-3} + \Omega_{\Lambda,0} \rho_{\mathrm{DE}}(a) + \Omega_{\nu}(a)}\]</div>
 <p>where:</p>
 <ul>
 <li><span class="arithmatex">\(\Omega_{\gamma,0}\)</span> is the photon density parameter today</li>
-<li><span class="arithmatex">\(\Omega_{cb,0}\)</span> is the cold dark matter + baryon density parameter today</li>
+<li><span class="arithmatex">\(\Omega_{\mathrm{cb},0}\)</span> is the cold dark matter + baryon density parameter today</li>
 <li><span class="arithmatex">\(\Omega_{\Lambda,0}\)</span> is the dark energy density parameter today (from flatness constraint)</li>
-<li><span class="arithmatex">\(\rho_{DE}(a)\)</span> is the normalized dark energy density</li>
+<li><span class="arithmatex">\(\rho_{\mathrm{DE}}(a)\)</span> is the normalized dark energy density</li>
 <li><span class="arithmatex">\(\Omega_{\nu}(a)\)</span> is the massive neutrino contribution</li>
 </ul>
 
@@ -1119,7 +1119,7 @@
     <div class="doc doc-contents first">
 
         <p>Logarithmic derivative of the Hubble parameter.</p>
-<div class="arithmatex">\[\frac{d \ln E}{d \ln a} = \frac{a}{E} \frac{dE}{da}\]</div>
+<div class="arithmatex">\[\frac{\mathrm{d} \ln E}{\mathrm{d} \ln a} = \frac{a}{E} \frac{\mathrm{d}E}{\mathrm{d}a}\]</div>
 <p>This quantity appears in the growth factor differential equation.</p>
 
 
@@ -1164,8 +1164,8 @@
 
     <div class="doc doc-contents first">
 
-        <p>Matter density parameter Ωm(a) at scale factor a.</p>
-<div class="arithmatex">\[\Omega_m(a) = \frac{\Omega_{cb,0} a^{-3}}{E(a)^2}\]</div>
+        <p>Matter density parameter Ωₘ(a) at scale factor a.</p>
+<div class="arithmatex">\[\Omega_{\mathrm{m}}(a) = \frac{\Omega_{\mathrm{cb},0} a^{-3}}{E(a)^2}\]</div>
 <p>where E(a) is the normalized Hubble parameter.</p>
 
 
@@ -1184,7 +1184,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Matter density parameter Ωm(a).</p>
+                <p>Matter density parameter Ωₘ(a).</p>
               </div>
             </td>
           </tr>
@@ -1256,7 +1256,7 @@ It satisfies the differential equation given in growth_solver.</p>
 
         <p>Growth rate f(z) = d log D / d log a.</p>
 <p>The growth rate is defined as:</p>
-<div class="arithmatex">\[f(z) = \frac{d \ln D}{d \ln a} = \frac{dD/d(\ln a)}{D}\]</div>
+<div class="arithmatex">\[f(z) = \frac{\mathrm{d} \ln D}{\mathrm{d} \ln a}\]</div>
 <p>where D is the linear growth factor.</p>
 
 
