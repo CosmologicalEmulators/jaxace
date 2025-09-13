@@ -135,7 +135,7 @@ def rhoDE_a(a, w0, wa):
 
     The dark energy density evolution is given by:
 
-    $$\\rho_{DE}(a) / \\rho_{DE}(a=1) = a^{-3(1 + w_0 + w_a)} \\exp(3w_a(a-1))$$
+    $$\\rho_{\\mathrm{DE}}(a) / \\rho_{\\mathrm{DE}}(a=1) = a^{-3(1 + w_0 + w_a)} \\exp(3w_a(a-1))$$
 
     where the equation of state is:
 
@@ -327,8 +327,8 @@ def ΩνE2(a: Union[float, jnp.ndarray],
 
     where:
 
-    - $\\Gamma_\\nu = (4/11)^{1/3} \\cdot (N_{eff}/3)^{1/4}$
-    - $y_i = m_{\\nu,i} a / (k_B T_\\nu)$ is the dimensionless neutrino parameter
+    - $\\Gamma_\\nu = (4/11)^{1/3} \\cdot (N_{\\mathrm{eff}}/3)^{1/4}$
+    - $y_i = m_{\\nu,i} a / (k_{\\mathrm{B}} T_\\nu)$ is the dimensionless neutrino parameter
     - $F(y)$ is the Fermi-Dirac integral ratio
 
     Returns:
@@ -399,14 +399,14 @@ def E_a(a: Union[float, jnp.ndarray],
 
     The normalized Hubble parameter is given by:
 
-    $$E(a) = \\sqrt{\\Omega_{\\gamma,0} a^{-4} + \\Omega_{cb,0} a^{-3} + \\Omega_{\\Lambda,0} \\rho_{DE}(a) + \\Omega_{\\nu}(a)}$$
+    $$E(a) = \\sqrt{\\Omega_{\\gamma,0} a^{-4} + \\Omega_{\\mathrm{cb},0} a^{-3} + \\Omega_{\\Lambda,0} \\rho_{\\mathrm{DE}}(a) + \\Omega_{\\nu}(a)}$$
 
     where:
 
     - $\\Omega_{\\gamma,0}$ is the photon density parameter today
-    - $\\Omega_{cb,0}$ is the cold dark matter + baryon density parameter today
+    - $\\Omega_{\\mathrm{cb},0}$ is the cold dark matter + baryon density parameter today
     - $\\Omega_{\\Lambda,0}$ is the dark energy density parameter today (from flatness constraint)
-    - $\\rho_{DE}(a)$ is the normalized dark energy density
+    - $\\rho_{\\mathrm{DE}}(a)$ is the normalized dark energy density
     - $\\Omega_{\\nu}(a)$ is the massive neutrino contribution
 
     Returns:
@@ -516,7 +516,7 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
     """
     Logarithmic derivative of the Hubble parameter.
 
-    $$\\frac{d \\ln E}{d \\ln a} = \\frac{a}{E} \\frac{dE}{da}$$
+    $$\\frac{\\mathrm{d} \\ln E}{\\mathrm{d} \\ln a} = \\frac{a}{E} \\frac{\\mathrm{d}E}{\\mathrm{d}a}$$
 
     This quantity appears in the growth factor differential equation.
 
@@ -567,14 +567,14 @@ def Ωma(a: Union[float, jnp.ndarray],
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     """
-    Matter density parameter Ωm(a) at scale factor a.
+    Matter density parameter Ωₘ(a) at scale factor a.
 
-    $$\\Omega_m(a) = \\frac{\\Omega_{cb,0} a^{-3}}{E(a)^2}$$
+    $$\\Omega_{\\mathrm{m}}(a) = \\frac{\\Omega_{\\mathrm{cb},0} a^{-3}}{E(a)^2}$$
 
     where E(a) is the normalized Hubble parameter.
 
     Returns:
-        Matter density parameter Ωm(a).
+        Matter density parameter Ωₘ(a).
     """
     # Get E(a)
     E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
@@ -628,7 +628,7 @@ def r̃_z(z: Union[float, jnp.ndarray],
 
     The conformal distance is given by:
 
-    $$\\tilde{r}(z) = \\int_0^z \\frac{dz'}{E(z')}$$
+    $$\\tilde{r}(z) = \\int_0^z \\frac{\\mathrm{d}z'}{E(z')}$$
 
     where E(z) is the normalized Hubble parameter.
 
@@ -739,9 +739,9 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False)
 
     The linear growth factor D(a) satisfies the differential equation:
 
-    $$\\frac{d^2 D}{d(\\ln a)^2} + \\left(2 + \\frac{d \\ln E}{d \\ln a}\\right) \\frac{d D}{d \\ln a} - \\frac{3}{2} \\Omega_m(a) D = 0$$
+    $$\\frac{\\mathrm{d}^2 D}{\\mathrm{d}(\\ln a)^2} + \\left(2 + \\frac{\\mathrm{d} \\ln E}{\\mathrm{d} \\ln a}\\right) \\frac{\\mathrm{d} D}{\\mathrm{d} \\ln a} - \\frac{3}{2} \\Omega_{\\mathrm{m}}(a) D = 0$$
 
-    with initial conditions D(a_i) = a_i and dD/d(ln a)|_{a_i} = 1 for matter domination.
+    with initial conditions D(a_i) = a_i and $\\mathrm{d}D/\\mathrm{d}(\\ln a)|_{a_i} = 1$ for matter domination.
 
     Returns:
         Growth factor D(a) or tuple (D, dD/dloga) if return_both=True.
@@ -958,7 +958,7 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
     The growth rate is defined as:
 
-    $$f(z) = \\frac{d \\ln D}{d \\ln a} = \\frac{dD/d(\\ln a)}{D}$$
+    $$f(z) = \\frac{\\mathrm{d} \\ln D}{\\mathrm{d} \\ln a}$$
 
     where D is the linear growth factor.
 
