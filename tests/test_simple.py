@@ -15,15 +15,14 @@ def test_imports():
     try:
         from jaxace.utils import validate_nn_dict_structure, safe_dict_access
         print("✓ Basic utils imported successfully")
-        return True
     except ImportError as e:
         print(f"✗ Import failed: {e}")
-        return False
+        assert False, f"Import failed: {e}"
 
 def test_validation():
     """Test validation functions that don't require JAX."""
     from jaxace.utils import validate_nn_dict_structure, validate_layer_structure
-    
+
     # Valid structure
     valid_dict = {
         "n_input_features": 10,
@@ -34,31 +33,29 @@ def test_validation():
             "layer_2": {"n_neurons": 32, "activation_function": "relu"}
         }
     }
-    
+
     try:
         validate_nn_dict_structure(valid_dict)
         print("✓ Valid NN dict passed validation")
     except Exception as e:
         print(f"✗ Validation failed: {e}")
-        return False
-    
+        assert False, f"Validation failed: {e}"
+
     # Test invalid structure
     invalid_dict = valid_dict.copy()
     del invalid_dict["n_input_features"]
-    
+
     try:
         validate_nn_dict_structure(invalid_dict)
         print("✗ Invalid dict should have failed validation")
-        return False
+        assert False, "Invalid dict should have failed validation"
     except ValueError:
         print("✓ Invalid dict correctly rejected")
-    
-    return True
 
 def test_safe_dict_access():
     """Test safe dictionary access."""
     from jaxace.utils import safe_dict_access
-    
+
     test_dict = {
         "level1": {
             "level2": {
@@ -66,44 +63,41 @@ def test_safe_dict_access():
             }
         }
     }
-    
+
     # Valid access
     result = safe_dict_access(test_dict, "level1", "level2", "level3")
     if result == "value":
         print("✓ Safe dict access works for valid path")
     else:
         print(f"✗ Expected 'value', got {result}")
-        return False
-    
+        assert False, f"Expected 'value', got {result}"
+
     # Invalid access with default
     result = safe_dict_access(test_dict, "level1", "invalid", default="default")
     if result == "default":
         print("✓ Safe dict access returns default for invalid path")
     else:
         print(f"✗ Expected 'default', got {result}")
-        return False
-    
-    return True
+        assert False, f"Expected 'default', got {result}"
 
 def test_nn_json():
     """Test that test NN JSON file is valid."""
     test_file = Path(__file__).parent / "testNN.json"
-    
+
     if not test_file.exists():
         print(f"✗ Test NN file not found: {test_file}")
-        return False
-    
+        assert False, f"Test NN file not found: {test_file}"
+
     try:
         with open(test_file, 'r') as f:
             nn_dict = json.load(f)
-        
+
         from jaxace.utils import validate_nn_dict_structure
         validate_nn_dict_structure(nn_dict)
         print("✓ Test NN JSON is valid")
-        return True
     except Exception as e:
         print(f"✗ Test NN JSON validation failed: {e}")
-        return False
+        assert False, f"Test NN JSON validation failed: {e}"
 
 def main():
     """Run simple tests."""

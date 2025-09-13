@@ -33,11 +33,11 @@ def generate_main_cosmology_plots():
     z = jnp.linspace(0.01, 3.0, 100)
 
     # Compute quantities
-    r_comoving = jaxace.r_z_from_cosmo(z, cosmo)
-    dA = jaxace.dA_z_from_cosmo(z, cosmo)
-    dL = jaxace.dL_z_from_cosmo(z, cosmo)
-    D = jaxace.D_z_from_cosmo(z, cosmo)
-    f = jaxace.f_z_from_cosmo(z, cosmo)
+    r_comoving = cosmo.r_z(z)
+    dA = cosmo.dA_z(z)
+    dL = cosmo.dL_z(z)
+    D = cosmo.D_z(z)
+    f = cosmo.f_z(z)
 
     E_z = jaxace.E_z(z, cosmo.omega_b + cosmo.omega_c, cosmo.h,
                      mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
@@ -101,7 +101,7 @@ def generate_omega_m_plot():
 
     z = jnp.linspace(0.01, 3.0, 100)
     a = 1.0 / (1.0 + z)
-    Omega_m = jaxace.Ωma(a, cosmo.omega_b + cosmo.omega_c, cosmo.h,
+    Omega_m = jaxace.Ωm_a(a, cosmo.omega_b + cosmo.omega_c, cosmo.h,
                           mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
     plt.figure(figsize=(8, 6))
@@ -138,8 +138,8 @@ def generate_cosmology_comparison():
             m_nu=0.06, w0=params['w0'], wa=params['wa']
         )
 
-        D_test = jaxace.D_z_from_cosmo(z, cosmo_test)
-        f_test = jaxace.f_z_from_cosmo(z, cosmo_test)
+        D_test = cosmo_test.D_z(z)
+        f_test = cosmo_test.f_z(z)
 
         label = f"{name}: $w_0$={params['w0']}, $w_a$={params['wa']}"
         ax1.plot(z, D_test, label=label, linewidth=2.5,
@@ -185,7 +185,7 @@ def generate_growth_jacobian():
             w0=w0,
             wa=wa
         )
-        return jaxace.D_z_from_cosmo(z, cosmo)
+        return cosmo.D_z(z)
 
     # Define fiducial parameters (Planck 2018)
     fiducial_params = jnp.array([
@@ -246,7 +246,7 @@ def generate_growth_jacobian_comparison():
             h=h, omega_b=omega_b, omega_c=omega_c,
             m_nu=m_nu, w0=w0, wa=wa
         )
-        D, f = jaxace.D_f_z_from_cosmo(z, cosmo)
+        D, f = cosmo.D_f_z(z)
         return jnp.stack([D, f])  # Stack to get shape (2, n_z)
 
     # Define fiducial parameters

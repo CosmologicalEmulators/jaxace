@@ -36,11 +36,11 @@ Now let's compute the comoving distance for a range of redshifts:
 z = jnp.linspace(0.01, 3.0, 100)
 
 # Compute comoving distance
-r_comoving = jaxace.r_z_from_cosmo(z, cosmo)
+r_comoving = cosmo.r_z(z)
 
 # Also compute angular diameter and luminosity distances
-dA = jaxace.dA_z_from_cosmo(z, cosmo)
-dL = jaxace.dL_z_from_cosmo(z, cosmo)
+dA = cosmo.dA_z(z)
+dL = cosmo.dL_z(z)
 ```
 
 ### Computing Growth Functions
@@ -49,11 +49,11 @@ Let's compute the linear growth factor and growth rate:
 
 ```python
 # Compute growth factor D(z) and growth rate f(z)
-D = jaxace.D_z_from_cosmo(z, cosmo)
-f = jaxace.f_z_from_cosmo(z, cosmo)
+D = cosmo.D_z(z)
+f = cosmo.f_z(z)
 
 # We can also get both at once for efficiency
-D_both, f_both = jaxace.D_f_z_from_cosmo(z, cosmo)
+D_both, f_both = cosmo.D_f_z(z)
 ```
 
 ### Visualizing the Results
@@ -110,30 +110,6 @@ plt.show()
 
 ![Cosmology Main Plot](images/cosmology_main.png)
 
-### Matter Power Spectrum Example
-
-For more advanced calculations, you can combine growth functions with matter density:
-
-```python
-# Compute matter density parameter evolution
-a = 1.0 / (1.0 + z)
-Omega_m = jaxace.Ωma(a, cosmo.omega_b + cosmo.omega_c, cosmo.h,
-                      mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
-
-# Plot Omega_m evolution
-plt.figure(figsize=(8, 6))
-plt.plot(z, Omega_m, linewidth=2, color='purple')
-plt.xlabel('Redshift $z$')
-plt.ylabel('$\\Omega_m(z)$')
-plt.title('Matter Density Parameter Evolution')
-plt.grid(True, alpha=0.3)
-plt.xlim(0, 3)
-plt.ylim(0.2, 1.0)
-plt.show()
-```
-
-![Omega_m Evolution](images/omega_m_evolution.png)
-
 ### Using JAX Features
 
 One of the advantages of `jaxace` is that all functions are JAX-compatible, enabling automatic differentiation and JIT compilation:
@@ -148,7 +124,7 @@ def compute_distances_fast(z_array, omega_c, omega_b, h):
         omega_b=omega_b, omega_c=omega_c,
         m_nu=0.06, w0=-1.0, wa=0.0
     )
-    return jaxace.r_z_from_cosmo(z_array, cosmo)
+    return cosmo.r_z(z_array)
 
 # Compute gradient with respect to cosmological parameters
 grad_fn = jax.grad(lambda omega_c: compute_distances_fast(
@@ -184,7 +160,7 @@ def growth_factor_function(params, z):
         w0=w0,
         wa=wa
     )
-    return jaxace.D_z_from_cosmo(z, cosmo)
+    return cosmo.D_z(z)
 
 # Define fiducial parameters (Planck 2018)
 fiducial_params = jnp.array([
@@ -250,7 +226,7 @@ def growth_functions(params, z):
         h=h, omega_b=omega_b, omega_c=omega_c,
         m_nu=m_nu, w0=w0, wa=wa
     )
-    D, f = jaxace.D_f_z_from_cosmo(z, cosmo)
+    D, f = cosmo.D_f_z(z)
     return jnp.stack([D, f])  # Stack to get shape (2, n_z)
 
 # Compute Jacobian for both quantities
@@ -307,8 +283,8 @@ for name, params in cosmologies.items():
         m_nu=0.06, **params
     )
 
-    D_test = jaxace.D_z_from_cosmo(z, cosmo_test)
-    f_test = jaxace.f_z_from_cosmo(z, cosmo_test)
+    D_test = cosmo_test.D_z(z)
+    f_test = cosmo_test.f_z(z)
 
     ax1.plot(z, D_test, label=name, linewidth=2)
     ax2.plot(z, f_test, label=name, linewidth=2)
@@ -344,8 +320,8 @@ For optimal performance, especially when computing many values:
 @jax.jit
 def compute_all_quantities(z_array, cosmo):
     """Compute all cosmological quantities at once."""
-    r = jaxace.r_z_from_cosmo(z_array, cosmo)
-    D, f = jaxace.D_f_z_from_cosmo(z_array, cosmo)
+    r = cosmo.r_z(z_array)
+    D, f = cosmo.D_f_z(z_array)
     return r, D, f
 
 # First call will compile
@@ -363,11 +339,11 @@ All functions support vectorized inputs for efficient batch calculations:
 ```python
 # Compute for multiple redshifts at once (vectorized)
 z_grid = jnp.logspace(-2, 0.5, 50)  # z from 0.01 to ~3.16
-r_grid = jaxace.r_z_from_cosmo(z_grid, cosmo)
+r_grid = cosmo.r_z(z_grid)
 
 # This is much faster than a loop:
 # for zi in z_grid:
-#     ri = jaxace.r_z_from_cosmo(zi, cosmo)  # Slower!
+#     ri = cosmo.r_z(zi)  # Slower!
 ```
 
 ## Next Steps

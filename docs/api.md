@@ -16,25 +16,19 @@
 
 ### Matter Density
 
-::: jaxace.Ωma
+::: jaxace.Ωm_a
 
 ### Growth Functions
 
 ::: jaxace.D_z
 ::: jaxace.f_z
 ::: jaxace.D_f_z
-::: jaxace.D_z_from_cosmo
-::: jaxace.f_z_from_cosmo
-::: jaxace.D_f_z_from_cosmo
 
 ### Distance Functions
 
 ::: jaxace.r_z
 ::: jaxace.dA_z
 ::: jaxace.dL_z
-::: jaxace.r_z_from_cosmo
-::: jaxace.dA_z_from_cosmo
-::: jaxace.dL_z_from_cosmo
 
 ### Density Functions
 

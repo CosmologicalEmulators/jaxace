@@ -47,8 +47,8 @@ def test_core_implementation():
         else:
             print(f"  ✗ Function {func} missing")
             all_present = False
-    
-    return all_present
+
+    assert all_present, "Some required classes or functions are missing from core.py"
 
 def test_initialization_implementation():
     """Test that initialization.py has all required components."""
@@ -83,8 +83,8 @@ def test_initialization_implementation():
         else:
             print(f"  ✗ Function {func} missing")
             all_present = False
-    
-    return all_present
+
+    assert all_present, "Some required classes or functions are missing from initialization.py"
 
 def test_utils_implementation():
     """Test that utils.py has all required components."""
@@ -112,8 +112,8 @@ def test_utils_implementation():
         else:
             print(f"  ✗ Function {func} missing")
             all_present = False
-    
-    return all_present
+
+    assert all_present, "Some required functions are missing from utils.py"
 
 def test_background_implementation():
     """Test that background.py has all required cosmology functions."""
@@ -129,7 +129,7 @@ def test_background_implementation():
         "gety", "F", "dFdy",
         
         # Hubble parameter
-        "E_a", "E_z", "dlogEdloga", "Ωma",
+        "E_a", "E_z", "dlogEdloga", "Ωm_a",
         
         # Distance measures
         "r_z", "dA_z", "dL_z",
@@ -172,8 +172,8 @@ def test_background_implementation():
             print(f"    ✓ {func} found")
         else:
             print(f"    ✗ {func} missing (optional)")
-    
-    return all_present
+
+    assert all_present, "Some required classes or functions are missing from background.py"
 
 def test_file_structure():
     """Test that all required files exist."""
@@ -202,8 +202,8 @@ def test_file_structure():
         else:
             print(f"  ✗ {filepath} missing")
             all_present = False
-    
-    return all_present
+
+    assert all_present, "Some required files are missing from the file structure"
 
 def main():
     """Run all structure tests."""
