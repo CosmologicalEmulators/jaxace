@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="JAX/Flax cosmological emulators with automatic JIT compilation">
+        <meta name="description" content="JAX cosmological emulators with automatic JIT compilation">
       
       
         <meta name="author" content="CosmologicalEmulators">
@@ -24,7 +24,7 @@
     
     
       
-        <title>Overview - JAXace</title>
+        <title>Overview - jaxace</title>
       
     
     
@@ -108,7 +108,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="JAXace" class="md-header__button md-logo" aria-label="JAXace" data-md-component="logo">
+    <a href="." title="jaxace" class="md-header__button md-logo" aria-label="jaxace" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -122,7 +122,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            JAXace
+            jaxace
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -320,13 +320,13 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="JAXace" class="md-nav__button md-logo" aria-label="JAXace" data-md-component="logo">
+    <a href="." title="jaxace" class="md-nav__button md-logo" aria-label="jaxace" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
 
     </a>
-    JAXace
+    jaxace
   </label>
   
     <div class="md-nav__source">
@@ -462,48 +462,6 @@
       Quick Start
     </span>
   </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#mathematical-background" class="md-nav__link">
-    <span class="md-ellipsis">
-      Mathematical Background
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Mathematical Background">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#hubble-parameter" class="md-nav__link">
-    <span class="md-ellipsis">
-      Hubble Parameter
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#growth-factor" class="md-nav__link">
-    <span class="md-ellipsis">
-      Growth Factor
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#comoving-distance" class="md-nav__link">
-    <span class="md-ellipsis">
-      Comoving Distance
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -696,16 +654,6 @@
 </span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c1"># Run with automatic JIT</span>
 </span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="n">output</span> <span class="o">=</span> <span class="n">emulator</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="mathematical-background">Mathematical Background<a class="headerlink" href="#mathematical-background" title="Permanent link">&para;</a></h2>
-<p>The library implements key cosmological functions:</p>
-<h3 id="hubble-parameter">Hubble Parameter<a class="headerlink" href="#hubble-parameter" title="Permanent link">&para;</a></h3>
-<p>The dimensionless Hubble parameter is:</p>
-<div class="arithmatex">\[E(z) = \frac{H(z)}{H_0} = \sqrt{\Omega_m(1+z)^3 + \Omega_\Lambda f_{DE}(z)}\]</div>
-<h3 id="growth-factor">Growth Factor<a class="headerlink" href="#growth-factor" title="Permanent link">&para;</a></h3>
-<p>The linear growth factor <span class="arithmatex">\(D(z)\)</span> satisfies:</p>
-<div class="arithmatex">\[\frac{d^2D}{da^2} + \left(\frac{3}{a} + \frac{d\ln E}{da}\right)\frac{dD}{da} - \frac{3\Omega_m}{2a^5E^2}D = 0\]</div>
-<h3 id="comoving-distance">Comoving Distance<a class="headerlink" href="#comoving-distance" title="Permanent link">&para;</a></h3>
-<div class="arithmatex">\[r(z) = \frac{c}{H_0} \int_0^z \frac{dz'}{E(z')}\]</div>
 <h2 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h2>
 <p>With automatic JIT compilation, jaxace achieves:</p>
 <ul>
