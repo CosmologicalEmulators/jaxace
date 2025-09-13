@@ -2,21 +2,7 @@
   {
     "version": "dev",
     "title": "dev",
-    "aliases": [
-      "latest"
-    ]
-  },
-  {
-    "version": "2025.09.12",
-    "title": "2025.09.12",
-    "aliases": [
-      "stable"
-    ]
-  },
-  {
-    "version": "2025.09.11",
-    "title": "2025.09.11",
-    "aliases": []
+    "aliases": ["latest"]
   },
   {
     "version": "0.1.0",
