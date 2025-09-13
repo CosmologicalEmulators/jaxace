@@ -47,23 +47,6 @@ emulator = jaxace.init_emulator(nn_dict, weights, jaxace.FlaxEmulator)
 output = emulator(input_data)
 ```
 
-## Mathematical Background
-
-The library implements key cosmological functions:
-
-### Hubble Parameter
-The dimensionless Hubble parameter is:
-
-$$E(z) = \frac{H(z)}{H_0} = \sqrt{\Omega_m(1+z)^3 + \Omega_\Lambda f_{DE}(z)}$$
-
-### Growth Factor
-The linear growth factor $D(z)$ satisfies:
-
-$$\frac{d^2D}{da^2} + \left(\frac{3}{a} + \frac{d\ln E}{da}\right)\frac{dD}{da} - \frac{3\Omega_m}{2a^5E^2}D = 0$$
-
-### Comoving Distance
-$$r(z) = \frac{c}{H_0} \int_0^z \frac{dz'}{E(z')}$$
-
 ## Performance
 
 With automatic JIT compilation, jaxace achieves:

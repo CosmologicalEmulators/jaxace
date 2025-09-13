@@ -34,7 +34,7 @@ __all__ = [
 def _check_nan_inputs(*args):
     """
     Check if any input contains NaN using JAX-compatible operations.
-    
+
     Returns:
         Boolean array indicating if any input has NaN
     """
@@ -55,7 +55,7 @@ def _check_nan_inputs(*args):
 def _get_nan_mask(*args):
     """
     Get element-wise NaN mask for arrays.
-    
+
     Returns:
         Boolean array with True where any input has NaN
     """
@@ -74,12 +74,12 @@ def _get_nan_mask(*args):
 def _propagate_nan_result(has_nan, result, reference_input):
     """
     Propagate NaN if needed using JAX-compatible operations.
-    
+
     Args:
         has_nan: Boolean indicating if NaN should be propagated
         result: The computed result
         reference_input: An input to get the shape from
-        
+
     Returns:
         Result or NaN with appropriate shape
     """
@@ -90,26 +90,26 @@ def _propagate_nan_result(has_nan, result, reference_input):
 def _handle_infinite_params(value, param_name="parameter"):
     """
     Handle infinite parameter values gracefully.
-    
+
     Args:
         value: Parameter value to check
         param_name: Name of parameter for documentation
-        
+
     Returns:
         Processed value (may return NaN for problematic infinities)
     """
     value_array = jnp.asarray(value)
-    
+
     # Check for positive infinity - often problematic
     is_pos_inf = jnp.isposinf(value_array)
-    
+
     # Check for negative infinity - sometimes acceptable depending on context
     is_neg_inf = jnp.isneginf(value_array)
-    
+
     # Return NaN for positive infinity in most cosmological parameters
     if param_name in ['Ωcb0', 'h', 'mν'] and jnp.any(is_pos_inf):
         return jnp.where(is_pos_inf, jnp.nan, value_array)
-    
+
     return value_array
 
 
@@ -130,22 +130,32 @@ def a_z(z):
 
 @jax.jit
 def rhoDE_a(a, w0, wa):
-    """
+    r"""
     Dark energy density as a function of scale factor.
-    
+
+    The dark energy density evolution is given by:
+
+    .. math::
+        \rho_{\text{DE}}(a) / \rho_{\text{DE}}(a=1) = a^{-3(1 + w_0 + w_a)} \exp(3w_a(a-1))
+
+    where the equation of state is:
+
+    .. math::
+        w(a) = w_0 + w_a(1-a)
+
     Handles extreme w0/wa values by returning NaN for unphysical results.
     """
     # Check for infinite w0 or wa
     is_inf_w0 = jnp.isinf(w0)
     is_inf_wa = jnp.isinf(wa)
-    
+
     # Calculate exponent
     exponent = -3.0 * (1.0 + w0 + wa)
-    
+
     # For infinite w0, return NaN
     # This is a physically problematic case
     result = jnp.power(a, exponent) * jnp.exp(3.0 * wa * (a - 1.0))
-    
+
     # Return NaN for infinite inputs or non-finite results
     return jnp.where(is_inf_w0 | is_inf_wa | ~jnp.isfinite(result), jnp.nan, result)
 
@@ -311,11 +321,16 @@ def ΩνE2(a: Union[float, jnp.ndarray],
           Ωγ0: Union[float, jnp.ndarray],
           m_nu: Union[float, jnp.ndarray],
           N_eff: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    """
+    r"""
     Neutrino energy density parameter following Effort.jl exactly.
 
-    Formula: 15/π^4 * Γν^4 * Ωγ0/a^4 * ΣF(yi)
-    where Γν = (4/11)^(1/3) * (Neff/3)^(1/4)
+    .. math::
+        \Omega_\nu(a) \cdot E^2(a) = \frac{15}{\pi^4} \Gamma_\nu^4 \frac{\Omega_{\gamma,0}}{a^4} \sum_i F(y_i)
+
+    where:
+    - :math:`\Gamma_\nu = (4/11)^{1/3} \cdot (N_{eff}/3)^{1/4}`
+    - :math:`y_i = m_{\nu,i} a / (k_B T_\nu)` is the dimensionless neutrino parameter
+    - :math:`F(y)` is the Fermi-Dirac integral ratio
     """
     # Physics constants (exact match with Effort.jl)
     kB = 8.617342e-5  # Boltzmann constant in eV/K
@@ -377,15 +392,27 @@ def E_a(a: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-    """
+    r"""
     Dimensionless Hubble parameter E(a) = H(a)/H0.
-    
+
+    The normalized Hubble parameter is given by:
+
+    .. math::
+        E(a) = \sqrt{\Omega_{\gamma,0} a^{-4} + \Omega_{cb,0} a^{-3} + \Omega_{\Lambda,0} \rho_{\text{DE}}(a) + \Omega_{\nu}(a)}
+
+    where:
+    - :math:`\Omega_{\gamma,0}` is the photon density parameter today
+    - :math:`\Omega_{cb,0}` is the cold dark matter + baryon density parameter today
+    - :math:`\Omega_{\Lambda,0}` is the dark energy density parameter today (from flatness constraint)
+    - :math:`\rho_{\text{DE}}(a)` is the normalized dark energy density
+    - :math:`\Omega_{\nu}(a)` is the massive neutrino contribution
+
     Handles NaN/Inf inputs by propagating them appropriately.
     Returns NaN for invalid parameter combinations.
     """
     # Convert inputs to arrays for consistent handling
     a_array = jnp.asarray(a)
-    
+
     # Check for NaN inputs
     # For arrays, handle element-wise
     if a_array.ndim > 0:
@@ -394,7 +421,7 @@ def E_a(a: Union[float, jnp.ndarray],
         # For scalars, check all inputs
         has_nan = _check_nan_inputs(a, Ωcb0, h, mν, w0, wa)
         nan_mask = None
-    
+
     # Physics constants
     Ωγ0 = 2.469e-5 / (h**2)  # Photon density parameter
     N_eff = 3.044  # Effective number of neutrino species
@@ -425,7 +452,7 @@ def E_a(a: Union[float, jnp.ndarray],
 
     # Return Hubble parameter E(a) = √[E²(a)]
     result = jnp.sqrt(E_squared)
-    
+
     # Propagate NaN appropriately
     if a_array.ndim > 0 and nan_mask is not None:
         # For arrays, apply element-wise NaN mask
@@ -452,9 +479,11 @@ def E_z(z: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-    """
+    r"""
     Dimensionless Hubble parameter E(z) = H(z)/H0.
-    
+
+    This is equivalent to E(a) with the transformation a = 1/(1+z).
+
     Handles NaN/Inf inputs by propagating them appropriately.
     """
     # Convert redshift to scale factor
@@ -480,6 +509,14 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
                 mν: Union[float, jnp.ndarray] = 0.0,
                 w0: Union[float, jnp.ndarray] = -1.0,
                 wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    r"""
+    Logarithmic derivative of the Hubble parameter.
+
+    .. math::
+        \frac{d \ln E}{d \ln a} = \frac{a}{E} \frac{dE}{da}
+
+    This quantity appears in the growth factor differential equation.
+    """
 
     # Physics constants
     Ωγ0 = 2.469e-5 / (h**2)  # Photon density parameter
@@ -523,7 +560,14 @@ def Ωma(a: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    r"""
+    Matter density parameter Ωm(a) at scale factor a.
 
+    .. math::
+        \Omega_m(a) = \frac{\Omega_{cb,0} a^{-3}}{E(a)^2}
+
+    where E(a) is the normalized Hubble parameter.
+    """
     # Get E(a)
     E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
 
@@ -571,9 +615,16 @@ def r̃_z(z: Union[float, jnp.ndarray],
           mν: Union[float, jnp.ndarray] = 0.0,
           w0: Union[float, jnp.ndarray] = -1.0,
           wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-    """
+    r"""
     Dimensionless comoving distance r̃(z).
-    
+
+    The conformal distance is given by:
+
+    .. math::
+        \tilde{r}(z) = \int_0^z \frac{dz'}{E(z')}
+
+    where E(z) is the normalized Hubble parameter.
+
     Propagates NaN values and handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
@@ -589,7 +640,7 @@ def r̃_z(z: Union[float, jnp.ndarray],
     else:
         # Array input - use lower precision for speed
         result = jax.vmap(lambda z_val: r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, n_points=50))(z_array)
-    
+
     # Propagate NaN if needed
     return jnp.where(has_nan, jnp.full_like(result, jnp.nan), result)
 
@@ -675,9 +726,16 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
     return du
 
 def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False):
-    """
+    r"""
     Solve the growth factor ODE.
-    
+
+    The linear growth factor D(a) satisfies the differential equation:
+
+    .. math::
+        \frac{d^2 D}{d(\ln a)^2} + \left(2 + \frac{d \ln E}{d \ln a}\right) \frac{d D}{d \ln a} - \frac{3}{2} \Omega_m(a) D = 0
+
+    with initial conditions D(a_i) = a_i and dD/d(ln a)|_{a_i} = 1 for matter domination.
+
     Returns NaN for invalid inputs instead of crashing.
     """
 
@@ -839,14 +897,16 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False)
 
 @jax.jit
 def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
-    """
+    r"""
     Linear growth factor D(z).
-    
+
+    It satisfies the differential equation given in growth_solver.
+
     Returns NaN for NaN inputs, handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
     has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
-    
+
     # If any input is NaN, return NaN immediately
     # Use lax.cond to handle this in a JIT-compatible way
     def compute_growth():
@@ -863,14 +923,14 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
             z_array = jnp.asarray(z)
             a_array = a_z(z_array)
             return growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa)
-    
+
     def return_nan():
         # Return NaN with appropriate shape
         if jnp.isscalar(z) or jnp.asarray(z).ndim == 0:
             return jnp.nan
         else:
             return jnp.full_like(jnp.asarray(z), jnp.nan)
-    
+
     # Use conditional to avoid running solver with NaN
     return jax.lax.cond(has_nan, return_nan, compute_growth)
 
@@ -882,9 +942,14 @@ def D_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
 
 @jax.jit
 def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
-    """
+    r"""
     Growth rate f(z) = d log D / d log a.
-    
+
+    .. math::
+        f(z) = \frac{d \ln D}{d \ln a} = \frac{dD/d(\ln a)}{D}
+
+    where D is the linear growth factor.
+
     Returns NaN for NaN inputs, handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
@@ -1023,10 +1088,10 @@ def dL_z(z: Union[float, jnp.ndarray],
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     """
     Luminosity distance at redshift z.
-    
+
     The luminosity distance is related to the comoving distance by:
     dL(z) = r(z) * (1 + z)
-    
+
     Args:
         z: Redshift
         Ωcb0: Present-day matter density parameter (CDM + baryons)
@@ -1034,13 +1099,13 @@ def dL_z(z: Union[float, jnp.ndarray],
         mν: Sum of neutrino masses in eV
         w0: Dark energy equation of state parameter
         wa: Dark energy equation of state evolution parameter
-        
+
     Returns:
         Luminosity distance in Mpc
     """
     # Get comoving distance
     r = r_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa)
-    
+
     # Apply (1+z) factor for luminosity distance
     return r * (1.0 + z)
 
@@ -1049,17 +1114,17 @@ def dL_z_from_cosmo(z: Union[float, jnp.ndarray],
                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
     """
     Luminosity distance using cosmology structure.
-    
+
     Args:
         z: Redshift
         cosmo: W0WaCDMCosmology structure
-        
+
     Returns:
         Luminosity distance in Mpc
     """
     # Extract parameters from cosmology struct
     Ωcb0 = cosmo.omega_c + cosmo.omega_b
-    
+
     # Call main function
     return dL_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
