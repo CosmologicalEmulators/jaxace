@@ -32,14 +32,13 @@ from .background import (
     W0WaCDMCosmology,
     a_z, E_a, E_z, dlogEdloga, Ωma,
     D_z, f_z, D_f_z,
-    D_z_from_cosmo, f_z_from_cosmo, D_f_z_from_cosmo,
-    r_z, r_z_from_cosmo,
-    dA_z, dA_z_from_cosmo,
-    dL_z, dL_z_from_cosmo,
+    r_z,
+    dA_z,
+    dL_z,
     ρc_z, Ωtot_z
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # Core types and functions
@@ -64,9 +63,8 @@ __all__ = [
     "W0WaCDMCosmology",
     "a_z", "E_a", "E_z", "dlogEdloga", "Ωma",
     "D_z", "f_z", "D_f_z",
-    "D_z_from_cosmo", "f_z_from_cosmo", "D_f_z_from_cosmo",
-    "r_z", "r_z_from_cosmo",
-    "dA_z", "dA_z_from_cosmo", 
-    "dL_z", "dL_z_from_cosmo",
+    "r_z",
+    "dA_z",
+    "dL_z",
     "ρc_z", "Ωtot_z"
 ]

@@ -31,13 +31,13 @@ def main():
 
     # Compute cosmological quantities
     print("Computing cosmological distances...")
-    r_comoving = jaxace.r_z_from_cosmo(z, cosmo)
-    dA = jaxace.dA_z_from_cosmo(z, cosmo)
-    dL = jaxace.dL_z_from_cosmo(z, cosmo)
+    r_comoving = cosmo.r_z(z)
+    dA = cosmo.dA_z(z)
+    dL = cosmo.dL_z(z)
 
     print("Computing growth functions...")
-    D = jaxace.D_z_from_cosmo(z, cosmo)
-    f = jaxace.f_z_from_cosmo(z, cosmo)
+    D = cosmo.D_z(z)
+    f = cosmo.f_z(z)
 
     print("Computing Hubble parameter...")
     E_z = jaxace.E_z(z, cosmo.omega_b + cosmo.omega_c, cosmo.h,

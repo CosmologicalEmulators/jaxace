@@ -8,7 +8,6 @@ import jax
 import jax.numpy as jnp
 from typing import Union, Optional
 from dataclasses import dataclass
-import warnings
 import quadax
 import interpax
 import diffrax
@@ -28,11 +27,7 @@ __all__ = [
     'W0WaCDMCosmology',
     'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωma',
     'D_z', 'f_z', 'D_f_z',
-    'D_z_from_cosmo', 'f_z_from_cosmo', 'D_f_z_from_cosmo',
-    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z',
-    # Deprecated _from_cosmo functions (backward compatibility)
-    'Ea_from_cosmo', 'Ez_from_cosmo', 'Ωma_from_cosmo', 'r̃_z_from_cosmo',
-    'r_z_from_cosmo', 'dA_z_from_cosmo', 'ρc_z_from_cosmo', 'dL_z_from_cosmo', 'Ωtot_z_from_cosmo'
+    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z'
 ]
 
 
@@ -532,12 +527,6 @@ def E_a(a: Union[float, jnp.ndarray],
     else:
         return result
 
-def Ea_from_cosmo(a: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.Ea(a) instead."""
-    warnings.warn("Ea_from_cosmo is deprecated. Use cosmo.Ea(a) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.Ea(a)
 
 @jax.jit
 def E_z(z: Union[float, jnp.ndarray],
@@ -560,12 +549,6 @@ def E_z(z: Union[float, jnp.ndarray],
     # Return E(a) using existing function (which already has validation)
     return E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
 
-def Ez_from_cosmo(z: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.Ez(z) instead."""
-    warnings.warn("Ez_from_cosmo is deprecated. Use cosmo.Ez(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.Ez(z)
 
 @jax.jit
 def dlogEdloga(a: Union[float, jnp.ndarray],
@@ -643,12 +626,6 @@ def Ωma(a: Union[float, jnp.ndarray],
     # Formula: Ωm(a) = Ωcb0 × a^(-3) / E(a)²
     return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
 
-def Ωma_from_cosmo(a: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.Ωma(a) instead."""
-    warnings.warn("Ωma_from_cosmo is deprecated. Use cosmo.Ωma(a) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.Ωma(a)
 
 def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, n_points=500):
 
@@ -710,12 +687,6 @@ def r̃_z(z: Union[float, jnp.ndarray],
     # Propagate NaN if needed
     return jnp.where(has_nan, jnp.full_like(result, jnp.nan), result)
 
-def r̃_z_from_cosmo(z: Union[float, jnp.ndarray],
-                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.r̃_z(z) instead."""
-    warnings.warn("r̃_z_from_cosmo is deprecated. Use cosmo.r̃_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.r̃_z(z)
 
 @jax.jit
 def r_z(z: Union[float, jnp.ndarray],
@@ -734,12 +705,6 @@ def r_z(z: Union[float, jnp.ndarray],
     # Scale to physical units
     return c_over_H0 * r_tilde / h
 
-def r_z_from_cosmo(z: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.r_z(z) instead."""
-    warnings.warn("r_z_from_cosmo is deprecated. Use cosmo.r_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.r_z(z)
 
 @jax.jit
 def dA_z(z: Union[float, jnp.ndarray],
@@ -755,12 +720,6 @@ def dA_z(z: Union[float, jnp.ndarray],
     # Apply (1+z) factor
     return r / (1.0 + z)
 
-def dA_z_from_cosmo(z: Union[float, jnp.ndarray],
-                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.dA_z(z) instead."""
-    warnings.warn("dA_z_from_cosmo is deprecated. Use cosmo.dA_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.dA_z(z)
 
 @jax.jit
 def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -994,11 +953,6 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
     # Use conditional to avoid running solver with NaN
     return jax.lax.cond(has_nan, return_nan, compute_growth)
 
-def D_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-    """Deprecated: Use cosmo.D_z(z) instead."""
-    warnings.warn("D_z_from_cosmo is deprecated. Use cosmo.D_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.D_z(z)
 
 @jax.jit
 def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -1057,11 +1011,6 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         # Propagate NaN if needed
         return jnp.where(has_nan, jnp.full_like(f_array, jnp.nan), f_array)
 
-def f_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-    """Deprecated: Use cosmo.f_z(z) instead."""
-    warnings.warn("f_z_from_cosmo is deprecated. Use cosmo.f_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.f_z(z)
 
 @jax.jit
 def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
@@ -1104,11 +1053,6 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
         return (D_array, f_array)
 
-def D_f_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
-    """Deprecated: Use cosmo.D_f_z(z) instead."""
-    warnings.warn("D_f_z_from_cosmo is deprecated. Use cosmo.D_f_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.D_f_z(z)
 
 @jax.jit
 def ρc_z(z: Union[float, jnp.ndarray],
@@ -1123,12 +1067,6 @@ def ρc_z(z: Union[float, jnp.ndarray],
     E_z_val = E_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa)
     return rho_c0_h2 * h**2 * E_z_val**2
 
-def ρc_z_from_cosmo(z: Union[float, jnp.ndarray],
-                     cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.ρc_z(z) instead."""
-    warnings.warn("ρc_z_from_cosmo is deprecated. Use cosmo.ρc_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.ρc_z(z)
 
 @jax.jit
 def Ωtot_z(z: Union[float, jnp.ndarray],
@@ -1172,16 +1110,4 @@ def dL_z(z: Union[float, jnp.ndarray],
     # Apply (1+z) factor for luminosity distance
     return r * (1.0 + z)
 
-def dL_z_from_cosmo(z: Union[float, jnp.ndarray],
-                    cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.dL_z(z) instead."""
-    warnings.warn("dL_z_from_cosmo is deprecated. Use cosmo.dL_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.dL_z(z)
 
-def Ωtot_z_from_cosmo(z: Union[float, jnp.ndarray],
-                       cosmo: W0WaCDMCosmology) -> Union[float, jnp.ndarray]:
-    """Deprecated: Use cosmo.Ωtot_z(z) instead."""
-    warnings.warn("Ωtot_z_from_cosmo is deprecated. Use cosmo.Ωtot_z(z) instead.",
-                  DeprecationWarning, stacklevel=2)
-    return cosmo.Ωtot_z(z)
