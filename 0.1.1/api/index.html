@@ -1013,7 +1013,29 @@
 
         <p>Dimensionless Hubble parameter E(z) = H(z)/H0.</p>
 <p>This is equivalent to E(a) with the transformation a = 1/(1+z).</p>
-<p>Handles NaN/Inf inputs by propagating them appropriately.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>, <a class="autorefs autorefs-external" title="jax.numpy.ndarray" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.html#jax.numpy.ndarray">ndarray</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hubble parameter E(z). Handles NaN/Inf inputs by propagating them appropriately.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -1035,16 +1057,48 @@
 
         <p>Dimensionless Hubble parameter E(a) = H(a)/H0.</p>
 <p>The normalized Hubble parameter is given by:</p>
-<p>.. math::
-    E(a) = \sqrt{\Omega_{\gamma,0} a^{-4} + \Omega_{cb,0} a^{-3} + \Omega_{\Lambda,0} \rho_{\text{DE}}(a) + \Omega_{\nu}(a)}</p>
-<p>where:
-- :math:<code>\Omega_{\gamma,0}</code> is the photon density parameter today
-- :math:<code>\Omega_{cb,0}</code> is the cold dark matter + baryon density parameter today
-- :math:<code>\Omega_{\Lambda,0}</code> is the dark energy density parameter today (from flatness constraint)
-- :math:<code>\rho_{\text{DE}}(a)</code> is the normalized dark energy density
-- :math:<code>\Omega_{\nu}(a)</code> is the massive neutrino contribution</p>
-<p>Handles NaN/Inf inputs by propagating them appropriately.
-Returns NaN for invalid parameter combinations.</p>
+<div class="arithmatex">\[E(a) = \sqrt{\Omega_{\gamma,0} a^{-4} + \Omega_{cb,0} a^{-3} + \Omega_{\Lambda,0} \rho_{DE}(a) + \Omega_{\nu}(a)}\]</div>
+<p>where:</p>
+<ul>
+<li><span class="arithmatex">\(\Omega_{\gamma,0}\)</span> is the photon density parameter today</li>
+<li><span class="arithmatex">\(\Omega_{cb,0}\)</span> is the cold dark matter + baryon density parameter today</li>
+<li><span class="arithmatex">\(\Omega_{\Lambda,0}\)</span> is the dark energy density parameter today (from flatness constraint)</li>
+<li><span class="arithmatex">\(\rho_{DE}(a)\)</span> is the normalized dark energy density</li>
+<li><span class="arithmatex">\(\Omega_{\nu}(a)\)</span> is the massive neutrino contribution</li>
+</ul>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>, <a class="autorefs autorefs-external" title="jax.numpy.ndarray" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.html#jax.numpy.ndarray">ndarray</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hubble parameter E(a). Handles NaN/Inf inputs by propagating them appropriately.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>, <a class="autorefs autorefs-external" title="jax.numpy.ndarray" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.html#jax.numpy.ndarray">ndarray</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Returns NaN for invalid parameter combinations.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -1065,9 +1119,31 @@ Returns NaN for invalid parameter combinations.</p>
     <div class="doc doc-contents first">
 
         <p>Logarithmic derivative of the Hubble parameter.</p>
-<p>.. math::
-    \frac{d \ln E}{d \ln a} = \frac{a}{E} \frac{dE}{da}</p>
+<div class="arithmatex">\[\frac{d \ln E}{d \ln a} = \frac{a}{E} \frac{dE}{da}\]</div>
 <p>This quantity appears in the growth factor differential equation.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>, <a class="autorefs autorefs-external" title="jax.numpy.ndarray" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.html#jax.numpy.ndarray">ndarray</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logarithmic derivative d(ln E)/d(ln a).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -1089,9 +1165,31 @@ Returns NaN for invalid parameter combinations.</p>
     <div class="doc doc-contents first">
 
         <p>Matter density parameter Ωm(a) at scale factor a.</p>
-<p>.. math::
-    \Omega_m(a) = \frac{\Omega_{cb,0} a<sup>{-3}}{E(a)</sup>2}</p>
+<div class="arithmatex">\[\Omega_m(a) = \frac{\Omega_{cb,0} a^{-3}}{E(a)^2}\]</div>
 <p>where E(a) is the normalized Hubble parameter.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>, <a class="autorefs autorefs-external" title="jax.numpy.ndarray" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.html#jax.numpy.ndarray">ndarray</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Matter density parameter Ωm(a).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -1113,8 +1211,30 @@ Returns NaN for invalid parameter combinations.</p>
     <div class="doc doc-contents first">
 
         <p>Linear growth factor D(z).</p>
-<p>It satisfies the differential equation given in growth_solver.</p>
-<p>Returns NaN for NaN inputs, handles invalid parameters gracefully.</p>
+<p>The growth factor is normalized such that D(z=0) = 1.
+It satisfies the differential equation given in growth_solver.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Linear growth factor D(z). Returns NaN for NaN inputs, handles invalid parameters gracefully.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -1135,10 +1255,31 @@ Returns NaN for invalid parameter combinations.</p>
     <div class="doc doc-contents first">
 
         <p>Growth rate f(z) = d log D / d log a.</p>
-<p>.. math::
-    f(z) = \frac{d \ln D}{d \ln a} = \frac{dD/d(\ln a)}{D}</p>
+<p>The growth rate is defined as:</p>
+<div class="arithmatex">\[f(z) = \frac{d \ln D}{d \ln a} = \frac{dD/d(\ln a)}{D}\]</div>
 <p>where D is the linear growth factor.</p>
-<p>Returns NaN for NaN inputs, handles invalid parameters gracefully.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Growth rate f(z). Returns NaN for NaN inputs, handles invalid parameters gracefully.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
