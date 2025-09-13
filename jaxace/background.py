@@ -130,20 +130,19 @@ def a_z(z):
 
 @jax.jit
 def rhoDE_a(a, w0, wa):
-    r"""
+    """
     Dark energy density as a function of scale factor.
 
     The dark energy density evolution is given by:
 
-    .. math::
-        \rho_{\text{DE}}(a) / \rho_{\text{DE}}(a=1) = a^{-3(1 + w_0 + w_a)} \exp(3w_a(a-1))
+    $$\\rho_{DE}(a) / \\rho_{DE}(a=1) = a^{-3(1 + w_0 + w_a)} \\exp(3w_a(a-1))$$
 
     where the equation of state is:
 
-    .. math::
-        w(a) = w_0 + w_a(1-a)
+    $$w(a) = w_0 + w_a(1-a)$$
 
-    Handles extreme w0/wa values by returning NaN for unphysical results.
+    Returns:
+        Dark energy density. Handles extreme w0/wa values by returning NaN for unphysical results.
     """
     # Check for infinite w0 or wa
     is_inf_w0 = jnp.isinf(w0)
@@ -321,16 +320,19 @@ def ΩνE2(a: Union[float, jnp.ndarray],
           Ωγ0: Union[float, jnp.ndarray],
           m_nu: Union[float, jnp.ndarray],
           N_eff: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    r"""
+    """
     Neutrino energy density parameter following Effort.jl exactly.
 
-    .. math::
-        \Omega_\nu(a) \cdot E^2(a) = \frac{15}{\pi^4} \Gamma_\nu^4 \frac{\Omega_{\gamma,0}}{a^4} \sum_i F(y_i)
+    $$\\Omega_\\nu(a) \\cdot E^2(a) = \\frac{15}{\\pi^4} \\Gamma_\\nu^4 \\frac{\\Omega_{\\gamma,0}}{a^4} \\sum_i F(y_i)$$
 
     where:
-    - :math:`\Gamma_\nu = (4/11)^{1/3} \cdot (N_{eff}/3)^{1/4}`
-    - :math:`y_i = m_{\nu,i} a / (k_B T_\nu)` is the dimensionless neutrino parameter
-    - :math:`F(y)` is the Fermi-Dirac integral ratio
+
+    - $\\Gamma_\\nu = (4/11)^{1/3} \\cdot (N_{eff}/3)^{1/4}$
+    - $y_i = m_{\\nu,i} a / (k_B T_\\nu)$ is the dimensionless neutrino parameter
+    - $F(y)$ is the Fermi-Dirac integral ratio
+
+    Returns:
+        Neutrino energy density parameter times E²(a).
     """
     # Physics constants (exact match with Effort.jl)
     kB = 8.617342e-5  # Boltzmann constant in eV/K
@@ -392,23 +394,24 @@ def E_a(a: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-    r"""
+    """
     Dimensionless Hubble parameter E(a) = H(a)/H0.
 
     The normalized Hubble parameter is given by:
 
-    .. math::
-        E(a) = \sqrt{\Omega_{\gamma,0} a^{-4} + \Omega_{cb,0} a^{-3} + \Omega_{\Lambda,0} \rho_{\text{DE}}(a) + \Omega_{\nu}(a)}
+    $$E(a) = \\sqrt{\\Omega_{\\gamma,0} a^{-4} + \\Omega_{cb,0} a^{-3} + \\Omega_{\\Lambda,0} \\rho_{DE}(a) + \\Omega_{\\nu}(a)}$$
 
     where:
-    - :math:`\Omega_{\gamma,0}` is the photon density parameter today
-    - :math:`\Omega_{cb,0}` is the cold dark matter + baryon density parameter today
-    - :math:`\Omega_{\Lambda,0}` is the dark energy density parameter today (from flatness constraint)
-    - :math:`\rho_{\text{DE}}(a)` is the normalized dark energy density
-    - :math:`\Omega_{\nu}(a)` is the massive neutrino contribution
 
-    Handles NaN/Inf inputs by propagating them appropriately.
-    Returns NaN for invalid parameter combinations.
+    - $\\Omega_{\\gamma,0}$ is the photon density parameter today
+    - $\\Omega_{cb,0}$ is the cold dark matter + baryon density parameter today
+    - $\\Omega_{\\Lambda,0}$ is the dark energy density parameter today (from flatness constraint)
+    - $\\rho_{DE}(a)$ is the normalized dark energy density
+    - $\\Omega_{\\nu}(a)$ is the massive neutrino contribution
+
+    Returns:
+        Hubble parameter E(a). Handles NaN/Inf inputs by propagating them appropriately.
+        Returns NaN for invalid parameter combinations.
     """
     # Convert inputs to arrays for consistent handling
     a_array = jnp.asarray(a)
@@ -479,12 +482,13 @@ def E_z(z: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-    r"""
+    """
     Dimensionless Hubble parameter E(z) = H(z)/H0.
 
     This is equivalent to E(a) with the transformation a = 1/(1+z).
 
-    Handles NaN/Inf inputs by propagating them appropriately.
+    Returns:
+        Hubble parameter E(z). Handles NaN/Inf inputs by propagating them appropriately.
     """
     # Convert redshift to scale factor
     a = a_z(z)
@@ -509,13 +513,15 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
                 mν: Union[float, jnp.ndarray] = 0.0,
                 w0: Union[float, jnp.ndarray] = -1.0,
                 wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-    r"""
+    """
     Logarithmic derivative of the Hubble parameter.
 
-    .. math::
-        \frac{d \ln E}{d \ln a} = \frac{a}{E} \frac{dE}{da}
+    $$\\frac{d \\ln E}{d \\ln a} = \\frac{a}{E} \\frac{dE}{da}$$
 
     This quantity appears in the growth factor differential equation.
+
+    Returns:
+        Logarithmic derivative d(ln E)/d(ln a).
     """
 
     # Physics constants
@@ -560,13 +566,15 @@ def Ωma(a: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-    r"""
+    """
     Matter density parameter Ωm(a) at scale factor a.
 
-    .. math::
-        \Omega_m(a) = \frac{\Omega_{cb,0} a^{-3}}{E(a)^2}
+    $$\\Omega_m(a) = \\frac{\\Omega_{cb,0} a^{-3}}{E(a)^2}$$
 
     where E(a) is the normalized Hubble parameter.
+
+    Returns:
+        Matter density parameter Ωm(a).
     """
     # Get E(a)
     E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
@@ -615,17 +623,17 @@ def r̃_z(z: Union[float, jnp.ndarray],
           mν: Union[float, jnp.ndarray] = 0.0,
           w0: Union[float, jnp.ndarray] = -1.0,
           wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
-    r"""
+    """
     Dimensionless comoving distance r̃(z).
 
     The conformal distance is given by:
 
-    .. math::
-        \tilde{r}(z) = \int_0^z \frac{dz'}{E(z')}
+    $$\\tilde{r}(z) = \\int_0^z \\frac{dz'}{E(z')}$$
 
     where E(z) is the normalized Hubble parameter.
 
-    Propagates NaN values and handles invalid parameters gracefully.
+    Returns:
+        Conformal distance. Propagates NaN values and handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
     has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
@@ -726,17 +734,18 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
     return du
 
 def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False):
-    r"""
+    """
     Solve the growth factor ODE.
 
     The linear growth factor D(a) satisfies the differential equation:
 
-    .. math::
-        \frac{d^2 D}{d(\ln a)^2} + \left(2 + \frac{d \ln E}{d \ln a}\right) \frac{d D}{d \ln a} - \frac{3}{2} \Omega_m(a) D = 0
+    $$\\frac{d^2 D}{d(\\ln a)^2} + \\left(2 + \\frac{d \\ln E}{d \\ln a}\\right) \\frac{d D}{d \\ln a} - \\frac{3}{2} \\Omega_m(a) D = 0$$
 
     with initial conditions D(a_i) = a_i and dD/d(ln a)|_{a_i} = 1 for matter domination.
 
-    Returns NaN for invalid inputs instead of crashing.
+    Returns:
+        Growth factor D(a) or tuple (D, dD/dloga) if return_both=True.
+        Returns NaN for invalid inputs instead of crashing.
     """
 
     # Parameter validation for non-JIT context
@@ -897,12 +906,14 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False)
 
 @jax.jit
 def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
-    r"""
+    """
     Linear growth factor D(z).
 
+    The growth factor is normalized such that D(z=0) = 1.
     It satisfies the differential equation given in growth_solver.
 
-    Returns NaN for NaN inputs, handles invalid parameters gracefully.
+    Returns:
+        Linear growth factor D(z). Returns NaN for NaN inputs, handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
     has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
@@ -942,15 +953,17 @@ def D_z_from_cosmo(z, cosmo: W0WaCDMCosmology):
 
 @jax.jit
 def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
-    r"""
+    """
     Growth rate f(z) = d log D / d log a.
 
-    .. math::
-        f(z) = \frac{d \ln D}{d \ln a} = \frac{dD/d(\ln a)}{D}
+    The growth rate is defined as:
+
+    $$f(z) = \\frac{d \\ln D}{d \\ln a} = \\frac{dD/d(\\ln a)}{D}$$
 
     where D is the linear growth factor.
 
-    Returns NaN for NaN inputs, handles invalid parameters gracefully.
+    Returns:
+        Growth rate f(z). Returns NaN for NaN inputs, handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
     has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
