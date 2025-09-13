@@ -30,6 +30,8 @@ jobs:
                       mkdocstrings[python] \
                       mkdocs-material-extensions \
                       mike
+          # Install jaxace to get version (Poetry-based project)
+          pip install -e .
 
       # 3 — need existing gh-pages branch for mike
       - name: Fetch gh-pages history
@@ -53,9 +55,15 @@ jobs:
             mike deploy --push --update-aliases dev latest
           elif [[ "$BRANCH" == "main" ]]; then
             echo "Deploying stable docs from main"
+            # Get version from pip show (now that jaxace is installed)
             VERSION=$(python -m pip show jaxace 2>/dev/null | grep ^Version: | awk '{print $2}')
-            VERSION=${VERSION:-$(date +%Y.%m.%d)}
-            mike deploy --push --update-aliases "$VERSION" stable
+            if [[ -n "$VERSION" ]]; then
+              # Deploy with actual version number
+              mike deploy --push --update-aliases "$VERSION" stable
+            else
+              # Deploy as stable only (no version number)
+              mike deploy --push --update-aliases stable
+            fi
             mike set-default --push stable
           else
             echo "Branch $BRANCH is not configured for doc deploy" ; exit 0
