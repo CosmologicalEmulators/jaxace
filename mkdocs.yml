@@ -1,5 +1,5 @@
-site_name: JAXace
-site_description: JAX/Flax cosmological emulators with automatic JIT compilation
+site_name: jaxace
+site_description: JAX cosmological emulators with automatic JIT compilation
 site_author: CosmologicalEmulators
 site_url: https://cosmologicalemulators.github.io/jaxace/
 
@@ -130,9 +130,9 @@ extra:
 
 nav:
   - Home:
-    - Overview: index.md
+      - Overview: index.md
   - API Reference:
-    - Core: api.md
+      - Core: api.md
   - Contributing: contributing.md
 
 copyright: Copyright &copy; 2024 CosmologicalEmulators
