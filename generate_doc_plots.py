@@ -101,7 +101,7 @@ def generate_omega_m_plot():
 
     z = jnp.linspace(0.01, 3.0, 100)
     a = 1.0 / (1.0 + z)
-    Omega_m = jaxace.Ωma(a, cosmo.omega_b + cosmo.omega_c, cosmo.h,
+    Omega_m = jaxace.Ωm_a(a, cosmo.omega_b + cosmo.omega_c, cosmo.h,
                           mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
     plt.figure(figsize=(8, 6))

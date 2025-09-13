@@ -30,12 +30,12 @@ from .utils import (
 # Import background cosmology functions
 from .background import (
     W0WaCDMCosmology,
-    a_z, E_a, E_z, dlogEdloga, Ωma,
+    a_z, E_a, E_z, dlogEdloga, Ωm_a,
     D_z, f_z, D_f_z,
     r_z,
     dA_z,
     dL_z,
-    ρc_z, Ωtot_z
+    ρc_z, Ω_tot_z
 )
 
 __version__ = "0.2.0"
@@ -61,10 +61,10 @@ __all__ = [
     
     # Background cosmology
     "W0WaCDMCosmology",
-    "a_z", "E_a", "E_z", "dlogEdloga", "Ωma",
+    "a_z", "E_a", "E_z", "dlogEdloga", "Ωm_a",
     "D_z", "f_z", "D_f_z",
     "r_z",
     "dA_z",
     "dL_z",
-    "ρc_z", "Ωtot_z"
+    "ρc_z", "Ω_tot_z"
 ]

@@ -129,7 +129,7 @@ def test_background_implementation():
         "gety", "F", "dFdy",
         
         # Hubble parameter
-        "E_a", "E_z", "dlogEdloga", "Ωma",
+        "E_a", "E_z", "dlogEdloga", "Ωm_a",
         
         # Distance measures
         "r_z", "dA_z", "dL_z",
@@ -139,7 +139,7 @@ def test_background_implementation():
         "growth_ode_system", "growth_solver",
         
         # Additional functions
-        "ρc_z", "Ωtot_z"
+        "ρc_z", "Ω_tot_z"
     ]
     
     print("\nTesting background.py:")

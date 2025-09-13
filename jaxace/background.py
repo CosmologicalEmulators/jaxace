@@ -25,9 +25,9 @@ if os.environ.get('JAXACE_ENABLE_X64', 'true').lower() == 'true':
 
 __all__ = [
     'W0WaCDMCosmology',
-    'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωma',
+    'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωm_a',
     'D_z', 'f_z', 'D_f_z',
-    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z'
+    'r_z', 'dA_z', 'ρc_z', 'Ω_tot_z', 'dL_z'
 ]
 
 
@@ -124,20 +124,20 @@ class W0WaCDMCosmology:
     w0: float = -1.0
     wa: float = 0.0
 
-    def Ea(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def E_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless Hubble parameter E(a) = H(a)/H0."""
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
         return E_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
-    def Ez(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def E_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless Hubble parameter E(z) = H(z)/H0."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         return E_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
-    def Ωma(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def Ωm_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Matter density parameter Ωₘ(a) at scale factor a."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return Ωma(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        return Ωm_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
     def r̃_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless comoving distance r̃(z)."""
@@ -179,10 +179,10 @@ class W0WaCDMCosmology:
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         return dL_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
-    def Ωtot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def Ω_tot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Total density parameter at redshift z (always 1.0 for flat universe)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        return Ω_tot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
 @jax.jit
 def a_z(z):
@@ -604,7 +604,7 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
     return (a / E_a_val) * dE_da
 
 @jax.jit
-def Ωma(a: Union[float, jnp.ndarray],
+def Ωm_a(a: Union[float, jnp.ndarray],
          Ωcb0: Union[float, jnp.ndarray],
          h: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
@@ -729,11 +729,11 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
     # Get cosmological functions at this scale factor
     dlogE_dloga = dlogEdloga(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
-    Omega_m_a = Ωma(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    Omega_m_a = Ωm_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
 
     # ODE system following Effort.jl exactly:
     # du[1] = dD/d(log a)
-    # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Ωma * D
+    # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Ωm_a * D
     du = jnp.array([
         dD_dloga,
         -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_m_a * D
@@ -1069,7 +1069,7 @@ def ρc_z(z: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def Ωtot_z(z: Union[float, jnp.ndarray],
+def Ω_tot_z(z: Union[float, jnp.ndarray],
             Ωcb0: Union[float, jnp.ndarray],
             h: Union[float, jnp.ndarray],
             mν: Union[float, jnp.ndarray] = 0.0,

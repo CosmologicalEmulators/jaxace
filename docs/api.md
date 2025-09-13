@@ -16,7 +16,7 @@
 
 ### Matter Density
 
-::: jaxace.Ωma
+::: jaxace.Ωm_a
 
 ### Growth Functions
 
@@ -33,7 +33,7 @@
 ### Density Functions
 
 ::: jaxace.ρc_z
-::: jaxace.Ωtot_z
+::: jaxace.Ω_tot_z
 
 ### Utility Functions
 

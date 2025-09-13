@@ -12,7 +12,7 @@ import jax.numpy as jnp
 from jaxace.background import (
     W0WaCDMCosmology,
     E_z, E_a, r_z, D_z, f_z, dA_z, dL_z,
-    Ωma, dlogEdloga, ρc_z,
+    Ωm_a, dlogEdloga, ρc_z,
     rhoDE_a, rhoDE_z
 )
 from jaxace.core import FlaxEmulator
@@ -34,7 +34,7 @@ class TestNaNInfPropagation:
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
         )
-        result = cosmo_nan_h.Ez(1.0)
+        result = cosmo_nan_h.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in h"
 
         # Test with NaN in omega_c
@@ -43,7 +43,7 @@ class TestNaNInfPropagation:
             omega_b=0.02, omega_c=jnp.nan,
             m_nu=0.0, w0=-1.0, wa=0.0
         )
-        result = cosmo_nan_omega.Ez(1.0)
+        result = cosmo_nan_omega.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in omega_c"
 
         # Test with NaN in optional parameters
@@ -52,7 +52,7 @@ class TestNaNInfPropagation:
             omega_b=0.02, omega_c=0.118,
             m_nu=jnp.nan, w0=-1.0, wa=0.0
         )
-        result = cosmo_nan_mnu.Ez(1.0)
+        result = cosmo_nan_mnu.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in neutrino mass"
 
         cosmo_nan_w0 = W0WaCDMCosmology(
@@ -60,7 +60,7 @@ class TestNaNInfPropagation:
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=jnp.nan, wa=0.0
         )
-        result = cosmo_nan_w0.Ez(1.0)
+        result = cosmo_nan_w0.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in w0"
 
         # Test with NaN in redshift
@@ -69,7 +69,7 @@ class TestNaNInfPropagation:
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
         )
-        result = cosmo_normal.Ez(jnp.nan)
+        result = cosmo_normal.E_z(jnp.nan)
         assert jnp.isnan(result), "E_z should propagate NaN in redshift"
     
     def test_E_z_with_inf_inputs(self):
@@ -81,7 +81,7 @@ class TestNaNInfPropagation:
         )
 
         # Test with Inf in redshift
-        result = cosmo.Ez(jnp.inf)
+        result = cosmo.E_z(jnp.inf)
         assert jnp.isinf(result), "E_z should handle Inf in redshift"
 
         # Note: E_z(-inf) returns NaN which is reasonable since a_z(-inf) is undefined
@@ -93,7 +93,7 @@ class TestNaNInfPropagation:
             omega_b=0.02, omega_c=jnp.inf,
             m_nu=0.0, w0=-1.0, wa=0.0
         )
-        result = cosmo_inf_omega.Ez(1.0)
+        result = cosmo_inf_omega.E_z(1.0)
         assert jnp.isnan(result), "E_z returns NaN for Inf in omega_c"
     
     def test_distance_functions_with_nan(self):
@@ -154,7 +154,7 @@ class TestNaNInfPropagation:
         z_array = jnp.array([0.0, 0.5, jnp.nan, 1.5, 2.0])
 
         # Test E_z with array containing NaN
-        result = cosmo.Ez(z_array)
+        result = cosmo.E_z(z_array)
         assert jnp.isnan(result[2]), "E_z should propagate NaN in arrays"
         assert jnp.isfinite(result[0]), "E_z should compute finite values for valid inputs"
         assert jnp.isfinite(result[1]), "E_z should compute finite values for valid inputs"
@@ -212,7 +212,7 @@ class TestEmptyArrays:
         )
         z_empty = jnp.array([])
 
-        result = cosmo.Ez(z_empty)
+        result = cosmo.E_z(z_empty)
         assert result.shape == (0,), "E_z should return empty array for empty input"
         assert len(result) == 0, "E_z result should be empty"
     
@@ -302,7 +302,7 @@ class TestEmptyArrays:
         # Define vmapped function
         @jax.vmap
         def batch_E_z(z):
-            return cosmo.Ez(z)
+            return cosmo.E_z(z)
 
         # Test with empty batch
         if z_batch.shape[0] > 0:  # Only run if not empty to avoid vmap issues
@@ -325,7 +325,7 @@ class TestEmptyArrays:
         assert len(z_combined) == 4, "Concatenation with empty should preserve other elements"
 
         # Test function with concatenated array
-        result = cosmo.Ez(z_combined)
+        result = cosmo.E_z(z_combined)
         assert len(result) == 4, "Function should handle concatenated arrays with empty parts"
 
 
@@ -358,7 +358,7 @@ class TestMixedPrecision:
         z_64 = jnp.array(1.0, dtype=jnp.float64)
 
         # JAX should promote to highest precision
-        result = cosmo.Ez(z_64)
+        result = cosmo.E_z(z_64)
         assert result.dtype == jnp.float64, "Result should be promoted to float64"
     
     # Removed: test_distance_precision_loss
@@ -384,11 +384,11 @@ class TestMixedPrecision:
         z_array_32 = jnp.array([0.0, 0.5, 1.0, 2.0], dtype=jnp.float32)
 
         # Test with float64 array
-        result_64 = cosmo_64.Ez(z_array_64)
+        result_64 = cosmo_64.E_z(z_array_64)
         assert result_64.dtype == jnp.float64, "Array result should maintain float64"
 
         # Test with float32 array (will be promoted to float64 due to config)
-        result_32_promoted = cosmo_64.Ez(z_array_32)
+        result_32_promoted = cosmo_64.E_z(z_array_32)
         assert result_32_promoted.dtype == jnp.float64, "Array result should be promoted"
     
     def test_normalization_precision(self):
@@ -469,7 +469,7 @@ class TestBoundaryConditions:
         z = 0.0
 
         # E(z=0) should be exactly 1
-        assert jnp.isclose(cosmo.Ez(z), 1.0), "E(z=0) should be 1"
+        assert jnp.isclose(cosmo.E_z(z), 1.0), "E(z=0) should be 1"
 
         # Distances at z=0 should be exactly 0
         assert jnp.isclose(cosmo.r_z(z), 0.0), "r(z=0) should be 0"
@@ -486,7 +486,7 @@ class TestBoundaryConditions:
         z = -0.5  # Future time
 
         # Functions should still compute (a > 1)
-        E_val = cosmo.Ez(z)
+        E_val = cosmo.E_z(z)
         assert jnp.isfinite(E_val), "E(z<0) should be finite"
         assert E_val < 1.0, "E(z<0) should be less than 1 for ΛCDM"
 
@@ -502,7 +502,7 @@ class TestBoundaryConditions:
             omega_b=0.001, omega_c=0.001,
             m_nu=0.0, w0=-1.0, wa=0.0
         )
-        result = cosmo_small_omega.Ez(1.0)
+        result = cosmo_small_omega.E_z(1.0)
         assert jnp.isfinite(result), "Should handle very small omega_c"
 
         # Very large omega_c (matter dominated)
@@ -511,7 +511,7 @@ class TestBoundaryConditions:
             omega_b=0.02, omega_c=0.25,
             m_nu=0.0, w0=-1.0, wa=0.0
         )
-        result = cosmo_large_omega.Ez(1.0)
+        result = cosmo_large_omega.E_z(1.0)
         assert jnp.isfinite(result), "Should handle very large omega_c"
 
         # Extreme w0 values
@@ -520,7 +520,7 @@ class TestBoundaryConditions:
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-2.0, wa=0.0
         )
-        result = cosmo_extreme_w0.Ez(1.0)
+        result = cosmo_extreme_w0.E_z(1.0)
         assert jnp.isfinite(result), "Should handle w0 < -1"
 
         cosmo_w0_zero = W0WaCDMCosmology(
@@ -528,7 +528,7 @@ class TestBoundaryConditions:
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=0.0, wa=0.0
         )
-        result = cosmo_w0_zero.Ez(1.0)
+        result = cosmo_w0_zero.E_z(1.0)
         assert jnp.isfinite(result), "Should handle w0 = 0"
 
 

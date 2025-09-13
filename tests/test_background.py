@@ -11,7 +11,7 @@ import jax
 import jax.numpy as jnp
 from jaxace.background import (
     W0WaCDMCosmology,
-    a_z, E_a, E_z, dlogEdloga, Ωma,
+    a_z, E_a, E_z, dlogEdloga, Ωm_a,
     D_z, f_z, D_f_z,
     r_z, dA_z, dL_z,
     gety, F, dFdy,
@@ -134,7 +134,7 @@ class TestCLASSComparison1:
         assert np.isclose(f0, 0.5336534234376753, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter H(z=0) = H0
-        H0 = cosmo.Ez(z) * 100 * cosmo.h
+        H0 = cosmo.E_z(z) * 100 * cosmo.h
         assert np.isclose(H0, 67.00000032897867, rtol=1e-6)
 
         # Distances at z=0 should be zero
@@ -156,7 +156,7 @@ class TestCLASSComparison1:
         assert np.isclose(f1, 0.951063970660909, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter
-        H1 = cosmo.Ez(z) * 100 * cosmo.h
+        H1 = cosmo.E_z(z) * 100 * cosmo.h
         assert np.isclose(H1, 110.69104662880478, rtol=1e-4)
 
         # Comoving distance
@@ -182,7 +182,7 @@ class TestCLASSComparison1:
         assert np.isclose(f2, 0.9763011446824891, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter
-        H2 = cosmo.Ez(z) * 100 * cosmo.h
+        H2 = cosmo.E_z(z) * 100 * cosmo.h
         assert np.isclose(H2, 198.43712939715508, rtol=2e-4)
 
         # Comoving distance
@@ -236,7 +236,7 @@ class TestCLASSComparison2:
         assert np.isclose(f0, 0.682532170290542, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter H(z=0) = H0
-        H0 = cosmo.Ez(z) * 100 * cosmo.h
+        H0 = cosmo.E_z(z) * 100 * cosmo.h
         assert np.isclose(H0, 60.00000540313085, rtol=1e-6)
 
         # Distances at z=0 should be zero
@@ -258,7 +258,7 @@ class TestCLASSComparison2:
         assert np.isclose(f1, 0.9428198389771597, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter
-        H1 = cosmo.Ez(z) * 100 * cosmo.h
+        H1 = cosmo.E_z(z) * 100 * cosmo.h
         assert np.isclose(H1, 126.63651334029939, rtol=1e-4)
 
         # Comoving distance
@@ -284,7 +284,7 @@ class TestCLASSComparison2:
         assert np.isclose(f2, 0.981855910972107, rtol=5e-2)  # 5% tolerance for growth rate
 
         # Hubble parameter
-        H2 = cosmo.Ez(z) * 100 * cosmo.h
+        H2 = cosmo.E_z(z) * 100 * cosmo.h
         assert np.isclose(H2, 224.06947149941828, rtol=2e-4)
 
         # Comoving distance
@@ -319,14 +319,14 @@ class TestAdditionalFunctions:
         h = 0.67
 
         # At a=1 (z=0), Ωm(a=1) = Ωm0
-        assert np.isclose(Ωma(1.0, Ωcb0, h), Ωcb0)
+        assert np.isclose(Ωm_a(1.0, Ωcb0, h), Ωcb0)
 
         # At earlier times, Ωm should be larger
-        assert Ωma(0.5, Ωcb0, h) > Ωcb0
+        assert Ωm_a(0.5, Ωcb0, h) > Ωcb0
 
         # In matter domination (small a), Ωm should approach 1
         # Note: Relaxed from > 0.99 to > 0.97 to account for numerical differences
-        assert Ωma(0.01, Ωcb0, h) > 0.97
+        assert Ωm_a(0.01, Ωcb0, h) > 0.97
 
     def test_combined_growth_functions(self):
         """Test D_f_z returning both D and f."""
@@ -357,7 +357,7 @@ class TestAdditionalFunctions:
         z_array = jnp.array([0.0, 0.5, 1.0, 2.0, 3.0])
 
         # Test E_z with array
-        E_array = cosmo.Ez(z_array)
+        E_array = cosmo.E_z(z_array)
         assert len(E_array) == len(z_array)
         assert jnp.all(jnp.isfinite(E_array))
         assert jnp.isclose(E_array[0], 1.0)  # E(z=0) = 1
@@ -401,8 +401,8 @@ class TestJAXFeatures:
 
         # Functions should be JIT-compiled
         # First call compiles, second call should be faster
-        E1 = cosmo.Ez(z)
-        E2 = cosmo.Ez(z)
+        E1 = cosmo.E_z(z)
+        E2 = cosmo.E_z(z)
         assert np.isclose(E1, E2)
 
         # Test with arrays
@@ -422,7 +422,7 @@ class TestJAXFeatures:
                 omega_b=0.02, omega_c=omega_c,
                 m_nu=0.0, w0=-1.0, wa=0.0
             )
-            return cosmo.Ez(z) ** 2
+            return cosmo.E_z(z) ** 2
 
         # Compute gradient with respect to omega_c
         grad_H2 = jax.grad(H_squared)(0.118)
@@ -487,7 +487,7 @@ class TestComputedValues:
         ]
 
         for z, expected in test_cases:
-            computed = cosmo.Ez(z)
+            computed = cosmo.E_z(z)
             assert np.isclose(computed, expected, rtol=1e-8), \
                 f"E({z}) = {computed:.10f}, expected {expected:.10f}"
 
@@ -617,7 +617,7 @@ class TestComputedValuesNewParams:
         ]
 
         for z, expected in test_cases:
-            computed = cosmo.Ez(z)
+            computed = cosmo.E_z(z)
             assert np.isclose(computed, expected, rtol=1e-8), \
                 f"E({z}) = {computed:.15e}, expected {expected:.15e}"
 
@@ -905,7 +905,7 @@ class TestJacobianComputation:
                 w0=base_cosmo_params['w0'],
                 wa=base_cosmo_params['wa']
             )
-            return cosmo.Ez(z_test) ** 2
+            return cosmo.E_z(z_test) ** 2
 
         hessian_ez = jax.hessian(Ez_squared_from_params)(params_subset)
         assert jnp.all(jnp.isfinite(hessian_ez)), "E_z squared Hessian should be finite"
