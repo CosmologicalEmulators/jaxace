@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1 — checkout full history so mike can read existing tags
+      # 1 — checkout full history so mike can read existing tags
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      # 2 — Python + doc tooling
+      # 2 — Python + doc tooling
       - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
@@ -32,18 +32,28 @@ jobs:
                       mike
           # Install jaxace to get version (Poetry-based project)
           pip install -e .
+          # Install matplotlib for plot generation
+          pip install matplotlib
 
-      # 3 — need existing gh-pages branch for mike
+      # 3 — need existing gh-pages branch for mike
       - name: Fetch gh-pages history
         run: git fetch origin gh-pages --depth=1 || true
 
-      # 4 — set author so mike can commit
+      # 4 — set author so mike can commit
       - name: Configure git author
         run: |
           git config --local user.name  "${{ github.actor }}"
           git config --local user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
 
-      # 5 — branch-specific deploy logic
+      # 5 — generate documentation plots
+      - name: Generate documentation plots
+        run: |
+          # Create images directory if it doesn't exist
+          mkdir -p docs/images
+          # Generate all plots for documentation
+          python generate_doc_plots.py
+
+      # 6 — branch-specific deploy logic
       - name: Deploy documentation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -153,6 +153,8 @@ venv.bak/
 
 # mkdocs documentation
 /site
+# Generated documentation plots (created in CI)
+docs/images/*.png
 
 # mypy
 .mypy_cache/
