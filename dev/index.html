@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="JAX/Flax cosmological emulators with automatic JIT compilation">
+        <meta name="description" content="JAX cosmological emulators with automatic JIT compilation">
       
       
         <meta name="author" content="CosmologicalEmulators">
@@ -16,7 +16,7 @@
       
       
       
-        <link rel="next" href="api/">
+        <link rel="next" href="examples/">
       
       
       <link rel="icon" href="assets/images/favicon.png">
@@ -262,6 +262,25 @@
   
   
   
+    <li class="md-tabs__item">
+      <a href="examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
     
     
       <li class="md-tabs__item">
@@ -466,48 +485,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#mathematical-background" class="md-nav__link">
-    <span class="md-ellipsis">
-      Mathematical Background
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Mathematical Background">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#hubble-parameter" class="md-nav__link">
-    <span class="md-ellipsis">
-      Hubble Parameter
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#growth-factor" class="md-nav__link">
-    <span class="md-ellipsis">
-      Growth Factor
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#comoving-distance" class="md-nav__link">
-    <span class="md-ellipsis">
-      Comoving Distance
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#performance" class="md-nav__link">
     <span class="md-ellipsis">
       Performance
@@ -538,6 +515,28 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
     
     
     
@@ -554,10 +553,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -570,8 +569,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             API Reference
           </label>
@@ -696,16 +695,6 @@
 </span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c1"># Run with automatic JIT</span>
 </span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="n">output</span> <span class="o">=</span> <span class="n">emulator</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="mathematical-background">Mathematical Background<a class="headerlink" href="#mathematical-background" title="Permanent link">&para;</a></h2>
-<p>The library implements key cosmological functions:</p>
-<h3 id="hubble-parameter">Hubble Parameter<a class="headerlink" href="#hubble-parameter" title="Permanent link">&para;</a></h3>
-<p>The dimensionless Hubble parameter is:</p>
-<div class="arithmatex">\[E(z) = \frac{H(z)}{H_0} = \sqrt{\Omega_m(1+z)^3 + \Omega_\Lambda f_{DE}(z)}\]</div>
-<h3 id="growth-factor">Growth Factor<a class="headerlink" href="#growth-factor" title="Permanent link">&para;</a></h3>
-<p>The linear growth factor <span class="arithmatex">\(D(z)\)</span> satisfies:</p>
-<div class="arithmatex">\[\frac{d^2D}{da^2} + \left(\frac{3}{a} + \frac{d\ln E}{da}\right)\frac{dD}{da} - \frac{3\Omega_m}{2a^5E^2}D = 0\]</div>
-<h3 id="comoving-distance">Comoving Distance<a class="headerlink" href="#comoving-distance" title="Permanent link">&para;</a></h3>
-<div class="arithmatex">\[r(z) = \frac{c}{H_0} \int_0^z \frac{dz'}{E(z')}\]</div>
 <h2 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h2>
 <p>With automatic JIT compilation, jaxace achieves:</p>
 <ul>
@@ -753,13 +742,13 @@
         
         
           
-          <a href="api/" class="md-footer__link md-footer__link--next" aria-label="Next: Core">
+          <a href="examples/" class="md-footer__link md-footer__link--next" aria-label="Next: Examples">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Core
+                Examples
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -776,8 +765,7 @@
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      © 2024 CosmologicalEmulators
-
+      Copyright &copy; 2024 CosmologicalEmulators
     </div>
   
   
