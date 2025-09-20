@@ -10,8 +10,26 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import jaxace
 
-# Set style for better looking plots
-plt.style.use('seaborn-v0_8-darkgrid')
+# Set matplotlib style to match notebook
+# Try to use LaTeX if available, but don't fail if not
+try:
+    import subprocess
+    subprocess.check_output(['latex', '--version'])
+    plt.rcParams['text.usetex'] = True
+    print("LaTeX detected, using LaTeX rendering for plots")
+except (FileNotFoundError, subprocess.CalledProcessError):
+    plt.rcParams['text.usetex'] = False
+    print("LaTeX not available, using matplotlib's default math rendering")
+
+plt.rcParams['figure.dpi'] = 100
+plt.rcParams['savefig.dpi'] = 150
+plt.rcParams['font.size'] = 11
+plt.rcParams['axes.labelsize'] = 12
+plt.rcParams['xtick.labelsize'] = 10
+plt.rcParams['ytick.labelsize'] = 10
+plt.rcParams['legend.fontsize'] = 10
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams['axes.facecolor'] = 'white'
 
 def generate_main_cosmology_plots():
     """Generate the main 2x2 cosmology plot."""
@@ -33,11 +51,11 @@ def generate_main_cosmology_plots():
     z = jnp.linspace(0.01, 3.0, 100)
 
     # Compute quantities
-    r_comoving = cosmo.r_z(z)
-    dA = cosmo.dA_z(z)
-    dL = cosmo.dL_z(z)
-    D = cosmo.D_z(z)
-    f = cosmo.f_z(z)
+    r_comoving = jaxace.r_z_from_cosmo(z, cosmo)
+    dA = jaxace.dA_z_from_cosmo(z, cosmo)
+    dL = jaxace.dL_z_from_cosmo(z, cosmo)
+    D = jaxace.D_z_from_cosmo(z, cosmo)
+    f = jaxace.f_z_from_cosmo(z, cosmo)
 
     E_z = jaxace.E_z(z, cosmo.omega_b + cosmo.omega_c, cosmo.h,
                      mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
@@ -48,42 +66,33 @@ def generate_main_cosmology_plots():
 
     # Plot 1: Distance measures
     ax = axes[0, 0]
-    ax.plot(z, r_comoving, label='Comoving distance $r(z)$', linewidth=2.5)
-    ax.plot(z, dA, label='Angular diameter distance $d_A(z)$', linewidth=2.5)
-    ax.plot(z, dL, label='Luminosity distance $d_L(z)$', linewidth=2.5)
-    ax.set_xlabel('Redshift $z$', fontsize=12)
-    ax.set_ylabel('Distance [Mpc]', fontsize=12)
-    ax.set_title('Cosmological Distances', fontsize=14, fontweight='bold')
-    ax.legend(frameon=True, shadow=True)
-    ax.grid(True, alpha=0.3)
+    ax.plot(z, r_comoving, label=r'$r(z)$', linewidth=2)
+    ax.plot(z, dA, label=r'$d_A(z)$', linewidth=2)
+    ax.plot(z, dL, label=r'$d_L(z)$', linewidth=2)
+    ax.set_xlabel(r'$z$')
+    ax.set_ylabel(r'Distance [Mpc]')
+    ax.legend()
 
     # Plot 2: Hubble parameter
     ax = axes[0, 1]
-    ax.plot(z, H_z, color='darkblue', linewidth=2.5)
-    ax.set_xlabel('Redshift $z$', fontsize=12)
-    ax.set_ylabel('$H(z)$ [km/s/Mpc]', fontsize=12)
-    ax.set_title('Hubble Parameter Evolution', fontsize=14, fontweight='bold')
-    ax.grid(True, alpha=0.3)
+    ax.plot(z, H_z, linewidth=2)
+    ax.set_xlabel(r'$z$')
+    ax.set_ylabel(r'$H(z)$ [km/s/Mpc]')
 
     # Plot 3: Growth factor
     ax = axes[1, 0]
-    ax.plot(z, D, color='darkgreen', linewidth=2.5)
-    ax.set_xlabel('Redshift $z$', fontsize=12)
-    ax.set_ylabel('$D(z)$', fontsize=12)
-    ax.set_title('Linear Growth Factor', fontsize=14, fontweight='bold')
-    ax.grid(True, alpha=0.3)
+    ax.plot(z, D, linewidth=2)
+    ax.set_xlabel(r'$z$')
+    ax.set_ylabel(r'$D(z)$')
     ax.invert_xaxis()
 
     # Plot 4: Growth rate
     ax = axes[1, 1]
-    ax.plot(z, f, color='darkred', linewidth=2.5)
-    ax.set_xlabel('Redshift $z$', fontsize=12)
-    ax.set_ylabel('$f(z) = \\mathrm{d}\\ln D / \\mathrm{d}\\ln a$', fontsize=12)
-    ax.set_title('Growth Rate', fontsize=14, fontweight='bold')
-    ax.grid(True, alpha=0.3)
+    ax.plot(z, f, linewidth=2)
+    ax.set_xlabel(r'$z$')
+    ax.set_ylabel(r'$f(z) = \mathrm{d}\ln D / \mathrm{d}\ln a$')
     ax.set_ylim([0.4, 1.0])
 
-    plt.suptitle('ΛCDM Cosmology (Planck 2018)', fontsize=16, fontweight='bold', y=1.02)
     plt.tight_layout()
     plt.savefig('docs/images/cosmology_main.png', dpi=150, bbox_inches='tight')
     plt.close()
@@ -101,15 +110,13 @@ def generate_omega_m_plot():
 
     z = jnp.linspace(0.01, 3.0, 100)
     a = 1.0 / (1.0 + z)
-    Omega_m = jaxace.Ωm_a(a, cosmo.omega_b + cosmo.omega_c, cosmo.h,
+    Omega_m = jaxace.Ωma(a, cosmo.omega_b + cosmo.omega_c, cosmo.h,
                           mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa)
 
     plt.figure(figsize=(8, 6))
-    plt.plot(z, Omega_m, linewidth=3, color='purple')
-    plt.xlabel('Redshift $z$', fontsize=12)
-    plt.ylabel('$\\Omega_{\\mathrm{m}}(z)$', fontsize=12)
-    plt.title('Matter Density Parameter Evolution', fontsize=14, fontweight='bold')
-    plt.grid(True, alpha=0.3)
+    plt.plot(z, Omega_m, linewidth=2)
+    plt.xlabel(r'$z$')
+    plt.ylabel(r'$\Omega_{\mathrm{m}}(z)$')
     plt.xlim(0, 3)
     plt.ylim(0.2, 1.0)
     plt.tight_layout()
@@ -124,9 +131,9 @@ def generate_cosmology_comparison():
     z = jnp.linspace(0.01, 3.0, 100)
 
     cosmologies = {
-        'ΛCDM': {'w0': -1.0, 'wa': 0.0, 'color': 'blue', 'ls': '-'},
+        r'$\Lambda$CDM': {'w0': -1.0, 'wa': 0.0, 'color': 'blue', 'ls': '-'},
         'wCDM': {'w0': -0.9, 'wa': 0.0, 'color': 'green', 'ls': '--'},
-        'w0waCDM': {'w0': -0.95, 'wa': 0.3, 'color': 'red', 'ls': ':'},
+        r'$w_0w_a$CDM': {'w0': -0.95, 'wa': 0.3, 'color': 'red', 'ls': ':'},
     }
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
@@ -138,30 +145,23 @@ def generate_cosmology_comparison():
             m_nu=0.06, w0=params['w0'], wa=params['wa']
         )
 
-        D_test = cosmo_test.D_z(z)
-        f_test = cosmo_test.f_z(z)
+        D_test = jaxace.D_z_from_cosmo(z, cosmo_test)
+        f_test = jaxace.f_z_from_cosmo(z, cosmo_test)
 
-        label = f"{name}: $w_0$={params['w0']}, $w_a$={params['wa']}"
-        ax1.plot(z, D_test, label=label, linewidth=2.5,
-                color=params['color'], linestyle=params['ls'])
-        ax2.plot(z, f_test, label=label, linewidth=2.5,
-                color=params['color'], linestyle=params['ls'])
+        label = f"{name}: " + r"$w_0$=" + f"{params['w0']}, " + r"$w_a$=" + f"{params['wa']}"
+        ax1.plot(z, D_test, label=label, linewidth=2, linestyle=params['ls'])
+        ax2.plot(z, f_test, label=label, linewidth=2, linestyle=params['ls'])
 
-    ax1.set_xlabel('Redshift $z$', fontsize=12)
-    ax1.set_ylabel('$D(z)$', fontsize=12)
-    ax1.set_title('Growth Factor Comparison', fontsize=14, fontweight='bold')
-    ax1.legend(frameon=True, shadow=True)
-    ax1.grid(True, alpha=0.3)
+    ax1.set_xlabel(r'$z$')
+    ax1.set_ylabel(r'$D(z)$')
+    ax1.legend()
     ax1.invert_xaxis()
 
-    ax2.set_xlabel('Redshift $z$', fontsize=12)
-    ax2.set_ylabel('$f(z)$', fontsize=12)
-    ax2.set_title('Growth Rate Comparison', fontsize=14, fontweight='bold')
-    ax2.legend(frameon=True, shadow=True)
-    ax2.grid(True, alpha=0.3)
+    ax2.set_xlabel(r'$z$')
+    ax2.set_ylabel(r'$f(z)$')
+    ax2.legend()
     ax2.set_ylim([0.4, 1.0])
 
-    plt.suptitle('Dark Energy Model Comparison', fontsize=16, fontweight='bold', y=1.05)
     plt.tight_layout()
     plt.savefig('docs/images/cosmology_comparison.png', dpi=150, bbox_inches='tight')
     plt.close()
@@ -185,7 +185,7 @@ def generate_growth_jacobian():
             w0=w0,
             wa=wa
         )
-        return cosmo.D_z(z)
+        return jaxace.D_z_from_cosmo(z, cosmo)
 
     # Define fiducial parameters (Planck 2018)
     fiducial_params = jnp.array([
@@ -206,28 +206,14 @@ def generate_growth_jacobian():
 
     # Plot the derivatives
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    param_names = ['$\\Omega_c$', '$\\Omega_b$', '$h$', '$m_\\nu$ [eV]', '$w_0$', '$w_a$']
+    param_names = [r'$\Omega_\mathrm{c}$', r'$\Omega_\mathrm{b}$', r'$h$', r'$m_\nu$ [eV]', r'$w_0$', r'$w_a$']
     param_labels = ['omega_c', 'omega_b', 'h', 'm_nu', 'w0', 'wa']
 
     for i, (ax, name, label) in enumerate(zip(axes.flat, param_names, param_labels)):
-        ax.plot(z, jacobian[:, i], linewidth=2.5, color=plt.cm.viridis(i/5))
-        ax.set_xlabel('Redshift $z$', fontsize=11)
-        ax.set_ylabel(f'$\\partial D/\\partial${name}', fontsize=11)
-        ax.set_title(f'Growth Factor Sensitivity to {name}', fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
-        ax.axhline(y=0, color='k', linestyle='--', alpha=0.3)
+        ax.plot(z, jacobian[:, i], linewidth=2)
+        ax.set_xlabel(r'$z$')
+        ax.set_ylabel(r'$\partial D/\partial$' + name)
 
-        # Add text with max sensitivity
-        max_idx = jnp.argmax(jnp.abs(jacobian[:, i]))
-        max_z = z[max_idx]
-        max_val = jacobian[max_idx, i]
-        ax.text(0.95, 0.95, f'Max at z={max_z:.2f}\\n∂D/∂{label}={max_val:.3f}',
-                transform=ax.transAxes, ha='right', va='top',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),
-                fontsize=9)
-
-    plt.suptitle('Jacobian of Growth Factor D(z) w.r.t. Cosmological Parameters',
-                 fontsize=16, fontweight='bold')
     plt.tight_layout()
     plt.savefig('docs/images/growth_jacobian.png', dpi=150, bbox_inches='tight')
     plt.close()
@@ -246,7 +232,7 @@ def generate_growth_jacobian_comparison():
             h=h, omega_b=omega_b, omega_c=omega_c,
             m_nu=m_nu, w0=w0, wa=wa
         )
-        D, f = cosmo.D_f_z(z)
+        D, f = jaxace.D_f_z_from_cosmo(z, cosmo)
         return jnp.stack([D, f])  # Stack to get shape (2, n_z)
 
     # Define fiducial parameters
@@ -271,22 +257,17 @@ def generate_growth_jacobian_comparison():
 
     # Plot comparison of sensitivities for D and f
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    param_names = ['$\\Omega_c$', '$\\Omega_b$', '$h$', '$m_\\nu$ [eV]', '$w_0$', '$w_a$']
+    param_names = [r'$\Omega_\mathrm{c}$', r'$\Omega_\mathrm{b}$', r'$h$', r'$m_\nu$ [eV]', r'$w_0$', r'$w_a$']
 
     for i, (ax, name) in enumerate(zip(axes.flat, param_names)):
-        ax.plot(z, jacobian_D[:, i], label='$\\partial D/\\partial$' + name,
-                linewidth=2.5, color='blue')
-        ax.plot(z, jacobian_f[:, i], label='$\\partial f/\\partial$' + name,
-                linewidth=2.5, color='red', linestyle='--')
-        ax.set_xlabel('Redshift $z$', fontsize=11)
-        ax.set_ylabel('Derivative', fontsize=11)
-        ax.set_title(f'Sensitivity to {name}', fontsize=12, fontweight='bold')
-        ax.legend(loc='best', fontsize=9)
-        ax.grid(True, alpha=0.3)
-        ax.axhline(y=0, color='k', linestyle=':', alpha=0.3)
+        ax.plot(z, jacobian_D[:, i], label=r'$\partial D/\partial$' + name,
+                linewidth=2)
+        ax.plot(z, jacobian_f[:, i], label=r'$\partial f/\partial$' + name,
+                linewidth=2, linestyle='--')
+        ax.set_xlabel(r'$z$')
+        ax.set_ylabel(r'Derivative')
+        ax.legend(loc='best')
 
-    plt.suptitle('Comparison of D(z) and f(z) Sensitivities',
-                 fontsize=16, fontweight='bold')
     plt.tight_layout()
     plt.savefig('docs/images/growth_jacobian_comparison.png', dpi=150, bbox_inches='tight')
     plt.close()
