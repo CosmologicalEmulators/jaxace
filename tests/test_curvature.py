@@ -10,7 +10,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from jaxace.background import (
-    W0WaCDMCosmology,
+    w0waCDMCosmology,
     E_z, r_z, dM_z, dA_z, dL_z, D_z, f_z,
     S_of_K
 )
@@ -42,7 +42,7 @@ class TestCLASSComparison3Curvature:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=1.0,
             omega_b=0.02, omega_c=0.18,
             omega_k=0.1,

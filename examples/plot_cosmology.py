@@ -15,7 +15,7 @@ import jaxace
 
 def main():
     # Create a cosmology instance with Planck 2018 parameters
-    cosmo = jaxace.W0WaCDMCosmology(
+    cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044,      # ln(10^10 A_s)
         ns=0.9649,         # Scalar spectral index
         h=0.6736,          # Hubble parameter

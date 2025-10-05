@@ -10,7 +10,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from jaxace.background import (
-    W0WaCDMCosmology,
+    w0waCDMCosmology,
     E_z, E_a, r_z, D_z, f_z, dA_z, dL_z,
     Ωm_a, dlogEdloga, ρc_z,
     rhoDE_a, rhoDE_z
@@ -29,7 +29,7 @@ class TestNaNInfPropagation:
     def test_E_z_with_nan_inputs(self):
         """Test E_z function with NaN inputs."""
         # Test with cosmology having NaN in h
-        cosmo_nan_h = W0WaCDMCosmology(
+        cosmo_nan_h = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=jnp.nan,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -38,7 +38,7 @@ class TestNaNInfPropagation:
         assert jnp.isnan(result), "E_z should propagate NaN in h"
 
         # Test with NaN in omega_c
-        cosmo_nan_omega = W0WaCDMCosmology(
+        cosmo_nan_omega = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=jnp.nan,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -47,7 +47,7 @@ class TestNaNInfPropagation:
         assert jnp.isnan(result), "E_z should propagate NaN in omega_c"
 
         # Test with NaN in optional parameters
-        cosmo_nan_mnu = W0WaCDMCosmology(
+        cosmo_nan_mnu = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=jnp.nan, w0=-1.0, wa=0.0
@@ -55,7 +55,7 @@ class TestNaNInfPropagation:
         result = cosmo_nan_mnu.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in neutrino mass"
 
-        cosmo_nan_w0 = W0WaCDMCosmology(
+        cosmo_nan_w0 = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=jnp.nan, wa=0.0
@@ -64,7 +64,7 @@ class TestNaNInfPropagation:
         assert jnp.isnan(result), "E_z should propagate NaN in w0"
 
         # Test with NaN in redshift
-        cosmo_normal = W0WaCDMCosmology(
+        cosmo_normal = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -74,7 +74,7 @@ class TestNaNInfPropagation:
     
     def test_E_z_with_inf_inputs(self):
         """Test E_z function with Inf inputs."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -88,7 +88,7 @@ class TestNaNInfPropagation:
         # This test case has been removed as the behavior is correct
 
         # Test with Inf in omega_c - returns NaN which is reasonable
-        cosmo_inf_omega = W0WaCDMCosmology(
+        cosmo_inf_omega = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=jnp.inf,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -98,7 +98,7 @@ class TestNaNInfPropagation:
     
     def test_distance_functions_with_nan(self):
         """Test distance functions with NaN inputs."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -117,7 +117,7 @@ class TestNaNInfPropagation:
         assert jnp.isnan(result), "dL_z should propagate NaN"
 
         # Test with NaN in cosmological parameters
-        cosmo_nan = W0WaCDMCosmology(
+        cosmo_nan = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=jnp.nan,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -127,7 +127,7 @@ class TestNaNInfPropagation:
     
     def test_growth_functions_with_nan(self):
         """Test growth factor functions with NaN inputs."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -146,7 +146,7 @@ class TestNaNInfPropagation:
     
     def test_array_operations_with_nan(self):
         """Test array operations with NaN values."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -179,7 +179,7 @@ class TestNaNInfPropagation:
     
     def test_cosmology_struct_with_nan(self):
         """Test cosmology structure with NaN values."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=jnp.nan,
             omega_b=0.02237, omega_c=0.1,
             m_nu=0.06, w0=-1.0, wa=0.0
@@ -205,7 +205,7 @@ class TestEmptyArrays:
     
     def test_E_z_with_empty_array(self):
         """Test E_z with empty arrays."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -218,7 +218,7 @@ class TestEmptyArrays:
     
     def test_r_z_with_empty_array(self):
         """Test r_z with empty arrays."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -231,7 +231,7 @@ class TestEmptyArrays:
     
     def test_D_z_with_empty_array(self):
         """Test D_z with empty arrays."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -244,7 +244,7 @@ class TestEmptyArrays:
     
     def test_f_z_with_empty_array(self):
         """Test f_z with empty arrays."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -257,7 +257,7 @@ class TestEmptyArrays:
     
     def test_distance_functions_with_empty_arrays(self):
         """Test all distance functions with empty arrays."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -291,7 +291,7 @@ class TestEmptyArrays:
     
     def test_vmap_with_empty_batch(self):
         """Test vmap operations with empty batches."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -311,7 +311,7 @@ class TestEmptyArrays:
     
     def test_concatenate_with_empty(self):
         """Test concatenation operations with empty arrays."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -350,7 +350,7 @@ class TestMixedPrecision:
         jax.config.update('jax_enable_x64', True)
 
         # Mix float32 and float64 inputs in cosmology parameters
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=jnp.float64(3.0), ns=jnp.float64(0.96), h=jnp.float64(0.67),
             omega_b=jnp.float32(0.02), omega_c=jnp.float32(0.118),
             m_nu=jnp.float64(0.0), w0=jnp.float64(-1.0), wa=jnp.float64(0.0)
@@ -373,7 +373,7 @@ class TestMixedPrecision:
         """Test that array operations preserve precision."""
         jax.config.update('jax_enable_x64', True)
 
-        cosmo_64 = W0WaCDMCosmology(
+        cosmo_64 = w0waCDMCosmology(
             ln10As=jnp.float64(3.0), ns=jnp.float64(0.96), h=jnp.float64(0.67),
             omega_b=jnp.float64(0.02), omega_c=jnp.float64(0.118),
             m_nu=jnp.float64(0.0), w0=jnp.float64(-1.0), wa=jnp.float64(0.0)
@@ -461,7 +461,7 @@ class TestBoundaryConditions:
     
     def test_zero_redshift(self):
         """Test functions at z=0."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -478,7 +478,7 @@ class TestBoundaryConditions:
     
     def test_negative_redshift(self):
         """Test functions with negative redshift (future)."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -497,7 +497,7 @@ class TestBoundaryConditions:
     def test_extreme_parameters(self):
         """Test with extreme parameter values."""
         # Very small omega_c (dark energy dominated)
-        cosmo_small_omega = W0WaCDMCosmology(
+        cosmo_small_omega = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.001, omega_c=0.001,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -506,7 +506,7 @@ class TestBoundaryConditions:
         assert jnp.isfinite(result), "Should handle very small omega_c"
 
         # Very large omega_c (matter dominated)
-        cosmo_large_omega = W0WaCDMCosmology(
+        cosmo_large_omega = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.25,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -515,7 +515,7 @@ class TestBoundaryConditions:
         assert jnp.isfinite(result), "Should handle very large omega_c"
 
         # Extreme w0 values
-        cosmo_extreme_w0 = W0WaCDMCosmology(
+        cosmo_extreme_w0 = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-2.0, wa=0.0
@@ -523,7 +523,7 @@ class TestBoundaryConditions:
         result = cosmo_extreme_w0.E_z(1.0)
         assert jnp.isfinite(result), "Should handle w0 < -1"
 
-        cosmo_w0_zero = W0WaCDMCosmology(
+        cosmo_w0_zero = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=0.0, wa=0.0

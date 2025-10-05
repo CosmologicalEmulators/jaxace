@@ -36,7 +36,7 @@ def generate_main_cosmology_plots():
     print("Generating main cosmology plots...")
 
     # Create a cosmology instance with Planck 2018 parameters
-    cosmo = jaxace.W0WaCDMCosmology(
+    cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044,
         ns=0.9649,
         h=0.6736,
@@ -102,7 +102,7 @@ def generate_omega_m_plot():
     """Generate Omega_m evolution plot."""
     print("Generating Omega_m evolution plot...")
 
-    cosmo = jaxace.W0WaCDMCosmology(
+    cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044, ns=0.9649, h=0.6736,
         omega_b=0.02237, omega_c=0.1200,
         m_nu=0.06, w0=-1.0, wa=0.0
@@ -139,7 +139,7 @@ def generate_cosmology_comparison():
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
     for name, params in cosmologies.items():
-        cosmo_test = jaxace.W0WaCDMCosmology(
+        cosmo_test = jaxace.w0waCDMCosmology(
             ln10As=3.044, ns=0.9649, h=0.6736,
             omega_b=0.02237, omega_c=0.1200,
             m_nu=0.06, w0=params['w0'], wa=params['wa']
@@ -175,7 +175,7 @@ def generate_growth_jacobian():
     def growth_factor_function(params, z):
         """Compute growth factor D(z) for given cosmological parameters."""
         omega_c, omega_b, h, m_nu, w0, wa = params
-        cosmo = jaxace.W0WaCDMCosmology(
+        cosmo = jaxace.w0waCDMCosmology(
             ln10As=3.044,  # Keep fixed for this example
             ns=0.9649,      # Keep fixed for this example
             h=h,
@@ -227,7 +227,7 @@ def generate_growth_jacobian_comparison():
     def growth_functions(params, z):
         """Compute both D(z) and f(z) for given parameters."""
         omega_c, omega_b, h, m_nu, w0, wa = params
-        cosmo = jaxace.W0WaCDMCosmology(
+        cosmo = jaxace.w0waCDMCosmology(
             ln10As=3.044, ns=0.9649,
             h=h, omega_b=omega_b, omega_c=omega_c,
             m_nu=m_nu, w0=w0, wa=wa
