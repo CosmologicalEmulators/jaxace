@@ -14,7 +14,6 @@ import diffrax
 from pathlib import Path
 import sys
 import os
-import numpy
 
 # Allow user to configure precision via environment variable
 if os.environ.get('JAXACE_ENABLE_X64', 'true').lower() == 'true':
@@ -38,17 +37,20 @@ __all__ = [
 # Gauss-Legendre Quadrature Utilities
 # ============================================================================
 
-def gauss_legendre(n: int):
+def gauss_legendre(n: int, dtype=jnp.float64):
     """
     Compute Gauss-Legendre quadrature nodes and weights for n points.
 
-    Uses JAX's numpy implementation to compute the nodes (roots of Legendre
-    polynomial) and weights for Gauss-Legendre quadrature on the interval [-1, 1].
+    Uses eigenvalue decomposition of the Jacobi matrix for Legendre polynomials
+    to compute nodes and weights. This is a pure JAX implementation that doesn't
+    rely on numpy.
 
     Parameters:
     -----------
     n : int
         Number of quadrature points
+    dtype : dtype, optional
+        Data type for computation (default: jnp.float64)
 
     Returns:
     --------
@@ -56,27 +58,26 @@ def gauss_legendre(n: int):
         nodes: array of shape (n,) with quadrature nodes in [-1, 1]
         weights: array of shape (n,) with corresponding weights
     """
-    # Use numpy's legendre polynomial roots
-    # For JAX compatibility, we compute this at trace time
-    nodes_np, weights_np = numpy.polynomial.legendre.leggauss(n)
+    # Jacobi matrix for Legendre: alpha_k = 0, beta_k = k^2 / (4k^2 - 1)
+    k = jnp.arange(1, n, dtype=dtype)
+    off = k / jnp.sqrt(4 * k * k - 1)       # sqrt(beta_k)
+    J = jnp.diag(off, 1) + jnp.diag(off, -1)
+    evals, evecs = jnp.linalg.eigh(J)
+    x = evals                                 # nodes in [-1, 1]
+    w = 2.0 * (evecs[0, :] ** 2)              # weights
+    return x, w
 
-    # Convert to JAX arrays
-    nodes = jnp.array(nodes_np)
-    weights = jnp.array(weights_np)
 
-    return nodes, weights
-
-
-def map_to_interval(nodes: jnp.ndarray, weights: jnp.ndarray,
+def map_to_interval(x: jnp.ndarray, w: jnp.ndarray,
                     a: float, b: float):
     """
     Map Gauss-Legendre nodes and weights from [-1, 1] to [a, b].
 
     Parameters:
     -----------
-    nodes : jnp.ndarray
+    x : jnp.ndarray
         Quadrature nodes on [-1, 1]
-    weights : jnp.ndarray
+    w : jnp.ndarray
         Quadrature weights on [-1, 1]
     a : float
         Lower bound of target interval
@@ -88,14 +89,9 @@ def map_to_interval(nodes: jnp.ndarray, weights: jnp.ndarray,
     tuple of (mapped_nodes, mapped_weights)
         Nodes and weights transformed to interval [a, b]
     """
-    # Linear transformation: x = ((b-a)*t + (b+a))/2
-    # where t is in [-1, 1] and x is in [a, b]
-    mapped_nodes = 0.5 * ((b - a) * nodes + (b + a))
-
-    # Jacobian of transformation is (b-a)/2
-    mapped_weights = 0.5 * (b - a) * weights
-
-    return mapped_nodes, mapped_weights
+    xm = 0.5 * (b + a)
+    xr = 0.5 * (b - a)
+    return xm + xr * x, xr * w
 
 
 # Pre-compute quadrature points for commonly used sizes (at module load time)
