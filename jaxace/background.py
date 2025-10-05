@@ -27,6 +27,7 @@ __all__ = [
     'w0waCDMCosmology',
     'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωm_a',
     'D_z', 'f_z', 'D_f_z',
+    'r̃_z', 'd̃M_z', 'd̃A_z',
     'r_z', 'dM_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z',
     'S_of_K'
 ]
@@ -147,7 +148,20 @@ class w0waCDMCosmology:
     def r̃_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless comoving distance r̃(z)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return r̃_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return r̃_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+
+    def d̃M_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Dimensionless transverse comoving distance d̃M(z)."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        Ωk0 = self.omega_k / self.h**2
+        return d̃M_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+
+    def d̃A_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Dimensionless angular diameter distance d̃A(z)."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        Ωk0 = self.omega_k / self.h**2
+        return d̃A_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def r_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Line-of-sight comoving distance in Mpc."""
@@ -722,6 +736,72 @@ def r̃_z(z: Union[float, jnp.ndarray],
 
     # Propagate NaN if needed
     return jnp.where(has_nan, jnp.full_like(result, jnp.nan), result)
+
+
+@jax.jit
+def d̃M_z(z: Union[float, jnp.ndarray],
+          Ωcb0: Union[float, jnp.ndarray],
+          h: Union[float, jnp.ndarray],
+          mν: Union[float, jnp.ndarray] = 0.0,
+          w0: Union[float, jnp.ndarray] = -1.0,
+          wa: Union[float, jnp.ndarray] = 0.0,
+          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    """
+    Dimensionless transverse comoving distance d̃M(z).
+
+    This is the transverse comoving distance without the c/(H0) factor.
+    Accounts for spatial curvature via the S_of_K function.
+
+    Parameters:
+        z: Redshift (scalar or array)
+        Ωcb0: Present-day CDM+baryon density parameter
+        h: Dimensionless Hubble parameter (H0 = 100h km/s/Mpc)
+        mν: Neutrino mass in eV
+        w0: Dark energy equation of state parameter
+        wa: Dark energy equation of state derivative
+        Ωk0: Curvature density parameter
+
+    Returns:
+        Dimensionless transverse comoving distance
+    """
+    # Get dimensionless comoving distance
+    r̃ = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+
+    # Apply curvature correction
+    return S_of_K(Ωk0, r̃)
+
+
+@jax.jit
+def d̃A_z(z: Union[float, jnp.ndarray],
+          Ωcb0: Union[float, jnp.ndarray],
+          h: Union[float, jnp.ndarray],
+          mν: Union[float, jnp.ndarray] = 0.0,
+          w0: Union[float, jnp.ndarray] = -1.0,
+          wa: Union[float, jnp.ndarray] = 0.0,
+          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    """
+    Dimensionless angular diameter distance d̃A(z).
+
+    This is the angular diameter distance without the c/(H0) factor:
+    d̃A(z) = d̃M(z) / (1+z)
+
+    Parameters:
+        z: Redshift (scalar or array)
+        Ωcb0: Present-day CDM+baryon density parameter
+        h: Dimensionless Hubble parameter (H0 = 100h km/s/Mpc)
+        mν: Neutrino mass in eV
+        w0: Dark energy equation of state parameter
+        wa: Dark energy equation of state derivative
+        Ωk0: Curvature density parameter
+
+    Returns:
+        Dimensionless angular diameter distance
+    """
+    # Get dimensionless transverse comoving distance
+    d̃M = d̃M_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+
+    # Apply (1+z) factor for angular diameter distance
+    return d̃M / (1.0 + z)
 
 
 @jax.custom_jvp

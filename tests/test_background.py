@@ -13,7 +13,8 @@ from jaxace.background import (
     W0WaCDMCosmology,
     a_z, E_a, E_z, dlogEdloga, Ωm_a,
     D_z, f_z, D_f_z,
-    r_z, dA_z, dL_z,
+    r̃_z, d̃M_z, d̃A_z,
+    r_z, dA_z, dL_z, dM_z,
     gety, F, dFdy,
     rhoDE_a, rhoDE_z, drhoDE_da
 )
@@ -909,6 +910,129 @@ class TestJacobianComputation:
 
         hessian_ez = jax.hessian(Ez_squared_from_params)(params_subset)
         assert jnp.all(jnp.isfinite(hessian_ez)), "E_z squared Hessian should be finite"
+
+
+class TestTildeFunctions:
+    """Test dimensionless distance functions."""
+
+    @pytest.fixture
+    def cosmo_params(self):
+        """Standard cosmological parameters for testing."""
+        return {
+            'omega_b': 0.022,
+            'omega_c': 0.12,
+            'h': 0.7,
+            'm_nu': 0.06,
+            'w0': -1.0,
+            'wa': 0.0,
+            'omega_k': 0.0,
+            'ln10As': 3.044,
+            'ns': 0.965
+        }
+
+    @pytest.fixture
+    def cosmo(self, cosmo_params):
+        """Create cosmology instance."""
+        return W0WaCDMCosmology(**cosmo_params)
+
+    def test_tilde_scaling_relationship(self, cosmo_params):
+        """Test that tilde functions relate correctly to physical distances."""
+        Ωcb0 = (cosmo_params['omega_c'] + cosmo_params['omega_b']) / cosmo_params['h']**2
+        h = cosmo_params['h']
+        z = 1.0
+
+        # Constants
+        c_over_H0 = 2997.92458  # c/H0 in Mpc where H0 = 100 km/s/Mpc
+
+        # Get tilde and physical versions
+        r_tilde = r̃_z(z, Ωcb0, h)
+        r_physical = r_z(z, Ωcb0, h)
+
+        # Check scaling relationship: r(z) = (c/H0) * r̃(z) / h
+        expected_r = (c_over_H0 / h) * r_tilde
+        assert np.isclose(r_physical, expected_r, rtol=1e-10)
+
+        # Same for dM
+        dM_tilde = d̃M_z(z, Ωcb0, h)
+        dM_physical = dM_z(z, Ωcb0, h)
+        expected_dM = (c_over_H0 / h) * dM_tilde
+        assert np.isclose(dM_physical, expected_dM, rtol=1e-10)
+
+        # And for dA
+        dA_tilde = d̃A_z(z, Ωcb0, h)
+        dA_physical = dA_z(z, Ωcb0, h)
+        expected_dA = (c_over_H0 / h) * dA_tilde
+        assert np.isclose(dA_physical, expected_dA, rtol=1e-10)
+
+    def test_tilde_curvature_relationship(self, cosmo_params):
+        """Test tilde functions with curvature."""
+        cosmo_params_curved = cosmo_params.copy()
+        cosmo_params_curved['omega_k'] = 0.05
+
+        Ωcb0 = (cosmo_params_curved['omega_c'] + cosmo_params_curved['omega_b']) / cosmo_params_curved['h']**2
+        h = cosmo_params_curved['h']
+        Ωk0 = cosmo_params_curved['omega_k'] / h**2
+        z = 2.0
+
+        # Get tilde distances
+        r_tilde = r̃_z(z, Ωcb0, h, Ωk0=Ωk0)
+        dM_tilde = d̃M_z(z, Ωcb0, h, Ωk0=Ωk0)
+        dA_tilde = d̃A_z(z, Ωcb0, h, Ωk0=Ωk0)
+
+        # Check relationships
+        # dA should be dM/(1+z)
+        assert np.isclose(dA_tilde, dM_tilde / (1 + z), rtol=1e-10)
+
+        # For non-zero curvature, dM != r
+        assert not np.isclose(dM_tilde, r_tilde, rtol=1e-5)
+
+    def test_tilde_zero_redshift(self, cosmo_params):
+        """Test that all tilde distances are zero at z=0."""
+        Ωcb0 = (cosmo_params['omega_c'] + cosmo_params['omega_b']) / cosmo_params['h']**2
+        h = cosmo_params['h']
+
+        assert np.isclose(r̃_z(0.0, Ωcb0, h), 0.0, atol=1e-15)
+        assert np.isclose(d̃M_z(0.0, Ωcb0, h), 0.0, atol=1e-15)
+        assert np.isclose(d̃A_z(0.0, Ωcb0, h), 0.0, atol=1e-15)
+
+    def test_class_methods(self, cosmo):
+        """Test that class methods work correctly."""
+        z = np.array([0.5, 1.0, 2.0])
+
+        # Just check that these run without error and return arrays
+        r_tilde = cosmo.r̃_z(z)
+        dM_tilde = cosmo.d̃M_z(z)
+        dA_tilde = cosmo.d̃A_z(z)
+
+        assert r_tilde.shape == z.shape
+        assert dM_tilde.shape == z.shape
+        assert dA_tilde.shape == z.shape
+
+        # Check consistency with standalone functions
+        Ωcb0 = (cosmo.omega_c + cosmo.omega_b) / cosmo.h**2
+        Ωk0 = cosmo.omega_k / cosmo.h**2
+
+        r_tilde_direct = r̃_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu,
+                             w0=cosmo.w0, wa=cosmo.wa, Ωk0=Ωk0)
+        assert np.allclose(r_tilde, r_tilde_direct, rtol=1e-10)
+
+    def test_vectorization(self, cosmo_params):
+        """Test that tilde functions work with vector inputs."""
+        Ωcb0 = (cosmo_params['omega_c'] + cosmo_params['omega_b']) / cosmo_params['h']**2
+        h = cosmo_params['h']
+        z = jnp.linspace(0.1, 3.0, 50)
+
+        r_tilde = r̃_z(z, Ωcb0, h)
+        dM_tilde = d̃M_z(z, Ωcb0, h)
+        dA_tilde = d̃A_z(z, Ωcb0, h)
+
+        assert r_tilde.shape == z.shape
+        assert dM_tilde.shape == z.shape
+        assert dA_tilde.shape == z.shape
+
+        # Check monotonicity (distances should increase with z for reasonable cosmologies)
+        assert np.all(np.diff(r_tilde) > 0)
+        assert np.all(np.diff(dM_tilde) > 0)
 
 
 if __name__ == "__main__":
