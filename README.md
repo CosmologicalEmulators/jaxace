@@ -20,7 +20,7 @@ import jaxace
 import jax.numpy as jnp
 
 # Cosmology
-cosmo = jaxace.W0WaCDMCosmology(
+cosmo = jaxace.w0waCDMCosmology(
     ln10As=3.044, ns=0.9649, h=0.6736,
     omega_b=0.02237, omega_c=0.1200,
     m_nu=0.06, w0=-1.0, wa=0.0
