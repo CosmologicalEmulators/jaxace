@@ -543,6 +543,9 @@ def E_a(a: Union[float, jnp.ndarray],
     # Return Hubble parameter E(a) = √[E²(a)]
     result = jnp.sqrt(E_squared)
 
+    # Handle a=0 (z=inf) case: E(0) = inf (radiation/matter dominate)
+    result = jnp.where(a_array == 0.0, jnp.inf, result)
+
     # Propagate NaN appropriately
     if a_array.ndim > 0 and nan_mask is not None:
         # For arrays, apply element-wise NaN mask
