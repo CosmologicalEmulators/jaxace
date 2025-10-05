@@ -24,10 +24,11 @@ if os.environ.get('JAXACE_ENABLE_X64', 'true').lower() == 'true':
         pass
 
 __all__ = [
-    'W0WaCDMCosmology',
+    'w0waCDMCosmology',
     'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωm_a',
     'D_z', 'f_z', 'D_f_z',
-    'r_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z'
+    'r_z', 'dM_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z',
+    'S_of_K'
 ]
 
 
@@ -114,12 +115,13 @@ def _handle_infinite_params(value, param_name="parameter"):
 
 
 @dataclass
-class W0WaCDMCosmology:
+class w0waCDMCosmology:
     ln10As: float
     ns: float
     h: float
     omega_b: float
     omega_c: float
+    omega_k: float = 0.0
     m_nu: float = 0.0
     w0: float = -1.0
     wa: float = 0.0
@@ -127,17 +129,20 @@ class W0WaCDMCosmology:
     def E_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless Hubble parameter E(a) = H(a)/H0."""
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
-        return E_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return E_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def E_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless Hubble parameter E(z) = H(z)/H0."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return E_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return E_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def Ωm_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Matter density parameter Ωₘ(a) at scale factor a."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return Ωm_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return Ωm_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def r̃_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless comoving distance r̃(z)."""
@@ -145,44 +150,57 @@ class W0WaCDMCosmology:
         return r̃_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
     def r_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-        """Comoving distance in Mpc."""
+        """Line-of-sight comoving distance in Mpc."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return r_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return r_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+
+    def dM_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+        """Transverse comoving distance in Mpc (affected by curvature)."""
+        Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
+        Ωk0 = self.omega_k / self.h**2
+        return dM_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def dA_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Angular diameter distance in Mpc."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return dA_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return dA_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def D_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Linear growth factor D(z)."""
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
-        return D_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return D_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Growth rate f(z) = d log D / d log a."""
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
-        return f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def D_f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Linear growth factor and growth rate (D(z), f(z))."""
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
-        return D_f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return D_f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def ρc_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Critical density at redshift z in M☉/Mpc³."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return ρc_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return ρc_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def dL_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Luminosity distance at redshift z in Mpc."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return dL_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        Ωk0 = self.omega_k / self.h**2
+        return dL_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
     def Ωtot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Total density parameter at redshift z (always 1.0 for flat universe)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
+        return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
 @jax.jit
 def a_z(z):
@@ -454,13 +472,14 @@ def E_a(a: Union[float, jnp.ndarray],
          h: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+         wa: Union[float, jnp.ndarray] = 0.0,
+         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     """
     Dimensionless Hubble parameter E(a) = H(a)/H0.
 
     The normalized Hubble parameter is given by:
 
-    $$E(a) = \\sqrt{\\Omega_{\\gamma,0} a^{-4} + \\Omega_{\\mathrm{cb},0} a^{-3} + \\Omega_{\\Lambda,0} \\rho_{\\mathrm{DE}}(a) + \\Omega_{\\nu}(a)}$$
+    $$E(a) = \\sqrt{\\Omega_{\\gamma,0} a^{-4} + \\Omega_{\\mathrm{cb},0} a^{-3} + \\Omega_{\\Lambda,0} \\rho_{\\mathrm{DE}}(a) + \\Omega_{\\nu}(a) + \\Omega_{k,0} a^{-2}}$$
 
     where:
 
@@ -469,6 +488,7 @@ def E_a(a: Union[float, jnp.ndarray],
     - $\\Omega_{\\Lambda,0}$ is the dark energy density parameter today (from flatness constraint)
     - $\\rho_{\\mathrm{DE}}(a)$ is the normalized dark energy density
     - $\\Omega_{\\nu}(a)$ is the massive neutrino contribution
+    - $\\Omega_{k,0}$ is the curvature density parameter today
 
     Returns:
         Hubble parameter E(a). Handles NaN/Inf inputs by propagating them appropriately.
@@ -480,21 +500,21 @@ def E_a(a: Union[float, jnp.ndarray],
     # Check for NaN inputs
     # For arrays, handle element-wise
     if a_array.ndim > 0:
-        nan_mask = _get_nan_mask(a, Ωcb0, h, mν, w0, wa)
+        nan_mask = _get_nan_mask(a, Ωcb0, h, mν, w0, wa, Ωk0)
     else:
         # For scalars, check all inputs
-        has_nan = _check_nan_inputs(a, Ωcb0, h, mν, w0, wa)
+        has_nan = _check_nan_inputs(a, Ωcb0, h, mν, w0, wa, Ωk0)
         nan_mask = None
 
     # Physics constants
     Ωγ0 = 2.469e-5 / (h**2)  # Photon density parameter
     N_eff = 3.044  # Effective number of neutrino species
 
-    # Calculate neutrino density at present day for flat universe constraint
+    # Calculate neutrino density at present day for universe constraint
     Ων0 = ΩνE2(1.0, Ωγ0, mν, N_eff)
 
-    # Dark energy density parameter (flat universe constraint)
-    ΩΛ0 = 1.0 - (Ωγ0 + Ωcb0 + Ων0)
+    # Dark energy density parameter (closure constraint: Ωγ + Ωcb + Ων + ΩΛ + Ωk = 1)
+    ΩΛ0 = 1.0 - (Ωγ0 + Ωcb0 + Ων0 + Ωk0)
 
     # Calculate individual density components at scale factor a
 
@@ -511,8 +531,11 @@ def E_a(a: Union[float, jnp.ndarray],
     # 4. Neutrino component: ΩνE2(a)
     Ων_a = ΩνE2(a, Ωγ0, mν, N_eff)
 
-    # Total energy density: E²(a) = Ωγ(a) + Ωm(a) + ΩΛ(a) + Ων(a)
-    E_squared = Ωγ_a + Ωm_a + ΩΛ_a + Ων_a
+    # 5. Curvature component: Ωk/a²
+    Ωk_a = Ωk0 / jnp.power(a, 2.0)
+
+    # Total energy density: E²(a) = Ωγ(a) + Ωm(a) + ΩΛ(a) + Ων(a) + Ωk(a)
+    E_squared = Ωγ_a + Ωm_a + ΩΛ_a + Ων_a + Ωk_a
 
     # Return Hubble parameter E(a) = √[E²(a)]
     result = jnp.sqrt(E_squared)
@@ -534,7 +557,8 @@ def E_z(z: Union[float, jnp.ndarray],
          h: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+         wa: Union[float, jnp.ndarray] = 0.0,
+         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     """
     Dimensionless Hubble parameter E(z) = H(z)/H0.
 
@@ -547,7 +571,7 @@ def E_z(z: Union[float, jnp.ndarray],
     a = a_z(z)
 
     # Return E(a) using existing function (which already has validation)
-    return E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    return E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
 
 @jax.jit
@@ -556,7 +580,8 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
                 h: Union[float, jnp.ndarray],
                 mν: Union[float, jnp.ndarray] = 0.0,
                 w0: Union[float, jnp.ndarray] = -1.0,
-                wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+                wa: Union[float, jnp.ndarray] = 0.0,
+                Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     """
     Logarithmic derivative of the Hubble parameter.
 
@@ -572,14 +597,14 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
     Ωγ0 = 2.469e-5 / (h**2)  # Photon density parameter
     N_eff = 3.044  # Effective number of neutrino species
 
-    # Calculate neutrino density at present day for flat universe constraint
+    # Calculate neutrino density at present day for universe constraint
     Ων0 = ΩνE2(1.0, Ωγ0, mν, N_eff)
 
-    # Dark energy density parameter (flat universe constraint)
-    ΩΛ0 = 1.0 - (Ωγ0 + Ωcb0 + Ων0)
+    # Dark energy density parameter (closure constraint: Ωγ + Ωcb + Ων + ΩΛ + Ωk = 1)
+    ΩΛ0 = 1.0 - (Ωγ0 + Ωcb0 + Ων0 + Ωk0)
 
     # Get E(a) for normalization
-    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     # Compute derivatives of density components
     # d/da(Ωγ0/a⁴) = -4*Ωγ0/a⁵
@@ -594,8 +619,11 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
     # d/da(ΩνE2(a))
     dΩν_da = dΩνE2da(a, Ωγ0, mν, N_eff)
 
+    # d/da(Ωk0/a²) = -2*Ωk0/a³
+    dΩk_da = -2.0 * Ωk0 / jnp.power(a, 3.0)
+
     # Total derivative dE²/da
-    dE2_da = dΩγ_da + dΩm_da + dΩΛ_da + dΩν_da
+    dE2_da = dΩγ_da + dΩm_da + dΩΛ_da + dΩν_da + dΩk_da
 
     # dE/da = (1/2E) * dE²/da
     dE_da = 0.5 / E_a_val * dE2_da
@@ -609,7 +637,8 @@ def Ωm_a(a: Union[float, jnp.ndarray],
          h: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+         wa: Union[float, jnp.ndarray] = 0.0,
+         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     """
     Matter density parameter Ωₘ(a) at scale factor a.
 
@@ -621,16 +650,16 @@ def Ωm_a(a: Union[float, jnp.ndarray],
         Matter density parameter Ωₘ(a).
     """
     # Get E(a)
-    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     # Formula: Ωm(a) = Ωcb0 × a^(-3) / E(a)²
     return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
 
 
-def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, n_points=500):
+def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=500):
 
     def integrand(z_prime):
-        return 1.0 / E_z(z_prime, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+        return 1.0 / E_z(z_prime, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     # Use JAX-compatible conditional
     def integrate_nonzero(_):
@@ -657,7 +686,8 @@ def r̃_z(z: Union[float, jnp.ndarray],
           h: Union[float, jnp.ndarray],
           mν: Union[float, jnp.ndarray] = 0.0,
           w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+          wa: Union[float, jnp.ndarray] = 0.0,
+          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     """
     Dimensionless comoving distance r̃(z).
 
@@ -671,7 +701,7 @@ def r̃_z(z: Union[float, jnp.ndarray],
         Conformal distance. Propagates NaN values and handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
-    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
 
     # Convert to array for consistent handling
     z_array = jnp.asarray(z)
@@ -679,13 +709,138 @@ def r̃_z(z: Union[float, jnp.ndarray],
     # Handle both scalar and array inputs uniformly
     if z_array.ndim == 0:
         # Scalar input - use high precision
-        result = r̃_z_single(z_array, Ωcb0, h, mν, w0, wa, n_points=1000)
+        result = r̃_z_single(z_array, Ωcb0, h, mν, w0, wa, Ωk0, n_points=1000)
     else:
         # Array input - use lower precision for speed
-        result = jax.vmap(lambda z_val: r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, n_points=50))(z_array)
+        result = jax.vmap(lambda z_val: r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=50))(z_array)
 
     # Propagate NaN if needed
     return jnp.where(has_nan, jnp.full_like(result, jnp.nan), result)
+
+
+@jax.custom_jvp
+def S_of_K(Ω: Union[float, jnp.ndarray], r: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    """
+    Transverse comoving distance with curvature correction.
+
+    This function handles three cases:
+    - Ω == 0 (flat): S(r) = r
+    - Ω > 0 (closed): S(r) = sinh(√Ω r) / √Ω
+    - Ω < 0 (open): S(r) = sin(√|Ω| r) / √|Ω|
+
+    Args:
+        Ω: Curvature parameter (Ωk0)
+        r: Comoving distance
+
+    Returns:
+        Transverse comoving distance
+    """
+    # Use jnp.where for JAX compatibility
+    # Handle Ω = 0 case (flat)
+    flat_result = r
+
+    # Handle Ω > 0 case (closed, hyperbolic)
+    a = jnp.sqrt(jnp.abs(Ω))
+    closed_result = jnp.sinh(a * r) / a
+
+    # Handle Ω < 0 case (open, trigonometric)
+    b = jnp.sqrt(jnp.abs(Ω))
+    open_result = jnp.sin(b * r) / b
+
+    # Select appropriate result based on Ω value
+    # Use nested jnp.where for the three-way branch
+    result = jnp.where(
+        Ω == 0.0,
+        flat_result,
+        jnp.where(
+            Ω > 0.0,
+            closed_result,
+            open_result
+        )
+    )
+
+    return result
+
+
+@S_of_K.defjvp
+def S_of_K_jvp(primals, tangents):
+    """
+    Custom JVP (forward-mode derivative) for S_of_K.
+
+    This provides analytical derivatives at Ω=0, matching the Julia rrule behavior:
+    - dS/dΩ at Ω=0 = r³/6 (analytical limit as Ω→0)
+    - dS/dr at Ω=0 = 1
+
+    For Ω ≠ 0, uses standard automatic differentiation.
+    """
+    Ω, r = primals
+    dΩ, dr = tangents
+
+    # Compute primal value
+    y = S_of_K(Ω, r)
+
+    # Compute derivatives
+    # For Ω > 0 (closed/hyperbolic):
+    #   S = sinh(√Ω r) / √Ω
+    #   dS/dΩ = r/(2Ω) [cosh(√Ω r) - sinh(√Ω r)/(√Ω r)]
+    #   dS/dr = cosh(√Ω r)
+
+    # For Ω < 0 (open/trigonometric):
+    #   S = sin(√|Ω| r) / √|Ω|
+    #   dS/dΩ = r/(2|Ω|) [cos(√|Ω| r) - sin(√|Ω| r)/(√|Ω| r)]
+    #   dS/dr = cos(√|Ω| r)
+
+    # For Ω = 0 (flat):
+    #   S = r
+    #   dS/dΩ = r³/6 (analytical limit)
+    #   dS/dr = 1
+
+    # Derivative w.r.t. r
+    a = jnp.sqrt(jnp.abs(Ω))
+    dS_dr_closed = jnp.cosh(a * r)
+    dS_dr_open = jnp.cos(a * r)
+    dS_dr_flat = 1.0
+
+    dS_dr = jnp.where(
+        Ω == 0.0,
+        dS_dr_flat,
+        jnp.where(
+            Ω > 0.0,
+            dS_dr_closed,
+            dS_dr_open
+        )
+    )
+
+    # Derivative w.r.t. Ω
+    # For Ω > 0: dS/dΩ = r/(2Ω) * [cosh(√Ω r) - sinh(√Ω r)/(√Ω r)]
+    ar = a * r
+    # Safe division: avoid division by zero when Ω is near zero
+    Ω_safe = jnp.where(jnp.abs(Ω) > 1e-15, Ω, 1.0)  # Use 1.0 as dummy value
+    ar_safe = jnp.where(jnp.abs(ar) > 1e-15, ar, 1.0)
+
+    dS_dΩ_closed = r / (2.0 * Ω_safe) * (jnp.cosh(ar) - jnp.sinh(ar) / ar_safe)
+
+    # For Ω < 0: dS/dΩ = r/(2|Ω|) * [cos(√|Ω| r) - sin(√|Ω| r)/(√|Ω| r)]
+    Ω_abs_safe = jnp.where(jnp.abs(Ω) > 1e-15, jnp.abs(Ω), 1.0)
+    dS_dΩ_open = r / (2.0 * Ω_abs_safe) * (jnp.cos(ar) - jnp.sin(ar) / ar_safe)
+
+    # For Ω = 0: Analytical limit = r³/6
+    dS_dΩ_flat = r**3 / 6.0
+
+    dS_dΩ = jnp.where(
+        Ω == 0.0,
+        dS_dΩ_flat,
+        jnp.where(
+            Ω > 0.0,
+            dS_dΩ_closed,
+            dS_dΩ_open
+        )
+    )
+
+    # Compute tangent
+    y_dot = dS_dΩ * dΩ + dS_dr * dr
+
+    return y, y_dot
 
 
 @jax.jit
@@ -694,16 +849,58 @@ def r_z(z: Union[float, jnp.ndarray],
          h: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+         wa: Union[float, jnp.ndarray] = 0.0,
+         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    """
+    Line-of-sight comoving distance r(z) in Mpc.
 
+    This is the conformal distance scaled to physical units.
+    Independent of curvature (curvature only affects transverse distances).
+
+    Returns:
+        Line-of-sight comoving distance in Mpc
+    """
     # Physical constants
     c_over_H0 = 2997.92458  # c/H₀ in Mpc when h=1 (speed of light / 100 km/s/Mpc)
 
     # Get conformal distance
-    r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     # Scale to physical units
     return c_over_H0 * r_tilde / h
+
+
+@jax.jit
+def dM_z(z: Union[float, jnp.ndarray],
+          Ωcb0: Union[float, jnp.ndarray],
+          h: Union[float, jnp.ndarray],
+          mν: Union[float, jnp.ndarray] = 0.0,
+          w0: Union[float, jnp.ndarray] = -1.0,
+          wa: Union[float, jnp.ndarray] = 0.0,
+          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    """
+    Transverse comoving distance dM(z) in Mpc.
+
+    For flat universe (Ωk=0): dM(z) = r(z) (comoving distance)
+    For curved universe: dM(z) = c/H₀ × S(Ωk, r̃(z)) / h
+
+    where S is the curvature correction function.
+
+    Returns:
+        Transverse comoving distance in Mpc
+    """
+    # Physical constants
+    c_over_H0 = 2997.92458  # c/H₀ in Mpc when h=1 (speed of light / 100 km/s/Mpc)
+
+    # Get conformal distance
+    r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+
+    # Apply curvature correction
+    # For flat universe (Ωk0 = 0), S_of_K returns r_tilde
+    r_tilde_curved = S_of_K(Ωk0, r_tilde)
+
+    # Scale to physical units
+    return c_over_H0 * r_tilde_curved / h
 
 
 @jax.jit
@@ -712,24 +909,33 @@ def dA_z(z: Union[float, jnp.ndarray],
           h: Union[float, jnp.ndarray],
           mν: Union[float, jnp.ndarray] = 0.0,
           w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+          wa: Union[float, jnp.ndarray] = 0.0,
+          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+    """
+    Angular diameter distance dA(z) in Mpc.
 
-    # Get comoving distance
-    r = r_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    For curved universes, uses transverse comoving distance:
+    dA(z) = dM(z) / (1+z)
+
+    Returns:
+        Angular diameter distance in Mpc
+    """
+    # Get transverse comoving distance
+    dM = dM_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     # Apply (1+z) factor
-    return r / (1.0 + z)
+    return dM / (1.0 + z)
 
 
 @jax.jit
-def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
+def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
 
     a = jnp.exp(log_a)
     D, dD_dloga = u
 
     # Get cosmological functions at this scale factor
-    dlogE_dloga = dlogEdloga(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
-    Omega_m_a = Ωm_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    dlogE_dloga = dlogEdloga(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    Omega_m_a = Ωm_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     # ODE system following Effort.jl exactly:
     # du[1] = dD/d(log a)
@@ -741,7 +947,7 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
     return du
 
-def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False):
+def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False):
     """
     Solve the growth factor ODE.
 
@@ -784,7 +990,7 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False)
         return growth_ode_system(log_a, u, *args)
 
     # Integration arguments
-    args = (Ωcb0, h, mν, w0, wa)
+    args = (Ωcb0, h, mν, w0, wa, Ωk0)
 
     # Set up ODE problem with better stability
     term = diffrax.ODETerm(odefunc)
@@ -913,7 +1119,7 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, return_both=False)
             return result
 
 @jax.jit
-def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
+def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     """
     Linear growth factor D(z).
 
@@ -924,7 +1130,7 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         Linear growth factor D(z). Returns NaN for NaN inputs, handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
-    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
 
     # If any input is NaN, return NaN immediately
     # Use lax.cond to handle this in a JIT-compatible way
@@ -935,13 +1141,13 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         # Handle both scalar and array inputs
         if jnp.isscalar(z) or jnp.asarray(z).ndim == 0:
             a_span = jnp.array([a])
-            D_result = growth_solver(a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+            D_result = growth_solver(a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
             return D_result[0]
         else:
             # For array inputs, solve once and interpolate
             z_array = jnp.asarray(z)
             a_array = a_z(z_array)
-            return growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+            return growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     def return_nan():
         # Return NaN with appropriate shape
@@ -955,7 +1161,7 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
 
 @jax.jit
-def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
+def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     """
     Growth rate f(z) = d log D / d log a.
 
@@ -969,7 +1175,7 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         Growth rate f(z). Returns NaN for NaN inputs, handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
-    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
 
     # Convert redshift to scale factor
     a = a_z(z)
@@ -980,7 +1186,7 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
-        D, dD_dloga = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, return_both=True)
+        D, dD_dloga = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True)
 
         # Apply numerical stability check
         epsilon = 1e-15
@@ -996,7 +1202,7 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         return jnp.where(has_nan, jnp.nan, f)
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
-        D_array, dD_dloga_array = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, return_both=True)
+        D_array, dD_dloga_array = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True)
 
         # Apply numerical stability check element-wise
         epsilon = 1e-15
@@ -1013,7 +1219,7 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
 
 @jax.jit
-def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
+def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
 
     # Convert redshift to scale factor
     a = a_z(z)
@@ -1024,7 +1230,7 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
 
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
-        D, dD_dloga = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, return_both=True)
+        D, dD_dloga = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True)
 
         # Apply numerical stability check for growth rate computation
         epsilon = 1e-15
@@ -1039,7 +1245,7 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0):
         return (D, f)
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
-        D_array, dD_dloga_array = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, return_both=True)
+        D_array, dD_dloga_array = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True)
 
         # Apply numerical stability check element-wise
         epsilon = 1e-15
@@ -1060,11 +1266,12 @@ def ρc_z(z: Union[float, jnp.ndarray],
           h: Union[float, jnp.ndarray],
           mν: Union[float, jnp.ndarray] = 0.0,
           w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+          wa: Union[float, jnp.ndarray] = 0.0,
+          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     # Critical density: ρc(z) = 3H²(z)/(8πG) = ρc0 × h² × E²(z)
     # where ρc0 = 2.7754×10¹¹ M☉/Mpc³ (in h=1 units)
     rho_c0_h2 = 2.7754e11  # M☉/Mpc³ in h² units
-    E_z_val = E_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    E_z_val = E_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
     return rho_c0_h2 * h**2 * E_z_val**2
 
 
@@ -1086,12 +1293,13 @@ def dL_z(z: Union[float, jnp.ndarray],
          h: Union[float, jnp.ndarray],
          mν: Union[float, jnp.ndarray] = 0.0,
          w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+         wa: Union[float, jnp.ndarray] = 0.0,
+         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
     """
     Luminosity distance at redshift z.
 
-    The luminosity distance is related to the comoving distance by:
-    dL(z) = r(z) * (1 + z)
+    For curved universes, uses transverse comoving distance:
+    dL(z) = dM(z) * (1 + z)
 
     Args:
         z: Redshift
@@ -1100,14 +1308,15 @@ def dL_z(z: Union[float, jnp.ndarray],
         mν: Sum of neutrino masses in eV
         w0: Dark energy equation of state parameter
         wa: Dark energy equation of state evolution parameter
+        Ωk0: Curvature density parameter
 
     Returns:
         Luminosity distance in Mpc
     """
-    # Get comoving distance
-    r = r_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa)
+    # Get transverse comoving distance
+    dM = dM_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     # Apply (1+z) factor for luminosity distance
-    return r * (1.0 + z)
+    return dM * (1.0 + z)
 
 

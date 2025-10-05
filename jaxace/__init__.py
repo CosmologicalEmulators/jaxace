@@ -29,13 +29,14 @@ from .utils import (
 
 # Import background cosmology functions
 from .background import (
-    W0WaCDMCosmology,
+    w0waCDMCosmology,
     a_z, E_a, E_z, dlogEdloga, Ωm_a,
     D_z, f_z, D_f_z,
-    r_z,
+    r_z, dM_z,
     dA_z,
     dL_z,
-    ρc_z, Ωtot_z
+    ρc_z, Ωtot_z,
+    S_of_K
 )
 
 __version__ = "0.2.0"

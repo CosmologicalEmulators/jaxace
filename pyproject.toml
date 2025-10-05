@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jaxace"
-version = "0.2.0"
+version = "0.3.0"
 description = "JAX implementation of AbstractCosmologicalEmulators.jl interface"
 authors = ["marcobonici <bonici.marco@gmail.com>"]
 readme = "README.md"

@@ -149,11 +149,11 @@ class TestCLASSComparison1:
 
         # Linear growth factor (normalized)
         D1 = cosmo.D_z(z)
-        assert np.isclose(D1 / D0, 0.5713231567487467, rtol=1e-2)  # 1% tolerance for growth factor
+        assert np.isclose(D1 / D0, 0.5713231567487467, rtol=1e-4)  # 1% tolerance for growth factor
 
         # Growth rate
         f1 = cosmo.f_z(z)
-        assert np.isclose(f1, 0.951063970660909, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f1, 0.951063970660909, rtol=1e-4)  # 5% tolerance for growth rate
 
         # Hubble parameter
         H1 = cosmo.E_z(z) * 100 * cosmo.h
@@ -175,15 +175,15 @@ class TestCLASSComparison1:
 
         # Linear growth factor (normalized)
         D2 = cosmo.D_z(z)
-        assert np.isclose(D2 / D0, 0.38596027450669235, rtol=1e-2)  # 1% tolerance for growth factor
+        assert np.isclose(D2 / D0, 0.38596027450669235, rtol=1e-4)  # 1% tolerance for growth factor
 
         # Growth rate
         f2 = cosmo.f_z(z)
-        assert np.isclose(f2, 0.9763011446824891, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f2, 0.9763011446824891, rtol=1e-4)  # 5% tolerance for growth rate
 
         # Hubble parameter
         H2 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H2, 198.43712939715508, rtol=2e-4)
+        assert np.isclose(H2, 198.43712939715508, rtol=1e-4)
 
         # Comoving distance
         assert np.isclose(cosmo.r_z(z), 5815.253842752389, rtol=1e-4)
@@ -233,7 +233,7 @@ class TestCLASSComparison2:
 
         # Growth rate at z=0
         f0 = cosmo.f_z(z)
-        assert np.isclose(f0, 0.682532170290542, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f0, 0.682532170290542, rtol=1e-4)  # 5% tolerance for growth rate
 
         # Hubble parameter H(z=0) = H0
         H0 = cosmo.E_z(z) * 100 * cosmo.h
@@ -251,11 +251,11 @@ class TestCLASSComparison2:
 
         # Linear growth factor (normalized)
         D1 = cosmo.D_z(z)
-        assert np.isclose(D1 / D0, 0.5608386428835493, rtol=1e-2)  # 1% tolerance for growth factor
+        assert np.isclose(D1 / D0, 0.5608386428835493, rtol=1e-4)  # 1% tolerance for growth factor
 
         # Growth rate
         f1 = cosmo.f_z(z)
-        assert np.isclose(f1, 0.9428198389771597, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f1, 0.9428198389771597, rtol=1e-4)  # 5% tolerance for growth rate
 
         # Hubble parameter
         H1 = cosmo.E_z(z) * 100 * cosmo.h
@@ -277,15 +277,15 @@ class TestCLASSComparison2:
 
         # Linear growth factor (normalized)
         D2 = cosmo.D_z(z)
-        assert np.isclose(D2 / D0, 0.378970688908124, rtol=1e-2)  # 1% tolerance for growth factor
+        assert np.isclose(D2 / D0, 0.378970688908124, rtol=1e-4)  # 1% tolerance for growth factor
 
         # Growth rate
         f2 = cosmo.f_z(z)
-        assert np.isclose(f2, 0.981855910972107, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f2, 0.981855910972107, rtol=1e-4)  # 5% tolerance for growth rate
 
         # Hubble parameter
         H2 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H2, 224.06947149941828, rtol=2e-4)
+        assert np.isclose(H2, 224.06947149941828, rtol=1e-4)
 
         # Comoving distance
         assert np.isclose(cosmo.r_z(z), 5254.860436794502, rtol=1e-4)
