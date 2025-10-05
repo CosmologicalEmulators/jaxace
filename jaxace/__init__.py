@@ -30,7 +30,6 @@ from .utils import (
 # Import background cosmology functions
 from .background import (
     w0waCDMCosmology,
-    W0WaCDMCosmology,  # Backward compatibility alias
     a_z, E_a, E_z, dlogEdloga, Ωm_a,
     D_z, f_z, D_f_z,
     r̃_z, d̃M_z, d̃A_z,
@@ -64,7 +63,6 @@ __all__ = [
     
     # Background cosmology
     "w0waCDMCosmology",
-    "W0WaCDMCosmology",  # Backward compatibility
     "a_z", "E_a", "E_z", "dlogEdloga", "Ωm_a",
     "D_z", "f_z", "D_f_z",
     "r̃_z", "d̃M_z", "d̃A_z",

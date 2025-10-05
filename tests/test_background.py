@@ -10,7 +10,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from jaxace.background import (
-    W0WaCDMCosmology,
+    w0waCDMCosmology,
     a_z, E_a, E_z, dlogEdloga, Ωm_a,
     D_z, f_z, D_f_z,
     r̃_z, d̃M_z, d̃A_z,
@@ -76,8 +76,8 @@ class TestHubbleParameter:
         assert np.isclose(E_a(1.0, Ωcb0, h, mν=0.06), 1.0)
 
     def test_cosmology_struct(self):
-        """Test using W0WaCDMCosmology structure."""
-        cosmo = W0WaCDMCosmology(
+        """Test using w0waCDMCosmology structure."""
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.636,
             omega_b=0.02237, omega_c=0.1,
             m_nu=0.06, w0=-2.0, wa=1.0
@@ -115,7 +115,7 @@ class TestCLASSComparison1:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.12,
             m_nu=0.4, w0=-1.9, wa=0.7
@@ -218,7 +218,7 @@ class TestCLASSComparison2:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.6,
             omega_b=0.02, omega_c=0.16,
             m_nu=0.2, w0=-0.9, wa=-0.7
@@ -331,7 +331,7 @@ class TestAdditionalFunctions:
 
     def test_combined_growth_functions(self):
         """Test D_f_z returning both D and f."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -350,7 +350,7 @@ class TestAdditionalFunctions:
 
     def test_array_inputs(self):
         """Test functions with array inputs."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -393,7 +393,7 @@ class TestJAXFeatures:
 
     def test_jit_compilation(self):
         """Test that functions are JIT-compiled."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -418,7 +418,7 @@ class TestJAXFeatures:
 
         # Define function for gradient with cosmology parameters
         def H_squared(omega_c):
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=3.0, ns=0.96, h=0.67,
                 omega_b=0.02, omega_c=omega_c,
                 m_nu=0.0, w0=-1.0, wa=0.0
@@ -434,7 +434,7 @@ class TestJAXFeatures:
 
         # Test gradient of comoving distance
         def comoving_distance(h_val):
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=3.0, ns=0.96, h=h_val,
                 omega_b=0.02, omega_c=0.118,
                 m_nu=0.0, w0=-1.0, wa=0.0
@@ -472,7 +472,7 @@ class TestComputedValues:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.6,
             omega_b=0.02, omega_c=0.16,
             m_nu=0.2, w0=-0.9, wa=-0.7
@@ -603,7 +603,7 @@ class TestComputedValuesNewParams:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.6,
             omega_b=0.02, omega_c=0.16,
             m_nu=0.1, w0=-1.5, wa=0.2
@@ -731,7 +731,7 @@ class TestJacobianComputation:
 
         def r_z_from_params(params):
             """Function that takes cosmological parameters and returns r_z."""
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
                 m_nu=params[5], w0=params[6], wa=params[7]
@@ -775,7 +775,7 @@ class TestJacobianComputation:
 
         def D_z_from_params(params):
             """Function that takes cosmological parameters and returns D_z."""
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
                 m_nu=params[5], w0=params[6], wa=params[7]
@@ -819,7 +819,7 @@ class TestJacobianComputation:
 
         def r_z_array_from_params(params):
             """Function that takes cosmological parameters and returns r_z for array."""
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
                 m_nu=params[5], w0=params[6], wa=params[7]
@@ -859,7 +859,7 @@ class TestJacobianComputation:
         def r_z_from_h_omega_c(params):
             """Function that takes [h, omega_c] and returns r_z."""
             h, omega_c = params[0], params[1]
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=base_cosmo_params['ln10As'],
                 ns=base_cosmo_params['ns'],
                 h=h,
@@ -896,7 +896,7 @@ class TestJacobianComputation:
         # Test simpler Hessian computation with E_z which should be more stable
         def Ez_squared_from_params(params):
             h, omega_c = params[0], params[1]
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=base_cosmo_params['ln10As'],
                 ns=base_cosmo_params['ns'],
                 h=h,
@@ -933,7 +933,7 @@ class TestTildeFunctions:
     @pytest.fixture
     def cosmo(self, cosmo_params):
         """Create cosmology instance."""
-        return W0WaCDMCosmology(**cosmo_params)
+        return w0waCDMCosmology(**cosmo_params)
 
     def test_tilde_scaling_relationship(self, cosmo_params):
         """Test that tilde functions relate correctly to physical distances."""
