@@ -202,6 +202,9 @@ class w0waCDMCosmology:
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
+# Backward compatibility alias
+W0WaCDMCosmology = w0waCDMCosmology
+
 @jax.jit
 def a_z(z):
 
