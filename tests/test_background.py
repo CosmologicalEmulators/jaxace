@@ -131,8 +131,8 @@ class TestCLASSComparison1:
 
         # Growth rate at z=0
         f0 = cosmo.f_z(z)
-        # Note: Increased tolerance due to ODE solver differences between implementations
-        assert np.isclose(f0, 0.5336534234376753, rtol=5e-2)  # 5% tolerance for growth rate
+        # Matching Julia tolerance
+        assert np.isclose(f0, 0.5336534234376753, rtol=2e-5)  # Same tolerance as Julia
 
         # Hubble parameter H(z=0) = H0
         H0 = cosmo.E_z(z) * 100 * cosmo.h
