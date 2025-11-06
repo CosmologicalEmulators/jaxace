@@ -120,7 +120,7 @@ def test_background_implementation():
     bg_file = Path(__file__).parent.parent / "jaxace" / "background.py"
     functions, classes = parse_python_file(bg_file)
     
-    required_classes = ["W0WaCDMCosmology"]
+    required_classes = ["w0waCDMCosmology"]
     required_functions = [
         # Basic functions
         "a_z", "rhoDE_a", "rhoDE_z", "drhoDE_da",

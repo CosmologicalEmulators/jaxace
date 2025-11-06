@@ -10,10 +10,11 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from jaxace.background import (
-    W0WaCDMCosmology,
+    w0waCDMCosmology,
     a_z, E_a, E_z, dlogEdloga, Ωm_a,
     D_z, f_z, D_f_z,
-    r_z, dA_z, dL_z,
+    r̃_z, d̃M_z, d̃A_z,
+    r_z, dA_z, dL_z, dM_z,
     gety, F, dFdy,
     rhoDE_a, rhoDE_z, drhoDE_da
 )
@@ -75,8 +76,8 @@ class TestHubbleParameter:
         assert np.isclose(E_a(1.0, Ωcb0, h, mν=0.06), 1.0)
 
     def test_cosmology_struct(self):
-        """Test using W0WaCDMCosmology structure."""
-        cosmo = W0WaCDMCosmology(
+        """Test using w0waCDMCosmology structure."""
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.636,
             omega_b=0.02237, omega_c=0.1,
             m_nu=0.06, w0=-2.0, wa=1.0
@@ -114,7 +115,7 @@ class TestCLASSComparison1:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.12,
             m_nu=0.4, w0=-1.9, wa=0.7
@@ -130,8 +131,8 @@ class TestCLASSComparison1:
 
         # Growth rate at z=0
         f0 = cosmo.f_z(z)
-        # Note: Increased tolerance due to ODE solver differences between implementations
-        assert np.isclose(f0, 0.5336534234376753, rtol=5e-2)  # 5% tolerance for growth rate
+        # Matching Julia tolerance
+        assert np.isclose(f0, 0.5336534234376753, rtol=2e-5)  # Same tolerance as Julia
 
         # Hubble parameter H(z=0) = H0
         H0 = cosmo.E_z(z) * 100 * cosmo.h
@@ -149,11 +150,11 @@ class TestCLASSComparison1:
 
         # Linear growth factor (normalized)
         D1 = cosmo.D_z(z)
-        assert np.isclose(D1 / D0, 0.5713231567487467, rtol=1e-2)  # 1% tolerance for growth factor
+        assert np.isclose(D1 / D0, 0.5713231567487467, rtol=1e-4)  # 1% tolerance for growth factor
 
         # Growth rate
         f1 = cosmo.f_z(z)
-        assert np.isclose(f1, 0.951063970660909, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f1, 0.951063970660909, rtol=2e-4)
 
         # Hubble parameter
         H1 = cosmo.E_z(z) * 100 * cosmo.h
@@ -175,11 +176,11 @@ class TestCLASSComparison1:
 
         # Linear growth factor (normalized)
         D2 = cosmo.D_z(z)
-        assert np.isclose(D2 / D0, 0.38596027450669235, rtol=1e-2)  # 1% tolerance for growth factor
+        assert np.isclose(D2 / D0, 0.38596027450669235, rtol=1e-4)  # 1% tolerance for growth factor
 
         # Growth rate
         f2 = cosmo.f_z(z)
-        assert np.isclose(f2, 0.9763011446824891, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f2, 0.9763011446824891, rtol=2e-4)
 
         # Hubble parameter
         H2 = cosmo.E_z(z) * 100 * cosmo.h
@@ -217,7 +218,7 @@ class TestCLASSComparison2:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.6,
             omega_b=0.02, omega_c=0.16,
             m_nu=0.2, w0=-0.9, wa=-0.7
@@ -233,7 +234,7 @@ class TestCLASSComparison2:
 
         # Growth rate at z=0
         f0 = cosmo.f_z(z)
-        assert np.isclose(f0, 0.682532170290542, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f0, 0.682532170290542, rtol=2e-5)
 
         # Hubble parameter H(z=0) = H0
         H0 = cosmo.E_z(z) * 100 * cosmo.h
@@ -251,11 +252,11 @@ class TestCLASSComparison2:
 
         # Linear growth factor (normalized)
         D1 = cosmo.D_z(z)
-        assert np.isclose(D1 / D0, 0.5608386428835493, rtol=1e-2)  # 1% tolerance for growth factor
+        assert np.isclose(D1 / D0, 0.5608386428835493, rtol=1e-4)  # 1% tolerance for growth factor
 
         # Growth rate
         f1 = cosmo.f_z(z)
-        assert np.isclose(f1, 0.9428198389771597, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f1, 0.9428198389771597, rtol=2e-4)
 
         # Hubble parameter
         H1 = cosmo.E_z(z) * 100 * cosmo.h
@@ -277,11 +278,11 @@ class TestCLASSComparison2:
 
         # Linear growth factor (normalized)
         D2 = cosmo.D_z(z)
-        assert np.isclose(D2 / D0, 0.378970688908124, rtol=1e-2)  # 1% tolerance for growth factor
+        assert np.isclose(D2 / D0, 0.378970688908124, rtol=1e-4)  # 1% tolerance for growth factor
 
         # Growth rate
         f2 = cosmo.f_z(z)
-        assert np.isclose(f2, 0.981855910972107, rtol=5e-2)  # 5% tolerance for growth rate
+        assert np.isclose(f2, 0.981855910972107, rtol=2e-4)
 
         # Hubble parameter
         H2 = cosmo.E_z(z) * 100 * cosmo.h
@@ -330,7 +331,7 @@ class TestAdditionalFunctions:
 
     def test_combined_growth_functions(self):
         """Test D_f_z returning both D and f."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -349,7 +350,7 @@ class TestAdditionalFunctions:
 
     def test_array_inputs(self):
         """Test functions with array inputs."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -392,7 +393,7 @@ class TestJAXFeatures:
 
     def test_jit_compilation(self):
         """Test that functions are JIT-compiled."""
-        cosmo = W0WaCDMCosmology(
+        cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
             m_nu=0.0, w0=-1.0, wa=0.0
@@ -417,7 +418,7 @@ class TestJAXFeatures:
 
         # Define function for gradient with cosmology parameters
         def H_squared(omega_c):
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=3.0, ns=0.96, h=0.67,
                 omega_b=0.02, omega_c=omega_c,
                 m_nu=0.0, w0=-1.0, wa=0.0
@@ -433,7 +434,7 @@ class TestJAXFeatures:
 
         # Test gradient of comoving distance
         def comoving_distance(h_val):
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=3.0, ns=0.96, h=h_val,
                 omega_b=0.02, omega_c=0.118,
                 m_nu=0.0, w0=-1.0, wa=0.0
@@ -471,7 +472,7 @@ class TestComputedValues:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.6,
             omega_b=0.02, omega_c=0.16,
             m_nu=0.2, w0=-0.9, wa=-0.7
@@ -602,7 +603,7 @@ class TestComputedValuesNewParams:
     @pytest.fixture
     def cosmo(self):
         """Set up cosmology object."""
-        return W0WaCDMCosmology(
+        return w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.6,
             omega_b=0.02, omega_c=0.16,
             m_nu=0.1, w0=-1.5, wa=0.2
@@ -730,7 +731,7 @@ class TestJacobianComputation:
 
         def r_z_from_params(params):
             """Function that takes cosmological parameters and returns r_z."""
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
                 m_nu=params[5], w0=params[6], wa=params[7]
@@ -774,7 +775,7 @@ class TestJacobianComputation:
 
         def D_z_from_params(params):
             """Function that takes cosmological parameters and returns D_z."""
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
                 m_nu=params[5], w0=params[6], wa=params[7]
@@ -818,7 +819,7 @@ class TestJacobianComputation:
 
         def r_z_array_from_params(params):
             """Function that takes cosmological parameters and returns r_z for array."""
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
                 m_nu=params[5], w0=params[6], wa=params[7]
@@ -858,7 +859,7 @@ class TestJacobianComputation:
         def r_z_from_h_omega_c(params):
             """Function that takes [h, omega_c] and returns r_z."""
             h, omega_c = params[0], params[1]
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=base_cosmo_params['ln10As'],
                 ns=base_cosmo_params['ns'],
                 h=h,
@@ -895,7 +896,7 @@ class TestJacobianComputation:
         # Test simpler Hessian computation with E_z which should be more stable
         def Ez_squared_from_params(params):
             h, omega_c = params[0], params[1]
-            cosmo = W0WaCDMCosmology(
+            cosmo = w0waCDMCosmology(
                 ln10As=base_cosmo_params['ln10As'],
                 ns=base_cosmo_params['ns'],
                 h=h,
@@ -909,6 +910,129 @@ class TestJacobianComputation:
 
         hessian_ez = jax.hessian(Ez_squared_from_params)(params_subset)
         assert jnp.all(jnp.isfinite(hessian_ez)), "E_z squared Hessian should be finite"
+
+
+class TestTildeFunctions:
+    """Test dimensionless distance functions."""
+
+    @pytest.fixture
+    def cosmo_params(self):
+        """Standard cosmological parameters for testing."""
+        return {
+            'omega_b': 0.022,
+            'omega_c': 0.12,
+            'h': 0.7,
+            'm_nu': 0.06,
+            'w0': -1.0,
+            'wa': 0.0,
+            'omega_k': 0.0,
+            'ln10As': 3.044,
+            'ns': 0.965
+        }
+
+    @pytest.fixture
+    def cosmo(self, cosmo_params):
+        """Create cosmology instance."""
+        return w0waCDMCosmology(**cosmo_params)
+
+    def test_tilde_scaling_relationship(self, cosmo_params):
+        """Test that tilde functions relate correctly to physical distances."""
+        Ωcb0 = (cosmo_params['omega_c'] + cosmo_params['omega_b']) / cosmo_params['h']**2
+        h = cosmo_params['h']
+        z = 1.0
+
+        # Constants
+        c_over_H0 = 2997.92458  # c/H0 in Mpc where H0 = 100 km/s/Mpc
+
+        # Get tilde and physical versions
+        r_tilde = r̃_z(z, Ωcb0, h)
+        r_physical = r_z(z, Ωcb0, h)
+
+        # Check scaling relationship: r(z) = (c/H0) * r̃(z) / h
+        expected_r = (c_over_H0 / h) * r_tilde
+        assert np.isclose(r_physical, expected_r, rtol=1e-10)
+
+        # Same for dM
+        dM_tilde = d̃M_z(z, Ωcb0, h)
+        dM_physical = dM_z(z, Ωcb0, h)
+        expected_dM = (c_over_H0 / h) * dM_tilde
+        assert np.isclose(dM_physical, expected_dM, rtol=1e-10)
+
+        # And for dA
+        dA_tilde = d̃A_z(z, Ωcb0, h)
+        dA_physical = dA_z(z, Ωcb0, h)
+        expected_dA = (c_over_H0 / h) * dA_tilde
+        assert np.isclose(dA_physical, expected_dA, rtol=1e-10)
+
+    def test_tilde_curvature_relationship(self, cosmo_params):
+        """Test tilde functions with curvature."""
+        cosmo_params_curved = cosmo_params.copy()
+        cosmo_params_curved['omega_k'] = 0.05
+
+        Ωcb0 = (cosmo_params_curved['omega_c'] + cosmo_params_curved['omega_b']) / cosmo_params_curved['h']**2
+        h = cosmo_params_curved['h']
+        Ωk0 = cosmo_params_curved['omega_k'] / h**2
+        z = 2.0
+
+        # Get tilde distances
+        r_tilde = r̃_z(z, Ωcb0, h, Ωk0=Ωk0)
+        dM_tilde = d̃M_z(z, Ωcb0, h, Ωk0=Ωk0)
+        dA_tilde = d̃A_z(z, Ωcb0, h, Ωk0=Ωk0)
+
+        # Check relationships
+        # dA should be dM/(1+z)
+        assert np.isclose(dA_tilde, dM_tilde / (1 + z), rtol=1e-10)
+
+        # For non-zero curvature, dM != r
+        assert not np.isclose(dM_tilde, r_tilde, rtol=1e-5)
+
+    def test_tilde_zero_redshift(self, cosmo_params):
+        """Test that all tilde distances are zero at z=0."""
+        Ωcb0 = (cosmo_params['omega_c'] + cosmo_params['omega_b']) / cosmo_params['h']**2
+        h = cosmo_params['h']
+
+        assert np.isclose(r̃_z(0.0, Ωcb0, h), 0.0, atol=1e-15)
+        assert np.isclose(d̃M_z(0.0, Ωcb0, h), 0.0, atol=1e-15)
+        assert np.isclose(d̃A_z(0.0, Ωcb0, h), 0.0, atol=1e-15)
+
+    def test_class_methods(self, cosmo):
+        """Test that class methods work correctly."""
+        z = np.array([0.5, 1.0, 2.0])
+
+        # Just check that these run without error and return arrays
+        r_tilde = cosmo.r̃_z(z)
+        dM_tilde = cosmo.d̃M_z(z)
+        dA_tilde = cosmo.d̃A_z(z)
+
+        assert r_tilde.shape == z.shape
+        assert dM_tilde.shape == z.shape
+        assert dA_tilde.shape == z.shape
+
+        # Check consistency with standalone functions
+        Ωcb0 = (cosmo.omega_c + cosmo.omega_b) / cosmo.h**2
+        Ωk0 = cosmo.omega_k / cosmo.h**2
+
+        r_tilde_direct = r̃_z(z, Ωcb0, cosmo.h, mν=cosmo.m_nu,
+                             w0=cosmo.w0, wa=cosmo.wa, Ωk0=Ωk0)
+        assert np.allclose(r_tilde, r_tilde_direct, rtol=1e-10)
+
+    def test_vectorization(self, cosmo_params):
+        """Test that tilde functions work with vector inputs."""
+        Ωcb0 = (cosmo_params['omega_c'] + cosmo_params['omega_b']) / cosmo_params['h']**2
+        h = cosmo_params['h']
+        z = jnp.linspace(0.1, 3.0, 50)
+
+        r_tilde = r̃_z(z, Ωcb0, h)
+        dM_tilde = d̃M_z(z, Ωcb0, h)
+        dA_tilde = d̃A_z(z, Ωcb0, h)
+
+        assert r_tilde.shape == z.shape
+        assert dM_tilde.shape == z.shape
+        assert dA_tilde.shape == z.shape
+
+        # Check monotonicity (distances should increase with z for reasonable cosmologies)
+        assert np.all(np.diff(r_tilde) > 0)
+        assert np.all(np.diff(dM_tilde) > 0)
 
 
 if __name__ == "__main__":

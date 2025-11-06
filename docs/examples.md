@@ -2,7 +2,7 @@
 
 ## Basic Cosmology Calculations
 
-This example demonstrates how to use the `W0WaCDMCosmology` class to compute various cosmological quantities and visualize them.
+This example demonstrates how to use the `w0waCDMCosmology` class to compute various cosmological quantities and visualize them.
 
 ### Setting up the Cosmology
 
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import jaxace
 
 # Create a cosmology instance with Planck 2018 parameters
-cosmo = jaxace.W0WaCDMCosmology(
+cosmo = jaxace.w0waCDMCosmology(
     ln10As=3.044,      # ln(10^10 A_s)
     ns=0.9649,         # Scalar spectral index
     h=0.6736,          # Hubble parameter
@@ -119,7 +119,7 @@ One of the advantages of `jaxace` is that all functions are JAX-compatible, enab
 @jax.jit
 def compute_distances_fast(z_array, omega_c, omega_b, h):
     """JIT-compiled function for fast distance calculations."""
-    cosmo = jaxace.W0WaCDMCosmology(
+    cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044, ns=0.9649, h=h,
         omega_b=omega_b, omega_c=omega_c,
         m_nu=0.06, w0=-1.0, wa=0.0
@@ -150,7 +150,7 @@ import jaxace
 def growth_factor_function(params, z):
     """Compute growth factor D(z) for given cosmological parameters."""
     omega_c, omega_b, h, m_nu, w0, wa = params
-    cosmo = jaxace.W0WaCDMCosmology(
+    cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044,  # Keep fixed for this example
         ns=0.9649,      # Keep fixed for this example
         h=h,
@@ -221,7 +221,7 @@ We can also compute Jacobians for both growth factor D(z) and growth rate f(z) s
 def growth_functions(params, z):
     """Compute both D(z) and f(z) for given parameters."""
     omega_c, omega_b, h, m_nu, w0, wa = params
-    cosmo = jaxace.W0WaCDMCosmology(
+    cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044, ns=0.9649,
         h=h, omega_b=omega_b, omega_c=omega_c,
         m_nu=m_nu, w0=w0, wa=wa
@@ -277,7 +277,7 @@ cosmologies = {
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
 for name, params in cosmologies.items():
-    cosmo_test = jaxace.W0WaCDMCosmology(
+    cosmo_test = jaxace.w0waCDMCosmology(
         ln10As=3.044, ns=0.9649, h=0.6736,
         omega_b=0.02237, omega_c=0.1200,
         m_nu=0.06, **params

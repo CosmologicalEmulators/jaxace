@@ -2,7 +2,7 @@
 
 ## Cosmology
 
-::: jaxace.W0WaCDMCosmology
+::: jaxace.w0waCDMCosmology
     options:
       show_source: false
 
