@@ -1,41 +1,55 @@
-
 # Optional JAX 64-bit precision configuration
 # Users can set this before importing jaxace if they want 64-bit precision:
 # import jax
 # jax.config.update('jax_enable_x64', True)
 
+import os
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional, Union
+
+import diffrax
+import interpax
 import jax
 import jax.numpy as jnp
-from typing import Union, Optional
-from dataclasses import dataclass
 import quadax
-import interpax
-import diffrax
-from pathlib import Path
-import sys
-import os
 
 # Allow user to configure precision via environment variable
-if os.environ.get('JAXACE_ENABLE_X64', 'true').lower() == 'true':
+if os.environ.get("JAXACE_ENABLE_X64", "true").lower() == "true":
     try:
-        jax.config.update('jax_enable_x64', True)
+        jax.config.update("jax_enable_x64", True)
     except RuntimeError:
         # Config already set, that's fine
         pass
 
 __all__ = [
-    'w0waCDMCosmology',
-    'a_z', 'E_a', 'E_z', 'dlogEdloga', 'Ωm_a',
-    'D_z', 'f_z', 'D_f_z',
-    'r̃_z', 'd̃M_z', 'd̃A_z',
-    'r_z', 'dM_z', 'dA_z', 'ρc_z', 'Ωtot_z', 'dL_z',
-    'S_of_K'
+    "w0waCDMCosmology",
+    "a_z",
+    "E_a",
+    "E_z",
+    "dlogEdloga",
+    "Ωm_a",
+    "D_z",
+    "f_z",
+    "D_f_z",
+    "r̃_z",
+    "d̃M_z",
+    "d̃A_z",
+    "r_z",
+    "dM_z",
+    "dA_z",
+    "ρc_z",
+    "Ωtot_z",
+    "dL_z",
+    "S_of_K",
 ]
 
 
 # ============================================================================
 # Gauss-Legendre Quadrature Utilities
 # ============================================================================
+
 
 def gauss_legendre(n: int, dtype=jnp.float64):
     """
@@ -60,16 +74,15 @@ def gauss_legendre(n: int, dtype=jnp.float64):
     """
     # Jacobi matrix for Legendre: alpha_k = 0, beta_k = k^2 / (4k^2 - 1)
     k = jnp.arange(1, n, dtype=dtype)
-    off = k / jnp.sqrt(4 * k * k - 1)       # sqrt(beta_k)
+    off = k / jnp.sqrt(4 * k * k - 1)  # sqrt(beta_k)
     J = jnp.diag(off, 1) + jnp.diag(off, -1)
     evals, evecs = jnp.linalg.eigh(J)
-    x = evals                                 # nodes in [-1, 1]
-    w = 2.0 * (evecs[0, :] ** 2)              # weights
+    x = evals  # nodes in [-1, 1]
+    w = 2.0 * (evecs[0, :] ** 2)  # weights
     return x, w
 
 
-def map_to_interval(x: jnp.ndarray, w: jnp.ndarray,
-                    a: float, b: float):
+def map_to_interval(x: jnp.ndarray, w: jnp.ndarray, a: float, b: float):
     """
     Map Gauss-Legendre nodes and weights from [-1, 1] to [a, b].
 
@@ -96,9 +109,8 @@ def map_to_interval(x: jnp.ndarray, w: jnp.ndarray,
 
 # Pre-compute quadrature points for commonly used sizes (at module load time)
 # This avoids tracer leaks inside JAX transformations
-_GL_CACHE = {
-    n: gauss_legendre(n) for n in [3, 5, 7, 9, 15, 25, 50]
-}
+_GL_CACHE = {n: gauss_legendre(n) for n in [3, 5, 7, 9, 15, 25, 100]}
+
 
 def _get_gl_points(n: int):
     """Get Gauss-Legendre points, using pre-computed cache when available."""
@@ -184,7 +196,7 @@ def _handle_infinite_params(value, param_name="parameter"):
     is_neg_inf = jnp.isneginf(value_array)
 
     # Return NaN for positive infinity in most cosmological parameters
-    if param_name in ['Ωcb0', 'h', 'mν'] and jnp.any(is_pos_inf):
+    if param_name in ["Ωcb0", "h", "mν"] and jnp.any(is_pos_inf):
         return jnp.where(is_pos_inf, jnp.nan, value_array)
 
     return value_array
@@ -291,10 +303,11 @@ class w0waCDMCosmology:
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
+
 @jax.jit
 def a_z(z):
-
     return 1.0 / (1.0 + z)
+
 
 @jax.jit
 def rhoDE_a(a, w0, wa):
@@ -326,35 +339,41 @@ def rhoDE_a(a, w0, wa):
     # Return NaN for infinite inputs or non-finite results
     return jnp.where(is_inf_w0 | is_inf_wa | ~jnp.isfinite(result), jnp.nan, result)
 
+
 @jax.jit
 def rhoDE_z(z, w0, wa):
+    return jnp.power(1.0 + z, 3.0 * (1.0 + w0 + wa)) * jnp.exp(
+        -3.0 * wa * z / (1.0 + z)
+    )
 
-    return jnp.power(1.0 + z, 3.0 * (1.0 + w0 + wa)) * jnp.exp(-3.0 * wa * z / (1.0 + z))
 
 @jax.jit
 def drhoDE_da(a, w0, wa):
-
     return 3.0 * (-(1.0 + w0 + wa) / a + wa) * rhoDE_a(a, w0, wa)
 
+
 @jax.jit
-def gety(m_nu: Union[float, jnp.ndarray],
-         a: Union[float, jnp.ndarray],
-         kB: float = 8.617342e-5,
-         T_nu: float = 0.71611 * 2.7255) -> Union[float, jnp.ndarray]:
+def gety(
+    m_nu: Union[float, jnp.ndarray],
+    a: Union[float, jnp.ndarray],
+    kB: float = 8.617342e-5,
+    T_nu: float = 0.71611 * 2.7255,
+) -> Union[float, jnp.ndarray]:
     """
     Compute dimensionless neutrino parameter y = m_nu * a / (kB * T_nu)
     Matches Effort.jl's _get_y function exactly.
     """
     return m_nu * a / (kB * T_nu)
 
-def F(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
 
+def F(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
     def singleF(y_val):
         def integrand(x):
             return x**2 * jnp.sqrt(x**2 + y_val**2) / (jnp.exp(x) + 1.0)
 
-        result, _ = quadax.quadgk(integrand, [0.0, jnp.inf],
-                                epsabs=1e-15, epsrel=1e-12, order=61)
+        result, _ = quadax.quadgk(
+            integrand, [0.0, jnp.inf], epsabs=1e-15, epsrel=1e-12, order=61
+        )
         return result
 
     # Handle both scalar and array inputs
@@ -363,15 +382,16 @@ def F(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
     else:
         return jax.vmap(singleF)(y)
 
-def dFdy(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
 
+def dFdy(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
     def singledFdy(y_val):
         def integrand(x):
             sqrt_term = jnp.sqrt(x**2 + y_val**2)
             return x**2 * y_val / (sqrt_term * (jnp.exp(x) + 1.0))
 
-        result, _ = quadax.quadgk(integrand, [0.0, jnp.inf],
-                                epsabs=1e-15, epsrel=1e-12, order=61)
+        result, _ = quadax.quadgk(
+            integrand, [0.0, jnp.inf], epsabs=1e-15, epsrel=1e-12, order=61
+        )
         return result
 
     # Handle both scalar and array inputs
@@ -388,7 +408,6 @@ _interpolants_initialized = False
 
 
 def initialize_interpolants():
-
     global _F_interpolator, _dFdy_interpolator, _interpolants_initialized
 
     if _interpolants_initialized:
@@ -416,8 +435,12 @@ def initialize_interpolants():
         dFdy_y_high = jnp.logspace(jnp.log10(10.1), jnp.log10(max_y), 10000)
         dFdy_y_grid = jnp.concatenate([dFdy_y_low, dFdy_y_high])
 
-        print(f"F grid: {len(F_y_grid)} points from {F_y_grid[0]:.6f} to {F_y_grid[-1]:.1f}")
-        print(f"dFdy grid: {len(dFdy_y_grid)} points from {dFdy_y_grid[0]:.6f} to {dFdy_y_grid[-1]:.1f}")
+        print(
+            f"F grid: {len(F_y_grid)} points from {F_y_grid[0]:.6f} to {F_y_grid[-1]:.1f}"
+        )
+        print(
+            f"dFdy grid: {len(dFdy_y_grid)} points from {dFdy_y_grid[0]:.6f} to {dFdy_y_grid[-1]:.1f}"
+        )
 
         # Compute F values for F grid using JAX vectorization
         print("Computing F values...")
@@ -450,13 +473,15 @@ def initialize_interpolants():
         print(f"Warning: Failed to initialize interpolants: {e}")
         return False
 
+
 @jax.jit
 def F_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-
     global _F_interpolator
 
     if _F_interpolator is None:
-        raise RuntimeError("F interpolant not initialized. Call initialize_interpolants() first.")
+        raise RuntimeError(
+            "F interpolant not initialized. Call initialize_interpolants() first."
+        )
 
     # Input validation (must be JAX-traceable)
     y = jnp.asarray(y)
@@ -466,13 +491,15 @@ def F_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
 
     return result
 
+
 @jax.jit
 def dFdy_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-
     global _dFdy_interpolator
 
     if _dFdy_interpolator is None:
-        raise RuntimeError("dFdy interpolant not initialized. Call initialize_interpolants() first.")
+        raise RuntimeError(
+            "dFdy interpolant not initialized. Call initialize_interpolants() first."
+        )
 
     # Input validation (must be JAX-traceable)
     y = jnp.asarray(y)
@@ -484,10 +511,12 @@ def dFdy_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
 
 
 @jax.jit
-def ΩνE2(a: Union[float, jnp.ndarray],
-          Ωγ0: Union[float, jnp.ndarray],
-          m_nu: Union[float, jnp.ndarray],
-          N_eff: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+def ΩνE2(
+    a: Union[float, jnp.ndarray],
+    Ωγ0: Union[float, jnp.ndarray],
+    m_nu: Union[float, jnp.ndarray],
+    N_eff: Union[float, jnp.ndarray],
+) -> Union[float, jnp.ndarray]:
     """
     Neutrino energy density parameter following Effort.jl exactly.
 
@@ -507,7 +536,7 @@ def ΩνE2(a: Union[float, jnp.ndarray],
     T_nu = 0.71611 * 2.7255  # Neutrino temperature in K (matches Effort.jl)
 
     # Gamma factor (exact match with Effort.jl)
-    Gamma_nu = jnp.power(4.0 / 11.0, 1.0/3.0) * jnp.power(N_eff / 3.0, 1.0/4.0)
+    Gamma_nu = jnp.power(4.0 / 11.0, 1.0 / 3.0) * jnp.power(N_eff / 3.0, 1.0 / 4.0)
 
     # Handle both single mass and array of masses
     m_nu_array = jnp.asarray(m_nu)
@@ -525,17 +554,24 @@ def ΩνE2(a: Union[float, jnp.ndarray],
         sum_interpolant = jnp.sum(F_values)
 
     # Exact Effort.jl formula: 15/π^4 * Γν^4 * Ωγ0/a^4 * sum_interpolant
-    result = (15.0 / jnp.pi**4) * jnp.power(Gamma_nu, 4.0) * Ωγ0 * jnp.power(a, -4.0) * sum_interpolant
+    result = (
+        (15.0 / jnp.pi**4)
+        * jnp.power(Gamma_nu, 4.0)
+        * Ωγ0
+        * jnp.power(a, -4.0)
+        * sum_interpolant
+    )
 
     return result
 
 
 @jax.jit
-def dΩνE2da(a: Union[float, jnp.ndarray],
-             Ωγ0: Union[float, jnp.ndarray],
-             m_nu: Union[float, jnp.ndarray],
-             N_eff: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-
+def dΩνE2da(
+    a: Union[float, jnp.ndarray],
+    Ωγ0: Union[float, jnp.ndarray],
+    m_nu: Union[float, jnp.ndarray],
+    N_eff: Union[float, jnp.ndarray],
+) -> Union[float, jnp.ndarray]:
     # Use JAX autodiff for guaranteed consistency
     def energydensity_for_diff(a_val):
         return ΩνE2(a_val, Ωγ0, m_nu, N_eff)
@@ -548,6 +584,7 @@ def dΩνE2da(a: Union[float, jnp.ndarray],
         grad_fn = jax.vmap(jax.grad(lambda a_val: ΩνE2(a_val, Ωγ0, m_nu, N_eff)))
         return grad_fn(a)
 
+
 # Initialize interpolants on module import
 try:
     _interpolants_initialized = initialize_interpolants()
@@ -555,14 +592,17 @@ except Exception as e:
     print(f"Warning: Could not initialize interpolants during module import: {e}")
     _interpolants_initialized = False
 
+
 @jax.jit
-def E_a(a: Union[float, jnp.ndarray],
-         Ωcb0: Union[float, jnp.ndarray],
-         h: Union[float, jnp.ndarray],
-         mν: Union[float, jnp.ndarray] = 0.0,
-         w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0,
-         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def E_a(
+    a: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Dimensionless Hubble parameter E(a) = H(a)/H0.
 
@@ -644,13 +684,15 @@ def E_a(a: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def E_z(z: Union[float, jnp.ndarray],
-         Ωcb0: Union[float, jnp.ndarray],
-         h: Union[float, jnp.ndarray],
-         mν: Union[float, jnp.ndarray] = 0.0,
-         w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0,
-         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def E_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Dimensionless Hubble parameter E(z) = H(z)/H0.
 
@@ -667,13 +709,15 @@ def E_z(z: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def dlogEdloga(a: Union[float, jnp.ndarray],
-                Ωcb0: Union[float, jnp.ndarray],
-                h: Union[float, jnp.ndarray],
-                mν: Union[float, jnp.ndarray] = 0.0,
-                w0: Union[float, jnp.ndarray] = -1.0,
-                wa: Union[float, jnp.ndarray] = 0.0,
-                Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def dlogEdloga(
+    a: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Logarithmic derivative of the Hubble parameter.
 
@@ -723,14 +767,17 @@ def dlogEdloga(a: Union[float, jnp.ndarray],
     # d(log E)/d(log a) = (a/E) * dE/da
     return (a / E_a_val) * dE_da
 
+
 @jax.jit
-def Ωm_a(a: Union[float, jnp.ndarray],
-         Ωcb0: Union[float, jnp.ndarray],
-         h: Union[float, jnp.ndarray],
-         mν: Union[float, jnp.ndarray] = 0.0,
-         w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0,
-         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def Ωm_a(
+    a: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Matter density parameter Ωₘ(a) at scale factor a.
 
@@ -748,7 +795,7 @@ def Ωm_a(a: Union[float, jnp.ndarray],
     return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
 
 
-def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=9):
+def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100):
     """
     Compute dimensionless comoving distance for a single redshift value
     using Gauss-Legendre quadrature.
@@ -763,8 +810,9 @@ def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=9):
     z_val : float
         Redshift value
     n_points : int, optional
-        Number of GL quadrature points (default: 9)
+        Number of GL quadrature points (default: 100)
     """
+
     def integrand(z_prime):
         return 1.0 / E_z(z_prime, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
@@ -786,18 +834,21 @@ def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=9):
         jnp.abs(z_val) < 1e-12,  # z essentially zero
         lambda _: 0.0,  # Return zero for z=0
         integrate_nonzero,  # Integrate for z > 0
-        operand=None
+        operand=None,
     )
     return result
 
+
 @jax.jit
-def r̃_z(z: Union[float, jnp.ndarray],
-          Ωcb0: Union[float, jnp.ndarray],
-          h: Union[float, jnp.ndarray],
-          mν: Union[float, jnp.ndarray] = 0.0,
-          w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0,
-          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def r̃_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Dimensionless comoving distance r̃(z).
 
@@ -807,7 +858,7 @@ def r̃_z(z: Union[float, jnp.ndarray],
 
     where E(z) is the normalized Hubble parameter.
 
-    The integral is computed using 9-point Gauss-Legendre quadrature, which provides
+    The integral is computed using 100-point Gauss-Legendre quadrature, which provides
     excellent precision (~1e-4 to 1e-5 relative error) while being fully compatible
     with JAX transformations (jit, grad, vmap).
 
@@ -820,8 +871,8 @@ def r̃_z(z: Union[float, jnp.ndarray],
     # Convert to array for consistent handling
     z_array = jnp.asarray(z)
 
-    # Use 9 GL points for all computations (may be made configurable later)
-    n_points = 9
+    # Use 100 GL points for all computations (may be made configurable later)
+    n_points = 100
 
     # Handle both scalar and array inputs uniformly
     if z_array.ndim == 0:
@@ -838,13 +889,15 @@ def r̃_z(z: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def d̃M_z(z: Union[float, jnp.ndarray],
-          Ωcb0: Union[float, jnp.ndarray],
-          h: Union[float, jnp.ndarray],
-          mν: Union[float, jnp.ndarray] = 0.0,
-          w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0,
-          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def d̃M_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Dimensionless transverse comoving distance d̃M(z).
 
@@ -871,13 +924,15 @@ def d̃M_z(z: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def d̃A_z(z: Union[float, jnp.ndarray],
-          Ωcb0: Union[float, jnp.ndarray],
-          h: Union[float, jnp.ndarray],
-          mν: Union[float, jnp.ndarray] = 0.0,
-          w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0,
-          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def d̃A_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Dimensionless angular diameter distance d̃A(z).
 
@@ -904,7 +959,9 @@ def d̃A_z(z: Union[float, jnp.ndarray],
 
 
 @jax.custom_jvp
-def S_of_K(Ω: Union[float, jnp.ndarray], r: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+def S_of_K(
+    Ω: Union[float, jnp.ndarray], r: Union[float, jnp.ndarray]
+) -> Union[float, jnp.ndarray]:
     """
     Transverse comoving distance with curvature correction.
 
@@ -935,13 +992,7 @@ def S_of_K(Ω: Union[float, jnp.ndarray], r: Union[float, jnp.ndarray]) -> Union
     # Select appropriate result based on Ω value
     # Use nested jnp.where for the three-way branch
     result = jnp.where(
-        Ω == 0.0,
-        flat_result,
-        jnp.where(
-            Ω > 0.0,
-            closed_result,
-            open_result
-        )
+        Ω == 0.0, flat_result, jnp.where(Ω > 0.0, closed_result, open_result)
     )
 
     return result
@@ -987,13 +1038,7 @@ def S_of_K_jvp(primals, tangents):
     dS_dr_flat = 1.0
 
     dS_dr = jnp.where(
-        Ω == 0.0,
-        dS_dr_flat,
-        jnp.where(
-            Ω > 0.0,
-            dS_dr_closed,
-            dS_dr_open
-        )
+        Ω == 0.0, dS_dr_flat, jnp.where(Ω > 0.0, dS_dr_closed, dS_dr_open)
     )
 
     # Derivative w.r.t. Ω
@@ -1013,13 +1058,7 @@ def S_of_K_jvp(primals, tangents):
     dS_dΩ_flat = r**3 / 6.0
 
     dS_dΩ = jnp.where(
-        Ω == 0.0,
-        dS_dΩ_flat,
-        jnp.where(
-            Ω > 0.0,
-            dS_dΩ_closed,
-            dS_dΩ_open
-        )
+        Ω == 0.0, dS_dΩ_flat, jnp.where(Ω > 0.0, dS_dΩ_closed, dS_dΩ_open)
     )
 
     # Compute tangent
@@ -1029,13 +1068,15 @@ def S_of_K_jvp(primals, tangents):
 
 
 @jax.jit
-def r_z(z: Union[float, jnp.ndarray],
-         Ωcb0: Union[float, jnp.ndarray],
-         h: Union[float, jnp.ndarray],
-         mν: Union[float, jnp.ndarray] = 0.0,
-         w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0,
-         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def r_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Line-of-sight comoving distance r(z) in Mpc.
 
@@ -1056,13 +1097,15 @@ def r_z(z: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def dM_z(z: Union[float, jnp.ndarray],
-          Ωcb0: Union[float, jnp.ndarray],
-          h: Union[float, jnp.ndarray],
-          mν: Union[float, jnp.ndarray] = 0.0,
-          w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0,
-          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def dM_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Transverse comoving distance dM(z) in Mpc.
 
@@ -1089,13 +1132,15 @@ def dM_z(z: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def dA_z(z: Union[float, jnp.ndarray],
-          Ωcb0: Union[float, jnp.ndarray],
-          h: Union[float, jnp.ndarray],
-          mν: Union[float, jnp.ndarray] = 0.0,
-          w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0,
-          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def dA_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Angular diameter distance dA(z) in Mpc.
 
@@ -1114,7 +1159,6 @@ def dA_z(z: Union[float, jnp.ndarray],
 
 @jax.jit
 def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
-
     a = jnp.exp(log_a)
     D, dD_dloga = u
 
@@ -1125,12 +1169,10 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     # ODE system following Effort.jl exactly:
     # du[1] = dD/d(log a)
     # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Ωm_a * D
-    du = jnp.array([
-        dD_dloga,
-        -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_m_a * D
-    ])
+    du = jnp.array([dD_dloga, -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_m_a * D])
 
     return du
+
 
 def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False):
     """
@@ -1160,7 +1202,7 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
 
     # Parameter clamping for numerical stability in JIT context
     Ωcb0 = jnp.maximum(Ωcb0, 1e-6)  # Ensure positive matter density
-    h = jnp.maximum(h, 1e-6)        # Ensure positive Hubble parameter
+    h = jnp.maximum(h, 1e-6)  # Ensure positive Hubble parameter
 
     # Initial conditions following Effort.jl exactly
     amin = 1.0 / 139.0  # Deep matter domination
@@ -1198,7 +1240,7 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
         args=args,
         saveat=saveat,
         stepsize_controller=stepsize_controller,
-        max_steps=10000  # Increased from default
+        max_steps=10000,  # Increased from default
     )
 
     # No normalization - return raw ODE solution to match Effort.jl
@@ -1216,7 +1258,7 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
         sol_normal = solution.evaluate(log_a_span)
 
         # Early times: D ∝ a in matter domination
-        early_D = (a_span / jnp.exp(log_a_min) * sol_min[0])
+        early_D = a_span / jnp.exp(log_a_min) * sol_min[0]
         early_dD = sol_min[1]
 
         # Late times: use latest solution value
@@ -1232,10 +1274,8 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
             log_a_span < log_a_min,
             lambda: early_D,
             lambda: jax.lax.cond(
-                log_a_span > log_a_max,
-                lambda: late_D,
-                lambda: normal_D
-            )
+                log_a_span > log_a_max, lambda: late_D, lambda: normal_D
+            ),
         )
 
         if return_both:
@@ -1243,20 +1283,21 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
                 log_a_span < log_a_min,
                 lambda: early_dD,
                 lambda: jax.lax.cond(
-                    log_a_span > log_a_max,
-                    lambda: late_dD,
-                    lambda: normal_dD
-                )
+                    log_a_span > log_a_max, lambda: late_dD, lambda: normal_dD
+                ),
             )
 
         # Handle potential numerical issues
         D_result = jnp.where(jnp.isfinite(D_result), D_result, 0.0)
         if return_both:
-            dD_dloga_result = jnp.where(jnp.isfinite(dD_dloga_result), dD_dloga_result, 0.0)
+            dD_dloga_result = jnp.where(
+                jnp.isfinite(dD_dloga_result), dD_dloga_result, 0.0
+            )
             return (D_result, dD_dloga_result)
         else:
             return D_result
     else:
+
         def evaluate_single(log_a_val):
             # For values outside integration range, extrapolate
             early_condition = log_a_val < log_a_min
@@ -1267,7 +1308,7 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
             sol_normal = solution.evaluate(log_a_val)
 
             # Early times: D ∝ a in matter domination
-            early_D = (jnp.exp(log_a_val) / jnp.exp(log_a_min) * sol_min[0])
+            early_D = jnp.exp(log_a_val) / jnp.exp(log_a_min) * sol_min[0]
             early_dD = sol_min[1]
 
             # Late times: use latest solution value
@@ -1279,12 +1320,16 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
             normal_dD = sol_normal[1]
 
             # Choose result based on conditions
-            D_result = jnp.where(early_condition, early_D,
-                              jnp.where(late_condition, late_D, normal_D))
+            D_result = jnp.where(
+                early_condition, early_D, jnp.where(late_condition, late_D, normal_D)
+            )
 
             if return_both:
-                dD_result = jnp.where(early_condition, early_dD,
-                                    jnp.where(late_condition, late_dD, normal_dD))
+                dD_result = jnp.where(
+                    early_condition,
+                    early_dD,
+                    jnp.where(late_condition, late_dD, normal_dD),
+                )
                 return (D_result, dD_result)
             else:
                 return D_result
@@ -1302,6 +1347,7 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
             # Handle potential numerical issues
             result = jnp.where(jnp.isfinite(result), result, 0.0)
             return result
+
 
 @jax.jit
 def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
@@ -1371,7 +1417,9 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
 
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
-        D, dD_dloga = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True)
+        D, dD_dloga = growth_solver(
+            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+        )
 
         # Apply numerical stability check
         epsilon = 1e-15
@@ -1387,7 +1435,9 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
         return jnp.where(has_nan, jnp.nan, f)
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
-        D_array, dD_dloga_array = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True)
+        D_array, dD_dloga_array = growth_solver(
+            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+        )
 
         # Apply numerical stability check element-wise
         epsilon = 1e-15
@@ -1405,7 +1455,6 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
 
 @jax.jit
 def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
-
     # Convert redshift to scale factor
     a = a_z(z)
 
@@ -1415,7 +1464,9 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
 
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
-        D, dD_dloga = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True)
+        D, dD_dloga = growth_solver(
+            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+        )
 
         # Apply numerical stability check for growth rate computation
         epsilon = 1e-15
@@ -1430,7 +1481,9 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
         return (D, f)
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
-        D_array, dD_dloga_array = growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True)
+        D_array, dD_dloga_array = growth_solver(
+            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+        )
 
         # Apply numerical stability check element-wise
         epsilon = 1e-15
@@ -1446,13 +1499,15 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
 
 
 @jax.jit
-def ρc_z(z: Union[float, jnp.ndarray],
-          Ωcb0: Union[float, jnp.ndarray],
-          h: Union[float, jnp.ndarray],
-          mν: Union[float, jnp.ndarray] = 0.0,
-          w0: Union[float, jnp.ndarray] = -1.0,
-          wa: Union[float, jnp.ndarray] = 0.0,
-          Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def ρc_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     # Critical density: ρc(z) = 3H²(z)/(8πG) = ρc0 × h² × E²(z)
     # where ρc0 = 2.7754×10¹¹ M☉/Mpc³ (in h=1 units)
     rho_c0_h2 = 2.7754e11  # M☉/Mpc³ in h² units
@@ -1461,25 +1516,30 @@ def ρc_z(z: Union[float, jnp.ndarray],
 
 
 @jax.jit
-def Ωtot_z(z: Union[float, jnp.ndarray],
-           Ωcb0: Union[float, jnp.ndarray],
-           h: Union[float, jnp.ndarray],
-           mν: Union[float, jnp.ndarray] = 0.0,
-           w0: Union[float, jnp.ndarray] = -1.0,
-           wa: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def Ωtot_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     # For flat universe: Ωtot = 1.0 exactly by construction
     # Return array of ones with same shape as input z
     z_array = jnp.asarray(z)
     return jnp.ones_like(z_array)
 
+
 @jax.jit
-def dL_z(z: Union[float, jnp.ndarray],
-         Ωcb0: Union[float, jnp.ndarray],
-         h: Union[float, jnp.ndarray],
-         mν: Union[float, jnp.ndarray] = 0.0,
-         w0: Union[float, jnp.ndarray] = -1.0,
-         wa: Union[float, jnp.ndarray] = 0.0,
-         Ωk0: Union[float, jnp.ndarray] = 0.0) -> Union[float, jnp.ndarray]:
+def dL_z(
+    z: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
     """
     Luminosity distance at redshift z.
 
@@ -1503,5 +1563,3 @@ def dL_z(z: Union[float, jnp.ndarray],
 
     # Apply (1+z) factor for luminosity distance
     return dM * (1.0 + z)
-
-

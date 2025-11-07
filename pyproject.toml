@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jaxace"
-version = "0.3.0"
+version = "0.3.1"
 description = "JAX implementation of AbstractCosmologicalEmulators.jl interface"
 authors = ["marcobonici <bonici.marco@gmail.com>"]
 readme = "README.md"
@@ -8,8 +8,7 @@ packages = [{include = "jaxace"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-jax = "^0.4.30"
-jaxlib = "^0.4.30"
+jax = ">=0.4.30,<0.7.0"
 flax = "^0.10.0"
 numpy = "^2.2.6"
 quadax = "^0.2.9"
