@@ -109,7 +109,7 @@ def map_to_interval(x: jnp.ndarray, w: jnp.ndarray, a: float, b: float):
 
 # Pre-compute quadrature points for commonly used sizes (at module load time)
 # This avoids tracer leaks inside JAX transformations
-_GL_CACHE = {n: gauss_legendre(n) for n in [3, 5, 7, 9, 15, 25, 50]}
+_GL_CACHE = {n: gauss_legendre(n) for n in [3, 5, 7, 9, 15, 25, 100]}
 
 
 def _get_gl_points(n: int):
@@ -795,7 +795,7 @@ def Ωm_a(
     return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
 
 
-def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=30):
+def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100):
     """
     Compute dimensionless comoving distance for a single redshift value
     using Gauss-Legendre quadrature.
@@ -810,7 +810,7 @@ def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=30):
     z_val : float
         Redshift value
     n_points : int, optional
-        Number of GL quadrature points (default: 30)
+        Number of GL quadrature points (default: 100)
     """
 
     def integrand(z_prime):
@@ -858,7 +858,7 @@ def r̃_z(
 
     where E(z) is the normalized Hubble parameter.
 
-    The integral is computed using 9-point Gauss-Legendre quadrature, which provides
+    The integral is computed using 100-point Gauss-Legendre quadrature, which provides
     excellent precision (~1e-4 to 1e-5 relative error) while being fully compatible
     with JAX transformations (jit, grad, vmap).
 
@@ -871,8 +871,8 @@ def r̃_z(
     # Convert to array for consistent handling
     z_array = jnp.asarray(z)
 
-    # Use 30 GL points for all computations (may be made configurable later)
-    n_points = 30
+    # Use 100 GL points for all computations (may be made configurable later)
+    n_points = 100
 
     # Handle both scalar and array inputs uniformly
     if z_array.ndim == 0:
