@@ -9,12 +9,14 @@ computations.
 from .core import (
     AbstractTrainedEmulator,
     FlaxEmulator,
+    GenericEmulator,
     run_emulator,
     get_emulator_description
 )
 
 from .initialization import (
     init_emulator,
+    load_trained_emulator,
     MLP
 )
 
@@ -45,12 +47,14 @@ __version__ = "0.2.0"
 __all__ = [
     # Core types and functions
     "AbstractTrainedEmulator",
-    "FlaxEmulator", 
+    "FlaxEmulator",
+    "GenericEmulator",
     "run_emulator",
     "get_emulator_description",
-    
+
     # Initialization
     "init_emulator",
+    "load_trained_emulator",
     "MLP",
     
     # Utilities

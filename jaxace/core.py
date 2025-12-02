@@ -141,11 +141,142 @@ def run_emulator(input_data: jnp.ndarray, emulator: AbstractTrainedEmulator) -> 
 def get_emulator_description(emulator: AbstractTrainedEmulator) -> Dict[str, Any]:
     """
     Get emulator description from any emulator type.
-    
+
     Args:
         emulator: AbstractTrainedEmulator instance
-        
+
     Returns:
         Description dictionary
     """
     return emulator.get_emulator_description()
+
+
+@dataclass
+class GenericEmulator(AbstractTrainedEmulator):
+    """
+    Generic emulator that wraps a trained neural network with normalization and postprocessing.
+
+    This class provides a complete emulator interface that:
+    1. Normalizes inputs using min-max scaling
+    2. Runs the underlying neural network
+    3. Denormalizes outputs
+    4. Applies optional postprocessing
+
+    This matches the Julia AbstractCosmologicalEmulators.jl GenericEmulator struct.
+
+    Attributes:
+        trained_emulator: The underlying trained neural network (FlaxEmulator)
+        in_minmax: Input normalization parameters, shape (n_input_features, 2)
+                   Column 0 is min, column 1 is max
+        out_minmax: Output normalization parameters, shape (n_output_features, 2)
+                    Column 0 is min, column 1 is max
+        postprocessing: Optional postprocessing function with signature
+                       (input_params, output, auxiliary_params, emulator) -> processed_output
+    """
+    trained_emulator: AbstractTrainedEmulator
+    in_minmax: np.ndarray
+    out_minmax: np.ndarray
+    postprocessing: callable = None
+
+    # Cached JIT-compiled functions for the full pipeline
+    _jit_run: Optional[Any] = field(default=None, init=False, repr=False)
+    _jit_run_batch: Optional[Any] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self):
+        # Convert to JAX arrays for efficient computation
+        self._in_minmax_jax = jnp.asarray(self.in_minmax)
+        self._out_minmax_jax = jnp.asarray(self.out_minmax)
+
+        # Set default identity postprocessing if None
+        if self.postprocessing is None:
+            self.postprocessing = lambda input_params, output, aux, emu: output
+
+        # Pre-compile JIT functions
+        self._ensure_jit_compiled()
+
+    def _maximin(self, input_data: jnp.ndarray) -> jnp.ndarray:
+        """Normalize input data using min-max scaling to [0, 1]."""
+        if input_data.ndim == 1:
+            return (input_data - self._in_minmax_jax[:, 0]) / (self._in_minmax_jax[:, 1] - self._in_minmax_jax[:, 0])
+        else:
+            # Batch case: (n_samples, n_features)
+            return (input_data - self._in_minmax_jax[:, 0]) / (self._in_minmax_jax[:, 1] - self._in_minmax_jax[:, 0])
+
+    def _inv_maximin(self, output_data: jnp.ndarray) -> jnp.ndarray:
+        """Denormalize output data from [0, 1] to original scale."""
+        if output_data.ndim == 1:
+            return output_data * (self._out_minmax_jax[:, 1] - self._out_minmax_jax[:, 0]) + self._out_minmax_jax[:, 0]
+        else:
+            # Batch case
+            return output_data * (self._out_minmax_jax[:, 1] - self._out_minmax_jax[:, 0]) + self._out_minmax_jax[:, 0]
+
+    def _run_pipeline_single(self, input_data: jnp.ndarray) -> jnp.ndarray:
+        """Internal method: normalize -> run NN -> denormalize (single sample)."""
+        normalized = self._maximin(input_data)
+        nn_output = self.trained_emulator._run_single(normalized)
+        denormalized = self._inv_maximin(nn_output)
+        return denormalized
+
+    def _ensure_jit_compiled(self):
+        """Lazily compile JIT functions."""
+        if self._jit_run is None:
+            self._jit_run = jax.jit(self._run_pipeline_single)
+        if self._jit_run_batch is None:
+            self._jit_run_batch = jax.jit(jax.vmap(self._run_pipeline_single, in_axes=0))
+
+    def run_emulator(
+        self,
+        input_params: Union[jnp.ndarray, np.ndarray],
+        auxiliary_params: Union[jnp.ndarray, np.ndarray, None] = None
+    ) -> jnp.ndarray:
+        """
+        Run the complete emulator pipeline.
+
+        Steps:
+        1. Normalize inputs using in_minmax
+        2. Run the neural network
+        3. Denormalize outputs using out_minmax
+        4. Apply postprocessing function
+
+        Args:
+            input_params: Input parameters, shape (n_features,) or (n_samples, n_features)
+            auxiliary_params: Optional auxiliary parameters passed to postprocessing
+
+        Returns:
+            Processed output array
+        """
+        # Convert to JAX array if needed
+        if not isinstance(input_params, jnp.ndarray):
+            input_params = jnp.asarray(input_params)
+
+        if auxiliary_params is None:
+            auxiliary_params = jnp.array([])
+        elif not isinstance(auxiliary_params, jnp.ndarray):
+            auxiliary_params = jnp.asarray(auxiliary_params)
+
+        # Ensure JIT functions are compiled
+        self._ensure_jit_compiled()
+
+        # Detect batch vs single
+        is_batch = input_params.ndim == 2
+
+        # Run the normalize -> NN -> denormalize pipeline
+        if is_batch:
+            output = self._jit_run_batch(input_params)
+        else:
+            output = self._jit_run(input_params)
+
+        # Apply postprocessing
+        return self.postprocessing(input_params, output, auxiliary_params, self)
+
+    def get_emulator_description(self) -> Dict[str, Any]:
+        """Get description from the underlying trained emulator."""
+        return self.trained_emulator.get_emulator_description()
+
+    def __call__(
+        self,
+        input_params: Union[jnp.ndarray, np.ndarray],
+        auxiliary_params: Union[jnp.ndarray, np.ndarray, None] = None
+    ) -> jnp.ndarray:
+        """Allow the emulator to be called directly as a function."""
+        return self.run_emulator(input_params, auxiliary_params)
