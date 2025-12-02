@@ -415,39 +415,26 @@ def initialize_interpolants():
 
     try:
         # Implement Effort.jl's dual-grid approach
-        print("Initializing neutrino interpolants with dual-grid strategy...")
-
         # Grid parameters following Effort.jl specifications
         min_y = 0.001  # Minimum y value
         max_y = 1000.0  # Maximum y value for extended range
 
         # F_interpolant grid: 100 points (min_y to 100) + 1,000 points (100.1 to max_y)
         # Full Effort.jl specification
-        print("Creating F_interpolant grid...")
         F_y_low = jnp.logspace(jnp.log10(min_y), jnp.log10(100.0), 100)
         F_y_high = jnp.logspace(jnp.log10(100.1), jnp.log10(max_y), 1000)
         F_y_grid = jnp.concatenate([F_y_low, F_y_high])
 
         # dFdy_interpolant grid: 10,000 points (min_y to 10) + 10,000 points (10.1 to max_y)
         # Full Effort.jl specification
-        print("Creating dFdy_interpolant grid...")
         dFdy_y_low = jnp.logspace(jnp.log10(min_y), jnp.log10(10.0), 10000)
         dFdy_y_high = jnp.logspace(jnp.log10(10.1), jnp.log10(max_y), 10000)
         dFdy_y_grid = jnp.concatenate([dFdy_y_low, dFdy_y_high])
 
-        print(
-            f"F grid: {len(F_y_grid)} points from {F_y_grid[0]:.6f} to {F_y_grid[-1]:.1f}"
-        )
-        print(
-            f"dFdy grid: {len(dFdy_y_grid)} points from {dFdy_y_grid[0]:.6f} to {dFdy_y_grid[-1]:.1f}"
-        )
-
         # Compute F values for F grid using JAX vectorization
-        print("Computing F values...")
         F_values = F(F_y_grid)  # F function should handle arrays
 
         # Compute dFdy values for dFdy grid using JAX vectorization
-        print("Computing dFdy values...")
         dFdy_values = dFdy(dFdy_y_grid)  # dFdy function should handle arrays
 
         # Validate computed values
@@ -460,17 +447,16 @@ def initialize_interpolants():
         if not jnp.all(dFdy_values >= 0):
             raise ValueError("dFdy values must be non-negative")
 
-        print("Creating Akima interpolators...")
         # Create separate Akima interpolators with their respective optimized grids
         _F_interpolator = interpax.Akima1DInterpolator(F_y_grid, F_values)
         _dFdy_interpolator = interpax.Akima1DInterpolator(dFdy_y_grid, dFdy_values)
 
         _interpolants_initialized = True
-        print("Dual-grid interpolants initialized successfully!")
         return True
 
     except Exception as e:
-        print(f"Warning: Failed to initialize interpolants: {e}")
+        import warnings
+        warnings.warn(f"Failed to initialize interpolants: {e}")
         return False
 
 
