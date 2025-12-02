@@ -575,7 +575,8 @@ def dΩνE2da(
 try:
     _interpolants_initialized = initialize_interpolants()
 except Exception as e:
-    print(f"Warning: Could not initialize interpolants during module import: {e}")
+    import warnings
+    warnings.warn(f"Could not initialize interpolants during module import: {e}")
     _interpolants_initialized = False
 
 
