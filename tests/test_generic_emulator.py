@@ -350,7 +350,7 @@ class TestJAXIntegrationGenericEmulator:
         )
 
     def test_gradient_computation(self, gen_emulator):
-        """Test gradient computation through GenericEmulator."""
+        """Test gradient computation through GenericEmulator using jax.grad."""
         input_params = jnp.array([0.5, 0.5, 0.5])
 
         def loss_fn(x):
@@ -361,6 +361,48 @@ class TestJAXIntegrationGenericEmulator:
 
         assert grad.shape == (3,)
         assert jnp.all(jnp.isfinite(grad))
+
+    def test_jacobian_forward_mode(self, gen_emulator):
+        """Test Jacobian computation using jax.jacfwd (forward-mode AD)."""
+        input_params = jnp.array([0.5, 0.5, 0.5])
+
+        def emulator_fn(x):
+            return gen_emulator.run_emulator(x)
+
+        # Compute Jacobian using forward-mode AD
+        jacobian = jax.jacfwd(emulator_fn)(input_params)
+
+        # Jacobian shape should be (n_outputs, n_inputs) = (10, 3)
+        assert jacobian.shape == (10, 3)
+        assert jnp.all(jnp.isfinite(jacobian))
+
+    def test_jacobian_reverse_mode(self, gen_emulator):
+        """Test Jacobian computation using jax.jacrev (reverse-mode AD)."""
+        input_params = jnp.array([0.5, 0.5, 0.5])
+
+        def emulator_fn(x):
+            return gen_emulator.run_emulator(x)
+
+        # Compute Jacobian using reverse-mode AD
+        jacobian = jax.jacrev(emulator_fn)(input_params)
+
+        # Jacobian shape should be (n_outputs, n_inputs) = (10, 3)
+        assert jacobian.shape == (10, 3)
+        assert jnp.all(jnp.isfinite(jacobian))
+
+    def test_jacobian_consistency(self, gen_emulator):
+        """Test that forward and reverse mode Jacobians are consistent."""
+        input_params = jnp.array([0.5, 0.5, 0.5])
+
+        def emulator_fn(x):
+            return gen_emulator.run_emulator(x)
+
+        # Compute Jacobian using both modes
+        jac_fwd = jax.jacfwd(emulator_fn)(input_params)
+        jac_rev = jax.jacrev(emulator_fn)(input_params)
+
+        # They should be equal (within numerical tolerance)
+        assert jnp.allclose(jac_fwd, jac_rev, rtol=1e-5)
 
     def test_jit_compilation(self, gen_emulator):
         """Test JIT compilation of GenericEmulator."""
@@ -375,6 +417,37 @@ class TestJAXIntegrationGenericEmulator:
 
         assert jnp.allclose(output1, output2)
         assert output1.shape == (10,)
+
+    def test_jit_gradient(self, gen_emulator):
+        """Test JIT-compiled gradient computation."""
+        input_params = jnp.array([0.5, 0.5, 0.5])
+
+        def loss_fn(x):
+            output = gen_emulator.run_emulator(x)
+            return jnp.sum(output ** 2)
+
+        # JIT compile the gradient function
+        grad_fn = jax.jit(jax.grad(loss_fn))
+
+        grad = grad_fn(input_params)
+
+        assert grad.shape == (3,)
+        assert jnp.all(jnp.isfinite(grad))
+
+    def test_jit_jacobian(self, gen_emulator):
+        """Test JIT-compiled Jacobian computation."""
+        input_params = jnp.array([0.5, 0.5, 0.5])
+
+        def emulator_fn(x):
+            return gen_emulator.run_emulator(x)
+
+        # JIT compile the Jacobian function
+        jac_fn = jax.jit(jax.jacfwd(emulator_fn))
+
+        jacobian = jac_fn(input_params)
+
+        assert jacobian.shape == (10, 3)
+        assert jnp.all(jnp.isfinite(jacobian))
 
 
 if __name__ == "__main__":
