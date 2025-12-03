@@ -276,11 +276,8 @@ class TestRealTrainedEmulators:
     @pytest.fixture
     def sigma8_emulator(self):
         """Load sigma8 basis emulator from artifact."""
-        try:
-            from jaxace import load_trained_emulator_from_artifact
-            return load_trained_emulator_from_artifact('ACE_mnuw0wacdm_sigma8_basis')
-        except Exception as e:
-            pytest.skip(f"Could not load emulator from artifact: {e}")
+        from jaxace import load_trained_emulator_from_artifact
+        return load_trained_emulator_from_artifact('ACE_mnuw0wacdm_sigma8_basis')
 
     def test_load_sigma8_emulator_from_artifact(self, sigma8_emulator):
         """Test loading the sigma8 basis emulator from artifact."""
