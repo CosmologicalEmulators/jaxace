@@ -58,13 +58,13 @@ from .utils import (
     validate_parameter_ranges,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 # Initialize the trained_emulators dictionary
 trained_emulators: Dict[str, GenericEmulator] = {}
 
 # Path to Artifacts.toml (in package directory)
-_ARTIFACTS_TOML = Path(__file__).parent.parent / "Artifacts.toml"
+_ARTIFACTS_TOML = Path(__file__).parent / "Artifacts.toml"
 
 # Global artifact manager
 _artifact_manager = None
