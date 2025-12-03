@@ -17,6 +17,7 @@ from .core import (
 from .initialization import (
     init_emulator,
     load_trained_emulator,
+    load_trained_emulator_from_artifact,
     MLP
 )
 
@@ -42,7 +43,7 @@ from .background import (
     S_of_K
 )
 
-__version__ = "0.2.0"
+__version__ = "0.5.0"
 
 __all__ = [
     # Core types and functions
@@ -55,6 +56,7 @@ __all__ = [
     # Initialization
     "init_emulator",
     "load_trained_emulator",
+    "load_trained_emulator_from_artifact",
     "MLP",
     
     # Utilities

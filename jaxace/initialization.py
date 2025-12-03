@@ -300,3 +300,71 @@ def load_trained_emulator(
         out_minmax=outminmax,
         postprocessing=postprocessing
     )
+
+
+def load_trained_emulator_from_artifact(
+    artifact_name: str,
+    artifacts_toml: Optional[str] = None,
+    backend: Type[FlaxEmulator] = FlaxEmulator,
+    **kwargs
+) -> GenericEmulator:
+    """
+    Load a trained emulator from an artifact defined in Artifacts.toml.
+
+    This function automatically downloads and caches emulators from remote sources
+    (e.g., Zenodo) using the fetch-artifacts system, then loads them using
+    load_trained_emulator.
+
+    Args:
+        artifact_name: Name of the artifact as defined in Artifacts.toml
+        artifacts_toml: Optional path to Artifacts.toml file.
+                       If None, looks for Artifacts.toml in the package root.
+        backend: Emulator backend type (FlaxEmulator)
+        **kwargs: Additional arguments passed to load_trained_emulator
+                 (e.g., weights_file, validate, etc.)
+
+    Returns:
+        GenericEmulator instance ready for evaluation
+
+    Example:
+        >>> # Load from default Artifacts.toml
+        >>> emu = load_trained_emulator_from_artifact("ACE_mnuw0wacdm_sigma8_basis")
+        >>> output = emu.run_emulator(input_params)
+        >>>
+        >>> # Load from custom Artifacts.toml
+        >>> emu = load_trained_emulator_from_artifact(
+        ...     "ACE_mnuw0wacdm_sigma8_basis",
+        ...     artifacts_toml="/path/to/Artifacts.toml"
+        ... )
+
+    Note:
+        On first use, this will download the emulator from the URL specified
+        in Artifacts.toml. Subsequent uses will load from the local cache
+        (typically ~/.fetch_artifacts/).
+    """
+    from fetch_artifacts import artifact
+    from pathlib import Path
+
+    # If no artifacts_toml specified, use package default
+    if artifacts_toml is None:
+        package_root = Path(__file__).parent.parent
+        artifacts_toml = package_root / "Artifacts.toml"
+
+    # Get artifact path (downloads if needed)
+    emulator_path = artifact(artifact_name, toml_path=str(artifacts_toml))
+
+    # Find the actual emulator directory (handles nested directory structure)
+    emulator_path = Path(emulator_path)
+
+    # Check if we need to descend into a subdirectory
+    # (artifacts often extract to a single top-level directory)
+    if emulator_path.is_dir():
+        # Look for nn_setup.json to identify the emulator directory
+        if not (emulator_path / "nn_setup.json").exists():
+            # Try to find it in subdirectories
+            subdirs = [d for d in emulator_path.iterdir() if d.is_dir()]
+            if len(subdirs) == 1:
+                emulator_path = subdirs[0]
+
+    # Load using standard loading function
+    return load_trained_emulator(str(emulator_path), backend=backend, **kwargs)
