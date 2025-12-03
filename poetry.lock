@@ -271,6 +271,20 @@ typing-extensions = {version = ">=4.6.0", markers = "python_version < \"3.13\""}
 test = ["pytest (>=6)"]
 
 [[package]]
+name = "fetch-artifacts"
+version = "0.1.0"
+description = "Julia-style Artifacts system for Python - TOML-based artifact management with automatic downloading and caching"
+optional = false
+python-versions = "<4.0,>=3.9"
+files = [
+    {file = "fetch_artifacts-0.1.0-py3-none-any.whl", hash = "sha256:faf5842a60029379ea9286699128d8c6550613fdbac4089604688ca4d717740e"},
+    {file = "fetch_artifacts-0.1.0.tar.gz", hash = "sha256:8228063b82f5ddedfd4be6b65a37e182c583a03a94ca39729b37e3354fc36c2a"},
+]
+
+[package.dependencies]
+tomlkit = ">=0.12.0,<0.13.0"
+
+[[package]]
 name = "flax"
 version = "0.10.7"
 description = "Flax: A neural network library for JAX designed for flexibility"
@@ -1694,6 +1708,17 @@ files = [
 ]
 
 [[package]]
+name = "tomlkit"
+version = "0.12.5"
+description = "Style preserving TOML library"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "tomlkit-0.12.5-py3-none-any.whl", hash = "sha256:af914f5a9c59ed9d0762c7b64d3b5d5df007448eb9cd2edc8a46b1eafead172f"},
+    {file = "tomlkit-0.12.5.tar.gz", hash = "sha256:eef34fba39834d4d6b73c9ba7f3e4d1c417a4e56f89a7e96e090dd0d24b8fb3c"},
+]
+
+[[package]]
 name = "toolz"
 version = "1.1.0"
 description = "List processing tools and functional utilities"
@@ -1828,4 +1853,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f0e4c795bbd9cb24b7a4da4c6c68fbbf1a5f8681b0513e8c6ccb0d2cbdc9e1bc"
+content-hash = "f94251fec056e5e0f919c277c9624d8b68fdbb34d62b58d0e337a2c81fc5087d"

@@ -1,0 +1,14 @@
+# jaxace Artifacts Configuration
+# This file defines emulators available for download via fetch-artifacts
+
+[ACE_mnuw0wacdm_sigma8_basis]
+git-tree-sha1 = "4b68fff758a3c7268a81e840970373b96fd5fce9ab80ef74197805b3bdfe7a2f"
+lazy = true
+description = "ACE emulator for mnuw0waCDM cosmology with sigma8 basis (200k training samples)"
+version = "1.0"
+author = "Marco Bonici"
+doi = "10.5281/zenodo.17797125"
+
+    [[ACE_mnuw0wacdm_sigma8_basis.download]]
+    url = "https://zenodo.org/api/records/17797125/files/trained_ace_mnuw0wacdm_sigma8_basis_200000.tar.xz/content"
+    sha256 = "4b68fff758a3c7268a81e840970373b96fd5fce9ab80ef74197805b3bdfe7a2f"
