@@ -347,8 +347,7 @@ def load_trained_emulator_from_artifact(
 
     # If no artifacts_toml specified, use package default
     if artifacts_toml is None:
-        package_root = Path(__file__).parent.parent
-        artifacts_toml = package_root / "Artifacts.toml"
+        artifacts_toml = Path(__file__).parent / "Artifacts.toml"
 
     # Get artifact path (downloads if needed)
     emulator_path = artifact(artifact_name, toml_path=str(artifacts_toml))

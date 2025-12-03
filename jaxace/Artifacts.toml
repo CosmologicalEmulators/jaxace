@@ -12,3 +12,15 @@ doi = "10.5281/zenodo.17797125"
     [[ACE_mnuw0wacdm_sigma8_basis.download]]
     url = "https://zenodo.org/api/records/17797125/files/trained_ace_mnuw0wacdm_sigma8_basis_200000.tar.xz/content"
     sha256 = "4b68fff758a3c7268a81e840970373b96fd5fce9ab80ef74197805b3bdfe7a2f"
+
+[ACE_mnuw0wacdm_ln10As_basis]
+git-tree-sha1 = "4bb8c3f84fb76c58a32bd09bc137f8b4b8937bddd421a5d8b07e3a8174a118b7"
+lazy = true
+description = "ACE emulator for mnuw0waCDM cosmology with ln10As basis (200k training samples)"
+version = "1.0"
+author = "Marco Bonici"
+doi = "10.5281/zenodo.17797402"
+
+    [[ACE_mnuw0wacdm_ln10As_basis.download]]
+    url = "https://zenodo.org/api/records/17797402/files/trained_ace_mnuw0wacdm_ln10As_basis_200000.tar.xz/content"
+    sha256 = "4bb8c3f84fb76c58a32bd09bc137f8b4b8937bddd421a5d8b07e3a8174a118b7"
