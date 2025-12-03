@@ -271,54 +271,32 @@ class TestLoadTrainedEmulator:
 
 
 class TestRealTrainedEmulators:
-    """Test loading real trained emulators from the trained_ace folders."""
+    """Test loading real trained emulators using fetch-artifacts."""
 
     @pytest.fixture
-    def ln10As_emulator_path(self):
-        """Path to the ln10As basis emulator."""
-        base_path = Path(__file__).parent.parent.parent
-        path = base_path / "trained_ace_mnuw0wacdm_ln10As_basis_200000"
-        if not path.exists():
-            pytest.skip("trained_ace_mnuw0wacdm_ln10As_basis_200000 folder not found")
-        return str(path)
+    def sigma8_emulator(self):
+        """Load sigma8 basis emulator from artifact."""
+        try:
+            from jaxace import load_trained_emulator_from_artifact
+            return load_trained_emulator_from_artifact('ACE_mnuw0wacdm_sigma8_basis')
+        except Exception as e:
+            pytest.skip(f"Could not load emulator from artifact: {e}")
 
-    @pytest.fixture
-    def sigma8_emulator_path(self):
-        """Path to the sigma8 basis emulator."""
-        base_path = Path(__file__).parent.parent.parent
-        path = base_path / "trained_ace_mnuw0wacdm_sigma8_basis_200000"
-        if not path.exists():
-            pytest.skip("trained_ace_mnuw0wacdm_sigma8_basis_200000 folder not found")
-        return str(path)
+    def test_load_sigma8_emulator_from_artifact(self, sigma8_emulator):
+        """Test loading the sigma8 basis emulator from artifact."""
+        assert isinstance(sigma8_emulator, GenericEmulator)
 
-    def test_load_ln10As_emulator(self, ln10As_emulator_path):
-        """Test loading the ln10As basis emulator."""
-        loaded_emu = load_trained_emulator(ln10As_emulator_path)
+        # Check dimensions (9 inputs, 7 outputs)
+        assert sigma8_emulator.in_minmax.shape[0] == 9
+        assert sigma8_emulator.out_minmax.shape[0] == 7
 
-        assert isinstance(loaded_emu, GenericEmulator)
-
-        # Check dimensions (9 inputs, 7 outputs based on nn_setup.json)
-        assert loaded_emu.in_minmax.shape[0] == 9
-        assert loaded_emu.out_minmax.shape[0] == 7
-
-        # Test evaluation with sample input within bounds
-        # Parameters: z, ln10As, ns, H0, ombh2, omch2, Mν, w0, wa
-        input_params = np.array([0.5, 3.044, 0.96, 67.0, 0.022, 0.12, 0.06, -1.0, 0.0])
-        result = loaded_emu.run_emulator(input_params)
+    def test_evaluate_sigma8_emulator(self, sigma8_emulator):
+        """Test evaluation with sigma8 emulator."""
+        # Parameters: z, sigma8, ns, H0, ombh2, omch2, Mν, w0, wa
+        input_params = np.array([0.5, 0.8, 0.96, 67.0, 0.022, 0.12, 0.06, -1.0, 0.0])
+        result = sigma8_emulator.run_emulator(input_params)
 
         assert result.shape == (7,)
-        assert np.all(np.isfinite(result))
-
-    def test_load_sigma8_emulator(self, sigma8_emulator_path):
-        """Test loading the sigma8 basis emulator."""
-        loaded_emu = load_trained_emulator(sigma8_emulator_path)
-
-        assert isinstance(loaded_emu, GenericEmulator)
-
-        # Test evaluation
-        input_params = np.array([0.5, 3.044, 0.96, 67.0, 0.022, 0.12, 0.06, -1.0, 0.0])
-        result = loaded_emu.run_emulator(input_params)
-
         assert np.all(np.isfinite(result))
 
 

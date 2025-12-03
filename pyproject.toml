@@ -8,7 +8,7 @@ packages = [{include = "jaxace"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-jax = ">=0.4.30,<0.7.0"
+jax = ">=0.4.30"
 flax = "^0.10.0"
 numpy = "^2.2.6"
 quadax = "^0.2.9"
