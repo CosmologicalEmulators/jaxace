@@ -6,51 +6,59 @@ providing foundational neural network emulator infrastructure for cosmological
 computations.
 """
 
-from .core import (
-    AbstractTrainedEmulator,
-    FlaxEmulator,
-    GenericEmulator,
-    run_emulator,
-    get_emulator_description
-)
-
-from .initialization import (
-    init_emulator,
-    load_trained_emulator,
-    load_trained_emulator_from_artifact,
-    MLP
-)
-
-from .utils import (
-    maximin,
-    inv_maximin,
-    validate_nn_dict_structure,
-    validate_parameter_ranges,
-    validate_layer_structure,
-    safe_dict_access
-)
-
-# Import background cosmology functions
-from .background import (
-    w0waCDMCosmology,
-    a_z, E_a, E_z, dlogEdloga, Ωm_a,
-    D_z, f_z, D_f_z,
-    r̃_z, d̃M_z, d̃A_z,
-    r_z, dM_z,
-    dA_z,
-    dL_z,
-    ρc_z, Ωtot_z,
-    S_of_K
-)
-
 # Import artifact management for auto-loading emulators
 import os
 import warnings
 from pathlib import Path
 from typing import Dict, List, Optional
+
 from fetch_artifacts import load_artifacts
 
-__version__ = "0.5.0"
+# Import background cosmology functions
+from .background import (
+    D_f_z,
+    D_z,
+    E_a,
+    E_z,
+    S_of_K,
+    Ωm_a,
+    Ωtot_z,
+    a_z,
+    dA_z,
+    dL_z,
+    dlogEdloga,
+    dM_z,
+    d̃A_z,
+    d̃M_z,
+    f_z,
+    r_z,
+    r̃_z,
+    w0waCDMCosmology,
+    ρc_z,
+)
+from .core import (
+    AbstractTrainedEmulator,
+    FlaxEmulator,
+    GenericEmulator,
+    get_emulator_description,
+    run_emulator,
+)
+from .initialization import (
+    MLP,
+    init_emulator,
+    load_trained_emulator,
+    load_trained_emulator_from_artifact,
+)
+from .utils import (
+    inv_maximin,
+    maximin,
+    safe_dict_access,
+    validate_layer_structure,
+    validate_nn_dict_structure,
+    validate_parameter_ranges,
+)
+
+__version__ = "0.4.0"
 
 # Initialize the trained_emulators dictionary
 trained_emulators: Dict[str, GenericEmulator] = {}
@@ -149,18 +157,15 @@ __all__ = [
     "GenericEmulator",
     "run_emulator",
     "get_emulator_description",
-
     # Initialization
     "init_emulator",
     "load_trained_emulator",
     "load_trained_emulator_from_artifact",
     "MLP",
-
     # Artifact management
     "trained_emulators",
     "list_emulators",
     "get_emulator",
-
     # Utilities
     "maximin",
     "inv_maximin",
@@ -168,15 +173,24 @@ __all__ = [
     "validate_parameter_ranges",
     "validate_layer_structure",
     "safe_dict_access",
-
     # Background cosmology
     "w0waCDMCosmology",
-    "a_z", "E_a", "E_z", "dlogEdloga", "Ωm_a",
-    "D_z", "f_z", "D_f_z",
-    "r̃_z", "d̃M_z", "d̃A_z",
-    "r_z", "dM_z",
+    "a_z",
+    "E_a",
+    "E_z",
+    "dlogEdloga",
+    "Ωm_a",
+    "D_z",
+    "f_z",
+    "D_f_z",
+    "r̃_z",
+    "d̃M_z",
+    "d̃A_z",
+    "r_z",
+    "dM_z",
     "dA_z",
     "dL_z",
-    "ρc_z", "Ωtot_z",
-    "S_of_K"
+    "ρc_z",
+    "Ωtot_z",
+    "S_of_K",
 ]
