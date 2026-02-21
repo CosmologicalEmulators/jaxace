@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 import diffrax
-import interpax
+from .utils import prepare_akima_spline, evaluate_akima_spline
 import jax
 import jax.numpy as jnp
 import quadax
@@ -448,8 +448,8 @@ def initialize_interpolants():
             raise ValueError("dFdy values must be non-negative")
 
         # Create separate Akima interpolators with their respective optimized grids
-        _F_interpolator = interpax.Akima1DInterpolator(F_y_grid, F_values)
-        _dFdy_interpolator = interpax.Akima1DInterpolator(dFdy_y_grid, dFdy_values)
+        _F_interpolator = prepare_akima_spline(F_values, F_y_grid)
+        _dFdy_interpolator = prepare_akima_spline(dFdy_values, dFdy_y_grid)
 
         _interpolants_initialized = True
         return True
@@ -473,7 +473,7 @@ def F_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
     y = jnp.asarray(y)
 
     # Interpolate
-    result = _F_interpolator(y)
+    result = evaluate_akima_spline(_F_interpolator, y)
 
     return result
 
@@ -491,7 +491,7 @@ def dFdy_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
     y = jnp.asarray(y)
 
     # Interpolate
-    result = _dFdy_interpolator(y)
+    result = evaluate_akima_spline(_dFdy_interpolator, y)
 
     return result
 

@@ -58,6 +58,9 @@ from .utils import (
     validate_parameter_ranges,
     cubic_spline_interpolation,
     akima_interpolation,
+    AkimaSpline,
+    prepare_akima_spline,
+    evaluate_akima_spline,
 )
 from .chebyshev import (
     ChebyshevPlan,
@@ -184,6 +187,9 @@ __all__ = [
     "safe_dict_access",
     "cubic_spline_interpolation",
     "akima_interpolation",
+    "AkimaSpline",
+    "prepare_akima_spline",
+    "evaluate_akima_spline",
     # Chebyshev optimization
     "ChebyshevPlan",
     "chebpoints",

@@ -1,7 +1,7 @@
 """
 Utility functions matching AbstractCosmologicalEmulators.jl
 """
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, NamedTuple
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -576,6 +576,31 @@ def akima_interpolation(u, t, t_new):
     m = _akima_slopes(u, t)
     b, c, d = _akima_coefficients(t, m)
     return _akima_eval(u, t, b, c, d, t_new)
+
+
+class AkimaSpline(NamedTuple):
+    u: jnp.ndarray
+    t: jnp.ndarray
+    b: jnp.ndarray
+    c: jnp.ndarray
+    d: jnp.ndarray
+
+
+def prepare_akima_spline(u: jnp.ndarray, t: jnp.ndarray) -> AkimaSpline:
+    """
+    Precompute the Akima spline coefficients for repeated evaluation.
+    This structure acts as a valid JAX PyTree for JIT and grad.
+    """
+    m = _akima_slopes(u, t)
+    b, c, d = _akima_coefficients(t, m)
+    return AkimaSpline(u=u, t=t, b=b, c=c, d=d)
+
+
+def evaluate_akima_spline(spline: AkimaSpline, t_new: jnp.ndarray) -> jnp.ndarray:
+    """
+    Evaluate a precomputed Akima spline at new points.
+    """
+    return _akima_eval(spline.u, spline.t, spline.b, spline.c, spline.d, t_new)
 
 
 # =============================================================================
