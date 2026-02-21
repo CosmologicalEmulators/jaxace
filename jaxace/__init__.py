@@ -56,6 +56,15 @@ from .utils import (
     validate_layer_structure,
     validate_nn_dict_structure,
     validate_parameter_ranges,
+    cubic_spline_interpolation,
+    akima_interpolation,
+)
+from .chebyshev import (
+    ChebyshevPlan,
+    chebpoints,
+    prepare_chebyshev_plan,
+    chebyshev_polynomials,
+    chebyshev_decomposition,
 )
 
 __version__ = "0.4.1"
@@ -173,6 +182,14 @@ __all__ = [
     "validate_parameter_ranges",
     "validate_layer_structure",
     "safe_dict_access",
+    "cubic_spline_interpolation",
+    "akima_interpolation",
+    # Chebyshev optimization
+    "ChebyshevPlan",
+    "chebpoints",
+    "prepare_chebyshev_plan",
+    "chebyshev_polynomials",
+    "chebyshev_decomposition",
     # Background cosmology
     "w0waCDMCosmology",
     "a_z",

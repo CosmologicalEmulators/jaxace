@@ -7,16 +7,16 @@ import jax
 import jax.numpy as jnp
 
 
-def maximin(input_data: Union[np.ndarray, jnp.ndarray], 
+def maximin(input_data: Union[np.ndarray, jnp.ndarray],
             minmax: Union[np.ndarray, jnp.ndarray]) -> Union[np.ndarray, jnp.ndarray]:
     """
     Normalize input data using min-max scaling.
     Matches Julia's maximin function.
-    
+
     Args:
         input_data: Input array to normalize (shape: (n_features,) or (n_features, n_samples))
         minmax: Array of shape (n_features, 2) where column 0 is min, column 1 is max
-        
+
     Returns:
         Normalized array in range [0, 1]
     """
@@ -28,16 +28,16 @@ def maximin(input_data: Union[np.ndarray, jnp.ndarray],
         return (input_data - minmax[:, 0:1]) / (minmax[:, 1:2] - minmax[:, 0:1])
 
 
-def inv_maximin(output_data: Union[np.ndarray, jnp.ndarray], 
+def inv_maximin(output_data: Union[np.ndarray, jnp.ndarray],
                 minmax: Union[np.ndarray, jnp.ndarray]) -> Union[np.ndarray, jnp.ndarray]:
     """
     Denormalize output data from min-max scaling.
     Matches Julia's inv_maximin function.
-    
+
     Args:
         output_data: Normalized array (shape: (n_features,) or (n_features, n_samples))
         minmax: Array of shape (n_features, 2) where column 0 is min, column 1 is max
-        
+
     Returns:
         Denormalized array
     """
@@ -53,32 +53,32 @@ def validate_nn_dict_structure(nn_dict: Dict[str, Any]) -> None:
     """
     Validate the structure of the neural network dictionary.
     Matches Julia's validate_nn_dict_structure function.
-    
+
     Args:
         nn_dict: Neural network specification dictionary
-        
+
     Raises:
         ValueError: If the dictionary structure is invalid
     """
     required_keys = ["n_input_features", "n_output_features", "n_hidden_layers", "layers"]
-    
+
     for key in required_keys:
         if key not in nn_dict:
             raise ValueError(f"Missing required key: {key}")
-    
+
     n_hidden = nn_dict["n_hidden_layers"]
-    
+
     if not isinstance(n_hidden, int) or n_hidden < 0:
         raise ValueError(f"n_hidden_layers must be a non-negative integer, got {n_hidden}")
-    
+
     if "layers" not in nn_dict or not isinstance(nn_dict["layers"], dict):
         raise ValueError("Missing or invalid 'layers' dictionary")
-    
+
     for i in range(1, n_hidden + 1):
         layer_key = f"layer_{i}"
         if layer_key not in nn_dict["layers"]:
             raise ValueError(f"Missing layer definition: {layer_key}")
-        
+
         layer = nn_dict["layers"][layer_key]
         validate_layer_structure(layer, layer_key)
 
@@ -87,34 +87,34 @@ def validate_layer_structure(layer: Dict[str, Any], layer_name: str) -> None:
     """
     Validate the structure of a single layer dictionary.
     Matches Julia's validate_layer_structure function.
-    
+
     Args:
         layer: Layer specification dictionary
         layer_name: Name of the layer for error messages
-        
+
     Raises:
         ValueError: If the layer structure is invalid
     """
     required_keys = ["n_neurons", "activation_function"]
-    
+
     for key in required_keys:
         if key not in layer:
             raise ValueError(f"Missing required key '{key}' in {layer_name}")
-    
+
     if not isinstance(layer["n_neurons"], int) or layer["n_neurons"] <= 0:
         raise ValueError(f"n_neurons must be a positive integer in {layer_name}")
-    
+
     validate_activation_function(layer["activation_function"], layer_name)
 
 
 def validate_activation_function(activation: str, context: str) -> None:
     """
     Validate activation function name.
-    
+
     Args:
         activation: Activation function name
         context: Context for error message
-        
+
     Raises:
         ValueError: If activation function is not supported
     """
@@ -130,10 +130,10 @@ def validate_parameter_ranges(params: Dict[str, Any]) -> None:
     """
     Validate parameter ranges for emulator inputs.
     Matches Julia's validate_parameter_ranges function.
-    
+
     Args:
         params: Parameter dictionary to validate
-        
+
     Raises:
         ValueError: If parameters are out of valid ranges
     """
@@ -147,17 +147,17 @@ def validate_parameter_ranges(params: Dict[str, Any]) -> None:
 def validate_trained_weights(weights: np.ndarray, nn_dict: Dict[str, Any]) -> None:
     """
     Validate that weight dimensions match the neural network specification.
-    
+
     Args:
         weights: Flattened weight array
         nn_dict: Neural network specification dictionary
-        
+
     Raises:
         ValueError: If weight dimensions don't match
     """
     # Calculate expected number of weights
     expected_size = calculate_weight_size(nn_dict)
-    
+
     if len(weights) != expected_size:
         raise ValueError(
             f"Weight array size mismatch. Expected {expected_size}, got {len(weights)}"
@@ -167,32 +167,32 @@ def validate_trained_weights(weights: np.ndarray, nn_dict: Dict[str, Any]) -> No
 def calculate_weight_size(nn_dict: Dict[str, Any]) -> int:
     """
     Calculate the expected size of the flattened weight array.
-    
+
     Args:
         nn_dict: Neural network specification dictionary
-        
+
     Returns:
         Expected number of weight parameters
     """
     n_hidden = nn_dict["n_hidden_layers"]
     total_size = 0
-    
+
     # Input layer to first hidden layer
     n_in = nn_dict["n_input_features"]
     n_out = nn_dict["layers"]["layer_1"]["n_neurons"]
     total_size += n_in * n_out + n_out  # weights + bias
-    
+
     # Hidden layers
     for i in range(1, n_hidden):
         n_in = nn_dict["layers"][f"layer_{i}"]["n_neurons"]
         n_out = nn_dict["layers"][f"layer_{i+1}"]["n_neurons"]
         total_size += n_in * n_out + n_out
-    
+
     # Last hidden layer to output
     n_in = nn_dict["layers"][f"layer_{n_hidden}"]["n_neurons"]
     n_out = nn_dict["n_output_features"]
     total_size += n_in * n_out + n_out
-    
+
     return total_size
 
 
@@ -200,12 +200,12 @@ def safe_dict_access(dictionary: Dict[str, Any], *keys, default=None) -> Any:
     """
     Safely access nested dictionary values.
     Matches Julia's safe_dict_access function.
-    
+
     Args:
         dictionary: Dictionary to access
         *keys: Sequence of keys to traverse
         default: Default value if key not found
-        
+
     Returns:
         Value at the specified path or default
     """
@@ -222,40 +222,40 @@ def get_emulator_description(description: Dict[str, Any]) -> None:
     """
     Print emulator description information.
     Matches Julia's get_emulator_description function.
-    
+
     Args:
         description: Emulator description dictionary
     """
     # Print author information
     if "author" in description:
         print(f"Author: {description['author']}")
-    
+
     if "author_email" in description:
         print(f"Email: {description['author_email']}")
-    
+
     # Print emulator details
     if "emulator_type" in description:
         print(f"Emulator Type: {description['emulator_type']}")
-    
+
     if "description" in description:
         print(f"Description: {description['description']}")
-    
+
     # Print input parameters
     if "input_parameters" in description:
         print(f"Input Parameters: {description['input_parameters']}")
     else:
         print("We do not know which parameters are the inputs of the emulator")
-    
-    # Print output parameters  
+
+    # Print output parameters
     if "output_parameters" in description:
         print(f"Output Parameters: {description['output_parameters']}")
     else:
         print("We do not know which parameters are the outputs of the emulator")
-    
+
     # Print version information
     if "version" in description:
         print(f"Version: {description['version']}")
-    
+
     # Print any additional metadata
     for key, value in description.items():
         if key not in ["author", "author_email", "emulator_type", "description",
@@ -576,3 +576,153 @@ def akima_interpolation(u, t, t_new):
     m = _akima_slopes(u, t)
     b, c, d = _akima_coefficients(t, m)
     return _akima_eval(u, t, b, c, d, t_new)
+
+
+# =============================================================================
+# Cubic Spline Interpolation
+# =============================================================================
+
+def _cubic_spline_coefficients(u, t):
+    """
+    Compute Natural Cubic Spline coefficients.
+
+    This matches the `_cubic_spline_coefficients` from AbstractCosmologicalEmulators.jl.
+    It constructs and solves a tridiagonal system for the second derivatives `z`.
+
+    Args:
+        u: Ordinates at data nodes
+           - 1D: shape (n,)
+           - 2D: shape (n, n_cols)
+        t: Abscissae at data nodes, shape (n,)
+
+    Returns:
+        Tuple (h, z) where:
+        - h is the interval widths, shape (n+1,) with 0 padding
+        - z is the second derivatives
+          - 1D: shape (n,)
+          - 2D: shape (n, n_cols)
+    """
+    n = len(t)
+    dt = jnp.diff(t)
+
+    # We need an array h (intervals) for evaluation, padded with 0 at boundaries
+    dtype = jnp.result_type(u.dtype, t.dtype)
+    h = jnp.zeros(n + 1, dtype=dtype)
+    h = h.at[1:n].set(dt)
+
+    # Construct full Tridiagonal matrix `A` for solver since JAX solve_banded is removed
+    A = jnp.zeros((n, n), dtype=dtype)
+
+    # Fill main diagonal
+    i_idx = jnp.arange(n)
+    A = A.at[i_idx, i_idx].set(2 * (h[:n] + h[1:]))
+
+    # Fill superdiagonal and subdiagonal
+    i_off = jnp.arange(n - 1)
+    A = A.at[i_off, i_off + 1].set(dt)
+    A = A.at[i_off + 1, i_off].set(dt)
+
+    is_1d = jnp.ndim(u) == 1
+
+    if is_1d:
+        # RHS d
+        d = jnp.zeros(n, dtype=dtype)
+
+        # d[i] = 6 * (u[i+1] - u[i]) / h[i+1] - 6 * (u[i] - u[i-1]) / h[i] for i in 1..n-2 (0-indexed: 1..n-2)
+        d_inner = 6 * jnp.diff(u)[1:] / h[2:n] - 6 * jnp.diff(u)[:-1] / h[1:n-1]
+        d = d.at[1:n-1].set(d_inner)
+
+        # Solve Tridiagonal system
+        z = jax.scipy.linalg.solve(A, d)
+
+        return h, z
+    else:
+        # 2D case
+        n_cols = u.shape[1]
+
+        # RHS d (Matrix)
+        d = jnp.zeros((n, n_cols), dtype=dtype)
+
+        # Broadcasting math over columns
+        h_next = h[2:n][:, jnp.newaxis]
+        h_prev = h[1:n-1][:, jnp.newaxis]
+
+        d_inner = 6 * jnp.diff(u, axis=0)[1:, :] / h_next - 6 * jnp.diff(u, axis=0)[:-1, :] / h_prev
+        d = d.at[1:n-1, :].set(d_inner)
+
+        # Solve Tridiagonal system for multiple RHS
+        z = jax.scipy.linalg.solve(A, d)
+
+        return h, z
+
+def _cubic_spline_eval(u, t, h, z, tq):
+    """
+    Evaluate Natural Cubic Spline.
+
+    Matches AbstractCosmologicalEmulators.jl `_cubic_spline_eval`.
+    """
+    is_1d = jnp.ndim(u) == 1
+    is_scalar_tq = jnp.ndim(tq) == 0
+    tq_arr = jnp.atleast_1d(tq)
+
+    n = len(t)
+
+    # We use akima's interval finder logic
+    idx = jnp.searchsorted(t, tq_arr, side='right') - 1
+    idx = jnp.clip(idx, 0, n - 2)
+
+    if is_1d:
+        dt = tq_arr - t[idx]
+        dt_next = t[idx+1] - tq_arr
+        h_i = h[idx+1]
+
+        term1 = (z[idx] * dt_next**3 + z[idx+1] * dt**3) / (6 * h_i)
+        term2 = (u[idx+1] / h_i - z[idx+1] * h_i / 6) * dt
+        term3 = (u[idx] / h_i - z[idx] * h_i / 6) * dt_next
+
+        result = term1 + term2 + term3
+        return result[0] if is_scalar_tq else result
+
+    else:
+        n_cols = u.shape[1]
+
+        dt = tq_arr - t[idx]
+        dt_next = t[idx+1] - tq_arr
+        h_i = h[idx+1]
+
+        # Broadcast terms
+        dt = dt[:, jnp.newaxis]
+        dt_next = dt_next[:, jnp.newaxis]
+        h_i = h_i[:, jnp.newaxis]
+
+        term1 = (z[idx, :] * dt_next**3 + z[idx+1, :] * dt**3) / (6 * h_i)
+        term2 = (u[idx+1, :] / h_i - z[idx+1, :] * h_i / 6) * dt
+        term3 = (u[idx, :] / h_i - z[idx, :] * h_i / 6) * dt_next
+
+        result = term1 + term2 + term3
+        return result[0, :] if is_scalar_tq else result
+
+def cubic_spline_interpolation(u, t, t_new):
+    """
+    Natural Cubic Spline interpolation for 1D or 2D data.
+
+    This is a direct translation of AbstractCosmologicalEmulators.jl's cubic_spline_interpolation
+    function. Evaluates the Natural Cubic Spline that interpolates the data points (t_i, u_i)
+    at new abscissae t_new.
+
+    This implementation is fully compatible with JAX's jit and automatic differentiation.
+
+    Args:
+        u: Ordinates (function values) at data nodes.
+           - 1D case: shape (n,)
+           - 2D case: shape (n, n_cols) where each column is interpolated independently
+        t: Strictly increasing abscissae (x-coordinates), shape (n,)
+        t_new: Query point(s) where spline is evaluated, scalar or array
+
+    Returns:
+        Interpolated value(s) at t_new.
+        - 1D input: Scalar if t_new is scalar, array if t_new is array
+        - 2D input: Matrix of shape (len(t_new), n_cols)
+    """
+    h, z = _cubic_spline_coefficients(u, t)
+    return _cubic_spline_eval(u, t, h, z, t_new)
