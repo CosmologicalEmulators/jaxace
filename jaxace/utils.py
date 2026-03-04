@@ -638,14 +638,24 @@ def _cubic_spline_coefficients(u, t):
     # Construct full Tridiagonal matrix `A` for solver since JAX solve_banded is removed
     A = jnp.zeros((n, n), dtype=dtype)
 
-    # Fill main diagonal
+    # Fill main diagonal (Natural Spline boundaries: z[0]=0, z[N-1]=0 -> A[0,0]=A[N-1,N-1]=1)
     i_idx = jnp.arange(n)
-    A = A.at[i_idx, i_idx].set(2 * (h[:n] + h[1:]))
+    A_diag = jnp.zeros(n, dtype=dtype)
+    # The intermediate nodes are 2*(h[i] + h[i+1])
+    A_diag = A_diag.at[1:n-1].set(2 * (h[1:n-1] + h[2:n]))
+    A_diag = A_diag.at[0].set(1.0)
+    A_diag = A_diag.at[-1].set(1.0)
+
+    A = A.at[i_idx, i_idx].set(A_diag)
 
     # Fill superdiagonal and subdiagonal
-    i_off = jnp.arange(n - 1)
-    A = A.at[i_off, i_off + 1].set(dt)
-    A = A.at[i_off + 1, i_off].set(dt)
+    # We only want off-diagonals for the interior nodes (1 to N-2)
+    # So A[i, i+1] = h[i+1] for i in 1..N-2 (0-indexed: 1 to n-2)
+    i_interior = jnp.arange(1, n - 1)
+    # Superdiagonal values: A[i, i+1] = h[i+1] (which is dt[i])
+    A = A.at[i_interior, i_interior + 1].set(dt[1:])
+    # Subdiagonal values: A[i, i-1] = h[i] (which is dt[i-1])
+    A = A.at[i_interior, i_interior - 1].set(dt[:-1])
 
     is_1d = jnp.ndim(u) == 1
 
@@ -694,6 +704,12 @@ def _cubic_spline_eval(u, t, h, z, tq):
 
     # We use akima's interval finder logic
     idx = jnp.searchsorted(t, tq_arr, side='right') - 1
+
+    # We create masks for extrapolation
+    mask_left = tq_arr < t[0]
+    mask_right = tq_arr > t[-1]
+    mask_inside = ~(mask_left | mask_right)
+
     idx = jnp.clip(idx, 0, n - 2)
 
     if is_1d:
@@ -705,9 +721,17 @@ def _cubic_spline_eval(u, t, h, z, tq):
         term2 = (u[idx+1] / h_i - z[idx+1] * h_i / 6) * dt
         term3 = (u[idx] / h_i - z[idx] * h_i / 6) * dt_next
 
-        result = term1 + term2 + term3
-        return result[0] if is_scalar_tq else result
+        val_inside = term1 + term2 + term3
 
+        # Linear extrapolation manually calculated mimicking DataInterpolations.jl boundaries
+        grad_left = (u[1] - u[0]) / h[1] - (2 * z[0] + z[1]) * h[1] / 6
+        grad_right = (u[-1] - u[-2]) / h[-1] + (2 * z[-1] + z[-2]) * h[-1] / 6
+
+        val_left = u[0] + grad_left * (tq_arr - t[0])
+        val_right = u[-1] + grad_right * (tq_arr - t[-1])
+
+        result = jnp.where(mask_left, val_left, jnp.where(mask_right, val_right, val_inside))
+        return result[0] if is_scalar_tq else result
     else:
         n_cols = u.shape[1]
 
@@ -724,7 +748,25 @@ def _cubic_spline_eval(u, t, h, z, tq):
         term2 = (u[idx+1, :] / h_i - z[idx+1, :] * h_i / 6) * dt
         term3 = (u[idx, :] / h_i - z[idx, :] * h_i / 6) * dt_next
 
-        result = term1 + term2 + term3
+        val_inside = term1 + term2 + term3
+
+        # Extrapolation calculations
+        grad_left = (u[1, :] - u[0, :]) / h[1] - (2 * z[0, :] + z[1, :]) * h[1] / 6
+        grad_right = (u[-1, :] - u[-2, :]) / h[-1] + (2 * z[-1, :] + z[-2, :]) * h[-1] / 6
+
+        # Broadcasting masks to 2D
+        mask_left_2d = mask_left[:, jnp.newaxis]
+        mask_right_2d = mask_right[:, jnp.newaxis]
+
+        # Use dt and dt_next with respecting the limits
+        dt_left = (tq_arr - t[0])[:, jnp.newaxis]
+        dt_right = (tq_arr - t[-1])[:, jnp.newaxis]
+
+        val_left = u[0, :] + grad_left * dt_left
+        val_right = u[-1, :] + grad_right * dt_right
+
+        result = jnp.where(mask_left_2d, val_left, jnp.where(mask_right_2d, val_right, val_inside))
+
         return result[0, :] if is_scalar_tq else result
 
 def cubic_spline_interpolation(u, t, t_new):

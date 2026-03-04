@@ -18,7 +18,7 @@ def test_chebyshev_1d_decomposition():
     def f(x):
         return x**2 + jnp.sin(x)
 
-    f_vals = f(plan.nodes)
+    f_vals = f(plan.nodes[0])
 
     # Get coefficients
     c = chebyshev_decomposition(plan, f_vals)
@@ -42,7 +42,7 @@ def test_chebyshev_2d():
 
     # 2D batch evaluation
     # Shape: (K+1, N)
-    nodes = plan.nodes[:, jnp.newaxis]
+    nodes = plan.nodes[0][:, jnp.newaxis]
     weights = jnp.arange(N)
 
     f_vals = jnp.sin(nodes) * weights
@@ -65,7 +65,7 @@ def test_chebyshev_3d_target_dim():
     # We want to decompose along dim=1
     plan = prepare_chebyshev_plan(x_min, x_max, K, dim=1)
 
-    nodes_3d = plan.nodes[jnp.newaxis, :, jnp.newaxis]
+    nodes_3d = plan.nodes[0][jnp.newaxis, :, jnp.newaxis]
     f_vals = jnp.exp(nodes_3d) * jnp.ones((3, 1, 4))
 
     c = chebyshev_decomposition(plan, f_vals)
@@ -80,7 +80,7 @@ def test_chebyshev_jit_and_grad():
         c = chebyshev_decomposition(plan, f_vals)
         return jnp.sum(c**2)
 
-    f_vals = jnp.sin(plan.nodes)
+    f_vals = jnp.sin(plan.nodes[0])
     loss_jit = jax.jit(loss)
     grad_fn = jax.jit(jax.grad(loss_jit))
 
