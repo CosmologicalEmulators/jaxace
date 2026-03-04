@@ -460,25 +460,6 @@ files = [
 ]
 
 [[package]]
-name = "interpax"
-version = "0.3.12"
-description = "Interpolation and function approximation with JAX"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "interpax-0.3.12-py3-none-any.whl", hash = "sha256:1f447c238ae629dabf23f9c04671d52a03d11251f31ec7607556c576a81142b6"},
-    {file = "interpax-0.3.12.tar.gz", hash = "sha256:9563b5458a70a9bac34372c68d8fca34a03864e19805b06763a1c48dbd420699"},
-]
-
-[package.dependencies]
-equinox = ">=0.11.0,<0.14"
-jax = ">=0.4.30,<0.9"
-jaxtyping = ">=0.2.24,<0.4.0"
-lineax = ">=0.0.5,<=0.0.8"
-numpy = ">=1.20.0,<2.4"
-
-[[package]]
 name = "jax"
 version = "0.6.2"
 description = "Differentiate, compile, and transform Numpy code."
@@ -1931,4 +1912,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "f228f54b6bbaf51d7bfdd0094a674f3003ef13b54a7a15fa10cfc8f5fca8dd13"
+content-hash = "8fe5774ad3e5f71c693ec4639dbb065fd47a697bd9562f0eca071ceb047625d4"
