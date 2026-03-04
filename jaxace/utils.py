@@ -82,6 +82,9 @@ def validate_nn_dict_structure(nn_dict: Dict[str, Any]) -> None:
         layer = nn_dict["layers"][layer_key]
         validate_layer_structure(layer, layer_key)
 
+    validate_normalization_ranges(nn_dict)
+    validate_architecture_numerical_stability(nn_dict)
+
 
 def validate_layer_structure(layer: Dict[str, Any], layer_name: str) -> None:
     """
@@ -161,6 +164,34 @@ def validate_trained_weights(weights: np.ndarray, nn_dict: Dict[str, Any]) -> No
     if len(weights) != expected_size:
         raise ValueError(
             f"Weight array size mismatch. Expected {expected_size}, got {len(weights)}"
+        )
+
+    # Check for NaNs and Infs
+    is_finite = np.isfinite(weights)
+    if not np.all(is_finite):
+        nan_count = np.sum(np.isnan(weights))
+        inf_count = np.sum(np.isinf(weights))
+        raise ValueError(
+            f"Invalid trained weights detected: NaN values: {nan_count}, Inf values: {inf_count}, "
+            f"Total invalid: {nan_count + inf_count} out of {len(weights)}. "
+            "This indicates the emulator was not properly trained or the weights are corrupted."
+        )
+
+    # Check for excessively large weights
+    max_weight = np.max(np.abs(weights))
+    if max_weight > 1e6:
+        import warnings
+        warnings.warn(
+            f"Large weight magnitudes detected (max absolute value: {max_weight}). "
+            "This may indicate training instability, poor normalization, or gradient explosion."
+        )
+
+    # Check for all-zero or very small weights
+    if np.all(np.abs(weights) < 1e-10):
+        import warnings
+        warnings.warn(
+            "All weights are very small (< 1e-10). "
+            "This may indicate the emulator was not properly trained."
         )
 
 
@@ -243,6 +274,8 @@ def get_emulator_description(description: Dict[str, Any]) -> None:
     # Print input parameters
     if "input_parameters" in description:
         print(f"Input Parameters: {description['input_parameters']}")
+    elif "parameters" in description:
+        print(f"The parameters the model has been trained are, in the following order: {description['parameters']}.")
     else:
         print("We do not know which parameters are the inputs of the emulator")
 
@@ -257,10 +290,123 @@ def get_emulator_description(description: Dict[str, Any]) -> None:
         print(f"Version: {description['version']}")
 
     # Print any additional metadata
+    if "miscellanea" in description:
+        print(description["miscellanea"])
+
     for key, value in description.items():
         if key not in ["author", "author_email", "emulator_type", "description",
-                       "input_parameters", "output_parameters", "version"]:
+                       "input_parameters", "parameters", "output_parameters", "version", "miscellanea"]:
             print(f"{key}: {value}")
+
+
+def validate_normalization_ranges(nn_dict: Dict[str, Any]) -> None:
+    if "emulator_description" in nn_dict:
+        desc = nn_dict["emulator_description"]
+        range_keys = ["input_ranges", "minmax", "parameter_ranges", "normalization_ranges"]
+        minmax_data = None
+
+        for key in range_keys:
+            if key in desc:
+                minmax_data = desc[key]
+                break
+
+        if minmax_data is not None:
+            validate_minmax_data(minmax_data)
+
+
+def validate_minmax_data(minmax_data: Any) -> None:
+    ranges = convert_minmax_format(minmax_data)
+
+    range_widths = ranges[:, 1] - ranges[:, 0]
+    degenerate_indices = np.where(np.abs(range_widths) < 1e-15)[0]
+
+    if len(degenerate_indices) > 0:
+        raise ValueError(
+            f"Degenerate normalization ranges detected at parameter indices: {degenerate_indices.tolist()}. "
+            f"Range widths: {range_widths[degenerate_indices].tolist()}. "
+            "This will cause division by zero in maximin normalization. "
+            "Please ensure min ≠ max for all parameters."
+        )
+
+    validate_cosmological_ranges(ranges)
+
+
+def convert_minmax_format(minmax_data: Any) -> np.ndarray:
+    if isinstance(minmax_data, (list, tuple)) and len(minmax_data) > 0:
+        if isinstance(minmax_data[0], (list, tuple)):
+            ranges = np.zeros((len(minmax_data), 2))
+            for i, range_pair in enumerate(minmax_data):
+                if len(range_pair) != 2:
+                    raise ValueError("Each range must have exactly 2 elements [min, max]")
+                ranges[i, 0] = float(range_pair[0])
+                ranges[i, 1] = float(range_pair[1])
+            return ranges
+        else:
+            raise ValueError("1D list minmax format not recognized. Expected List[List[float]]")
+    elif isinstance(minmax_data, dict):
+        if "min" in minmax_data and "max" in minmax_data:
+            min_vals = minmax_data["min"]
+            max_vals = minmax_data["max"]
+            if len(min_vals) != len(max_vals):
+                raise ValueError("min and max arrays must have same length")
+            return np.column_stack((np.array(min_vals, dtype=float), np.array(max_vals, dtype=float)))
+        else:
+            raise ValueError("Dictionary minmax format must have 'min' and 'max' keys")
+    elif isinstance(minmax_data, (np.ndarray, jnp.ndarray)):
+        arr = np.array(minmax_data)
+        if arr.ndim != 2 or arr.shape[1] != 2:
+            raise ValueError("Matrix minmax data must have exactly 2 columns [min, max]")
+        return arr
+    else:
+        raise ValueError(f"Unsupported minmax data format: {type(minmax_data)}")
+
+
+def validate_cosmological_ranges(ranges: np.ndarray) -> None:
+    n_params = ranges.shape[0]
+    for i in range(n_params):
+        min_val, max_val = ranges[i, 0], ranges[i, 1]
+        if min_val >= max_val:
+            raise ValueError(f"Invalid range for parameter {i}: min ({min_val}) >= max ({max_val})")
+
+
+def validate_architecture_numerical_stability(nn_dict: Dict[str, Any]) -> None:
+    n_input = nn_dict["n_input_features"]
+    n_output = nn_dict["n_output_features"]
+    n_hidden = nn_dict["n_hidden_layers"]
+
+    layer_sizes = [n_input]
+    for i in range(1, n_hidden + 1):
+        layer_sizes.append(nn_dict["layers"][f"layer_{i}"]["n_neurons"])
+    layer_sizes.append(n_output)
+
+    import warnings
+    for i in range(1, len(layer_sizes)):
+        ratio = layer_sizes[i] / layer_sizes[i-1]
+        if ratio > 100:
+            warnings.warn(
+                f"Large layer size expansion detected: Layer {i-1} ({layer_sizes[i-1]}) → Layer {i} ({layer_sizes[i]}) "
+                f"(ratio: {ratio:.2f}). This may cause increased memory usage, potential overfitting, or training instability."
+            )
+        elif ratio < 0.01:
+            warnings.warn(
+                f"Severe layer size reduction detected: Layer {i-1} ({layer_sizes[i-1]}) → Layer {i} ({layer_sizes[i]}) "
+                f"(ratio: {ratio:.4f}). This may cause information bottlenecks, underfitting, or loss of representational capacity."
+            )
+
+    if n_hidden > 20:
+        warnings.warn(
+            f"Very deep network detected ({n_hidden} hidden layers). "
+            "Consider using residual connections, batch normalization, or gradient clipping."
+        )
+
+    for i in range(1, n_hidden + 1):
+        activation = nn_dict["layers"][f"layer_{i}"]["activation_function"]
+        if activation == "tanh" and n_hidden > 10:
+            warnings.warn(
+                f"Deep network ({n_hidden} layers) using tanh activation may suffer from vanishing gradients. "
+                "Consider using ReLU or other activations for deep networks."
+            )
+            break
 
 
 # =============================================================================
@@ -578,12 +724,18 @@ def akima_interpolation(u, t, t_new):
     return _akima_eval(u, t, b, c, d, t_new)
 
 
+from typing import NamedTuple
+
 class AkimaSpline(NamedTuple):
     u: jnp.ndarray
     t: jnp.ndarray
     b: jnp.ndarray
     c: jnp.ndarray
     d: jnp.ndarray
+
+    def __call__(self, t_new):
+        """Evaluate the Akima spline at new points."""
+        return _akima_eval(self.u, self.t, self.b, self.c, self.d, t_new)
 
 
 def prepare_akima_spline(u: jnp.ndarray, t: jnp.ndarray) -> AkimaSpline:
@@ -723,15 +875,7 @@ def _cubic_spline_eval(u, t, h, z, tq):
 
         val_inside = term1 + term2 + term3
 
-        # Linear extrapolation manually calculated mimicking DataInterpolations.jl boundaries
-        grad_left = (u[1] - u[0]) / h[1] - (2 * z[0] + z[1]) * h[1] / 6
-        grad_right = (u[-1] - u[-2]) / h[-1] + (2 * z[-1] + z[-2]) * h[-1] / 6
-
-        val_left = u[0] + grad_left * (tq_arr - t[0])
-        val_right = u[-1] + grad_right * (tq_arr - t[-1])
-
-        result = jnp.where(mask_left, val_left, jnp.where(mask_right, val_right, val_inside))
-        return result[0] if is_scalar_tq else result
+        return val_inside[0] if is_scalar_tq else val_inside
     else:
         n_cols = u.shape[1]
 
@@ -750,24 +894,7 @@ def _cubic_spline_eval(u, t, h, z, tq):
 
         val_inside = term1 + term2 + term3
 
-        # Extrapolation calculations
-        grad_left = (u[1, :] - u[0, :]) / h[1] - (2 * z[0, :] + z[1, :]) * h[1] / 6
-        grad_right = (u[-1, :] - u[-2, :]) / h[-1] + (2 * z[-1, :] + z[-2, :]) * h[-1] / 6
-
-        # Broadcasting masks to 2D
-        mask_left_2d = mask_left[:, jnp.newaxis]
-        mask_right_2d = mask_right[:, jnp.newaxis]
-
-        # Use dt and dt_next with respecting the limits
-        dt_left = (tq_arr - t[0])[:, jnp.newaxis]
-        dt_right = (tq_arr - t[-1])[:, jnp.newaxis]
-
-        val_left = u[0, :] + grad_left * dt_left
-        val_right = u[-1, :] + grad_right * dt_right
-
-        result = jnp.where(mask_left_2d, val_left, jnp.where(mask_right_2d, val_right, val_inside))
-
-        return result[0, :] if is_scalar_tq else result
+        return val_inside[0, :] if is_scalar_tq else val_inside
 
 def cubic_spline_interpolation(u, t, t_new):
     """
