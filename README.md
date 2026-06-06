@@ -39,7 +39,7 @@ output = emulator(input_data)  # Auto-JIT + batch detection
 
 ## Postprocessing API
 
-`jaxace` 0.6.0 matches the current `AbstractCosmologicalEmulators.jl` generic
+`jaxace` 0.7.0 matches the current `AbstractCosmologicalEmulators.jl` generic
 emulator API. Custom postprocessing functions should take three arguments:
 
 ```python

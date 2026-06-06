@@ -71,7 +71,7 @@
     Custom postprocessing functions should use the ACE.jl-compatible signature
     `postprocessing(input_params, output, emulator)`. Legacy four-argument
     functions with `auxiliary_params` are accepted for backward compatibility
-    but are not the canonical 0.6.0 API.
+    but are not the canonical 0.7.0 API.
 
 ## Utilities
 

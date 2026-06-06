@@ -50,7 +50,7 @@ output = emulator(input_data)
 
 ## Postprocessing API
 
-Since version 0.6.0, custom `GenericEmulator` postprocessing follows the same
+Since version 0.7.0, custom `GenericEmulator` postprocessing follows the same
 signature as `AbstractCosmologicalEmulators.jl`:
 
 ```python
