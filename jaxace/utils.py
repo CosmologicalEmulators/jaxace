@@ -518,8 +518,12 @@ def _akima_coefficients(t, m):
         # Epsilon threshold for numerical stability
         eps_akima = jnp.finfo(f12.dtype).eps * 100
 
-        # Weighted average where slopes vary significantly
-        b_weighted = (f1 * m[1:n+1] + f2 * m[2:n+2]) / f12
+        # Weighted average where slopes vary significantly.  Do not divide by
+        # f12 directly: JAX traces both branches of jnp.where, so flat/linear
+        # data would still create an inactive 0/0 branch and poison gradients
+        # with NaNs.
+        safe_f12 = jnp.where(f12 > eps_akima, f12, jnp.ones_like(f12))
+        b_weighted = (f1 * m[1:n+1] + f2 * m[2:n+2]) / safe_f12
 
         # Use weighted average where f12 > eps_akima, otherwise keep simple average
         b = jnp.where(f12 > eps_akima, b_weighted, b)
@@ -550,9 +554,11 @@ def _akima_coefficients(t, m):
         # Epsilon threshold for numerical stability
         eps_akima = jnp.finfo(f12.dtype).eps * 100
 
-        # Weighted average where slopes vary significantly
-        # All shapes: (n, n_cols)
-        b_weighted = (f1 * m[1:n+1, :] + f2 * m[2:n+2, :]) / f12
+        # Weighted average where slopes vary significantly.  Avoid inactive
+        # 0/0 branches under jnp.where so AD remains finite for flat/linear
+        # columns.
+        safe_f12 = jnp.where(f12 > eps_akima, f12, jnp.ones_like(f12))
+        b_weighted = (f1 * m[1:n+1, :] + f2 * m[2:n+2, :]) / safe_f12
 
         # Use weighted average where f12 > eps_akima
         b = jnp.where(f12 > eps_akima, b_weighted, b)
@@ -670,7 +676,7 @@ def _akima_eval(u, t, b, c, d, tq):
             return result
 
 
-def akima_interpolation(u, t, t_new):
+def akima_interpolation(u, t, t_new) -> Union[float, jnp.ndarray]:
     """
     Akima spline interpolation for 1D or 2D data.
 
@@ -686,16 +692,18 @@ def akima_interpolation(u, t, t_new):
     This implementation is fully compatible with JAX's jit and automatic differentiation.
 
     Args:
-        u: Ordinates (function values) at data nodes.
-           - 1D case: shape (n,)
-           - 2D case: shape (n, n_cols) where each column is interpolated independently
-        t: Strictly increasing abscissae (x-coordinates), shape (n,)
-        t_new: Query point(s) where spline is evaluated, scalar or array
+        u (jnp.ndarray): Ordinates (function values) at data nodes. The 1D
+            case has shape ``(n,)``. The 2D case has shape ``(n, n_cols)``
+            where each column is interpolated independently.
+        t (jnp.ndarray): Strictly increasing abscissae (x-coordinates), shape
+            ``(n,)``.
+        t_new (jnp.ndarray): Query point(s) where spline is evaluated, scalar
+            or array.
 
     Returns:
-        Interpolated value(s) at t_new.
-        - 1D input: Scalar if t_new is scalar, array if t_new is array
-        - 2D input: Matrix of shape (len(t_new), n_cols)
+        jnp.ndarray: Interpolated value(s) at ``t_new``. For 1D input this is
+            a scalar if ``t_new`` is scalar, otherwise an array. For 2D input
+            this is a matrix of shape ``(len(t_new), n_cols)``.
 
     Example (1D):
         >>> import jax.numpy as jnp
@@ -896,7 +904,7 @@ def _cubic_spline_eval(u, t, h, z, tq):
 
         return val_inside[0, :] if is_scalar_tq else val_inside
 
-def cubic_spline_interpolation(u, t, t_new):
+def cubic_spline_interpolation(u, t, t_new) -> Union[float, jnp.ndarray]:
     """
     Natural Cubic Spline interpolation for 1D or 2D data.
 
@@ -907,16 +915,18 @@ def cubic_spline_interpolation(u, t, t_new):
     This implementation is fully compatible with JAX's jit and automatic differentiation.
 
     Args:
-        u: Ordinates (function values) at data nodes.
-           - 1D case: shape (n,)
-           - 2D case: shape (n, n_cols) where each column is interpolated independently
-        t: Strictly increasing abscissae (x-coordinates), shape (n,)
-        t_new: Query point(s) where spline is evaluated, scalar or array
+        u (jnp.ndarray): Ordinates (function values) at data nodes. The 1D
+            case has shape ``(n,)``. The 2D case has shape ``(n, n_cols)``
+            where each column is interpolated independently.
+        t (jnp.ndarray): Strictly increasing abscissae (x-coordinates), shape
+            ``(n,)``.
+        t_new (jnp.ndarray): Query point(s) where spline is evaluated, scalar
+            or array.
 
     Returns:
-        Interpolated value(s) at t_new.
-        - 1D input: Scalar if t_new is scalar, array if t_new is array
-        - 2D input: Matrix of shape (len(t_new), n_cols)
+        jnp.ndarray: Interpolated value(s) at ``t_new``. For 1D input this is
+            a scalar if ``t_new`` is scalar, otherwise an array. For 2D input
+            this is a matrix of shape ``(len(t_new), n_cols)``.
     """
     h, z = _cubic_spline_coefficients(u, t)
     return _cubic_spline_eval(u, t, h, z, t_new)

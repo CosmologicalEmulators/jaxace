@@ -9,10 +9,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Union
 
-import diffrax
-from .utils import prepare_akima_spline, evaluate_akima_spline
 import jax
 import jax.numpy as jnp
+if not hasattr(jax.core, "get_aval") and hasattr(jax, "typeof"):
+    # Compatibility for diffrax/equinox releases that still call the removed
+    # JAX private helper `jax.core.get_aval` under autodiff.  JAX 0.10 replaced
+    # it with the public `jax.typeof` API.
+    jax.core.get_aval = jax.typeof
+
+import diffrax
+from .utils import prepare_akima_spline, evaluate_akima_spline
 import quadax
 
 # Allow user to configure precision via environment variable
@@ -301,7 +307,7 @@ class w0waCDMCosmology:
     def Ωtot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Total density parameter at redshift z (always 1.0 for flat universe)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
-        return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return Ωtot_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa)
 
 
 @jax.jit
@@ -372,7 +378,11 @@ def F(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
             return x**2 * jnp.sqrt(x**2 + y_val**2) / (jnp.exp(x) + 1.0)
 
         result, _ = quadax.quadgk(
-            integrand, [0.0, jnp.inf], epsabs=1e-15, epsrel=1e-12, order=61
+            integrand,
+            jnp.array([0.0, jnp.inf], dtype=jnp.result_type(y_val, jnp.float64)),
+            epsabs=1e-15,
+            epsrel=1e-12,
+            order=61,
         )
         return result
 
@@ -390,7 +400,11 @@ def dFdy(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
             return x**2 * y_val / (sqrt_term * (jnp.exp(x) + 1.0))
 
         result, _ = quadax.quadgk(
-            integrand, [0.0, jnp.inf], epsabs=1e-15, epsrel=1e-12, order=61
+            integrand,
+            jnp.array([0.0, jnp.inf], dtype=jnp.result_type(y_val, jnp.float64)),
+            epsabs=1e-15,
+            epsrel=1e-12,
+            order=61,
         )
         return result
 
@@ -1337,7 +1351,7 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
 
 
 @jax.jit
-def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
+def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.ndarray]:
     """
     Linear growth factor D(z).
 
@@ -1345,7 +1359,8 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     It satisfies the differential equation given in growth_solver.
 
     Returns:
-        Linear growth factor D(z). Returns NaN for NaN inputs, handles invalid parameters gracefully.
+        jnp.ndarray: Linear growth factor D(z). Returns NaN for NaN inputs,
+            handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
     has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
@@ -1379,7 +1394,7 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
 
 
 @jax.jit
-def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
+def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.ndarray]:
     """
     Growth rate f(z) = d log D / d log a.
 
@@ -1390,7 +1405,8 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     where D is the linear growth factor.
 
     Returns:
-        Growth rate f(z). Returns NaN for NaN inputs, handles invalid parameters gracefully.
+        jnp.ndarray: Growth rate f(z). Returns NaN for NaN inputs, handles
+            invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
     has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)

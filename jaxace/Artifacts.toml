@@ -2,25 +2,25 @@
 # This file defines emulators available for download via fetch-artifacts
 
 [ACE_mnuw0wacdm_sigma8_basis]
-git-tree-sha1 = "4b68fff758a3c7268a81e840970373b96fd5fce9ab80ef74197805b3bdfe7a2f"
+git-tree-sha1 = "fd43a133fec5fc511365058405784e2f590243cf"
 lazy = true
-description = "ACE emulator for mnuw0waCDM cosmology with sigma8 basis (200k training samples)"
-version = "1.0"
+description = "ACE emulator for mnuw0waCDM cosmology with sigma8 basis (300303 training samples)"
+version = "300303"
 author = "Marco Bonici"
-doi = "10.5281/zenodo.17797125"
+doi = "10.5281/zenodo.20564773"
 
     [[ACE_mnuw0wacdm_sigma8_basis.download]]
-    url = "https://zenodo.org/api/records/17797125/files/trained_ace_mnuw0wacdm_sigma8_basis_200000.tar.xz/content"
-    sha256 = "4b68fff758a3c7268a81e840970373b96fd5fce9ab80ef74197805b3bdfe7a2f"
+    url = "https://zenodo.org/api/records/20564773/files/trained_ace_mnuw0wacdm_sigma8_basis_300303.tar.xz/content"
+    sha256 = "24d98eaf1092c2e45c73b6bede77495a8988c52bbc94b9f97eb5bfc28e49c395"
 
 [ACE_mnuw0wacdm_ln10As_basis]
-git-tree-sha1 = "4bb8c3f84fb76c58a32bd09bc137f8b4b8937bddd421a5d8b07e3a8174a118b7"
+git-tree-sha1 = "88ca254d528e0e94ffd6cc4ce75e8db9524ae81c"
 lazy = true
-description = "ACE emulator for mnuw0waCDM cosmology with ln10As basis (200k training samples)"
-version = "1.0"
+description = "ACE emulator for mnuw0waCDM cosmology with ln10As basis (300303 training samples)"
+version = "300303"
 author = "Marco Bonici"
-doi = "10.5281/zenodo.17797402"
+doi = "10.5281/zenodo.20564773"
 
     [[ACE_mnuw0wacdm_ln10As_basis.download]]
-    url = "https://zenodo.org/api/records/17797402/files/trained_ace_mnuw0wacdm_ln10As_basis_200000.tar.xz/content"
-    sha256 = "4bb8c3f84fb76c58a32bd09bc137f8b4b8937bddd421a5d8b07e3a8174a118b7"
+    url = "https://zenodo.org/api/records/20564773/files/trained_ace_mnuw0wacdm_ln10As_basis_300303.tar.xz/content"
+    sha256 = "aded6b5807b428c1930f1897d77ed2273e9bbade36c9384067d6dae15681e905"

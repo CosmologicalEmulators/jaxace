@@ -25,6 +25,7 @@ JAX/Flax implementation of cosmological emulators with automatic JIT compilation
 ```python
 import jaxace
 import jax.numpy as jnp
+import numpy as np
 
 # Define cosmology
 cosmo = jaxace.w0waCDMCosmology(
@@ -35,8 +36,8 @@ cosmo = jaxace.w0waCDMCosmology(
 
 # Compute background quantities
 z = jnp.array([0.0, 0.5, 1.0])
-growth = jaxace.D_z_from_cosmo(z, cosmo)
-distance = jaxace.r_z_from_cosmo(z, cosmo)
+growth = cosmo.D_z(z)
+distance = cosmo.r_z(z)
 
 # Neural network emulator
 nn_dict = {...}  # Your network specification
@@ -46,6 +47,21 @@ emulator = jaxace.init_emulator(nn_dict, weights, jaxace.FlaxEmulator)
 # Run with automatic JIT
 output = emulator(input_data)
 ```
+
+## Postprocessing API
+
+Since version 0.6.0, custom `GenericEmulator` postprocessing follows the same
+signature as `AbstractCosmologicalEmulators.jl`:
+
+```python
+def postprocessing(input_params, output, emulator):
+    return output
+```
+
+`load_trained_emulator` expects `postprocessing.py` to define a function with
+that signature. Older four-argument postprocessing functions with
+`auxiliary_params` are still accepted for compatibility, but the three-argument
+form is the supported API.
 
 ## Performance
 

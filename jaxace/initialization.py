@@ -12,6 +12,16 @@ from .core import FlaxEmulator, GenericEmulator
 from .utils import validate_nn_dict_structure, validate_trained_weights
 
 
+BUILTIN_POSTPROCESSING: Dict[str, Callable] = {}
+
+
+def postprocess_identity(input_params, output, emulator):
+    return output
+
+
+BUILTIN_POSTPROCESSING["identity"] = postprocess_identity
+
+
 class MLP(nn.Module):
     """Multi-layer perceptron matching the structure from jaxeffort."""
     features: List[int]
@@ -208,7 +218,11 @@ def _load_postprocessing_function(filepath: str) -> Callable:
     Load a postprocessing function from a Python file.
 
     The file should define a function named 'postprocessing' with signature:
-        def postprocessing(input_params, output, auxiliary_params, emulator) -> output
+        def postprocessing(input_params, output, emulator) -> output
+
+    Legacy four-argument postprocessing functions
+    `(input_params, output, auxiliary_params, emulator)` are still accepted by
+    GenericEmulator for backward compatibility.
 
     Args:
         filepath: Path to the Python file containing the postprocessing function
@@ -226,6 +240,37 @@ def _load_postprocessing_function(filepath: str) -> Callable:
         )
 
     return module.postprocessing
+
+
+def _postprocessing_name(nn_dict: Dict[str, Any]) -> Optional[str]:
+    postprocess_name = nn_dict.get("postprocessing_name", None)
+
+    if postprocess_name is None and "emulator_description" in nn_dict:
+        postprocess_name = nn_dict["emulator_description"].get(
+            "postprocessing_name",
+            None,
+        )
+
+    return postprocess_name
+
+
+def _load_postprocessing(path: str, nn_dict: Dict[str, Any], postprocessing_file: str) -> Callable:
+    postprocess_name = _postprocessing_name(nn_dict)
+
+    if postprocess_name is not None:
+        if postprocess_name in BUILTIN_POSTPROCESSING:
+            return BUILTIN_POSTPROCESSING[postprocess_name]
+        raise ValueError(
+            f"Postprocessing function '{postprocess_name}' requested in config, "
+            f"but not found in BUILTIN_POSTPROCESSING registry. "
+            f"Add BUILTIN_POSTPROCESSING['{postprocess_name}'] = func before loading."
+        )
+
+    postprocessing_path = os.path.join(path, postprocessing_file)
+    if os.path.exists(postprocessing_path):
+        return _load_postprocessing_function(postprocessing_path)
+
+    return BUILTIN_POSTPROCESSING["identity"]
 
 
 def load_trained_emulator(
@@ -289,9 +334,9 @@ def load_trained_emulator(
     outminmax_path = os.path.join(path, outminmax_file)
     outminmax = np.load(outminmax_path)
 
-    # Load postprocessing function
-    postprocessing_path = os.path.join(path, postprocessing_file)
-    postprocessing = _load_postprocessing_function(postprocessing_path)
+    # Load postprocessing function from the builtin registry when requested,
+    # otherwise fall back to file-based loading.
+    postprocessing = _load_postprocessing(path, nn_dict, postprocessing_file)
 
     # Construct and return GenericEmulator
     return GenericEmulator(
@@ -320,7 +365,7 @@ def load_trained_emulator_from_artifact(
         artifacts_toml: Optional path to Artifacts.toml file.
                        If None, looks for Artifacts.toml in the package root.
         backend: Emulator backend type (FlaxEmulator)
-        **kwargs: Additional arguments passed to load_trained_emulator
+        **kwargs (Any): Additional arguments passed to load_trained_emulator
                  (e.g., weights_file, validate, etc.)
 
     Returns:
