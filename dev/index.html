@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -510,6 +510,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#postprocessing-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Postprocessing API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#performance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -726,27 +737,38 @@
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jaxace</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Define cosmology</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">cosmo</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">w0waCDMCosmology</span><span class="p">(</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">ln10As</span><span class="o">=</span><span class="mf">3.044</span><span class="p">,</span> <span class="n">ns</span><span class="o">=</span><span class="mf">0.9649</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">0.6736</span><span class="p">,</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">omega_b</span><span class="o">=</span><span class="mf">0.02237</span><span class="p">,</span> <span class="n">omega_c</span><span class="o">=</span><span class="mf">0.1200</span><span class="p">,</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">m_nu</span><span class="o">=</span><span class="mf">0.06</span><span class="p">,</span> <span class="n">w0</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">wa</span><span class="o">=</span><span class="mf">0.0</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Compute background quantities</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">growth</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">D_z_from_cosmo</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">cosmo</span><span class="p">)</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">distance</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">r_z_from_cosmo</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">cosmo</span><span class="p">)</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="c1"># Neural network emulator</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">nn_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">...</span><span class="p">}</span>  <span class="c1"># Your network specification</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;weights.npy&#39;</span><span class="p">)</span>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">emulator</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">init_emulator</span><span class="p">(</span><span class="n">nn_dict</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">FlaxEmulator</span><span class="p">)</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c1"># Run with automatic JIT</span>
-</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="n">output</span> <span class="o">=</span> <span class="n">emulator</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Define cosmology</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">cosmo</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">w0waCDMCosmology</span><span class="p">(</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">ln10As</span><span class="o">=</span><span class="mf">3.044</span><span class="p">,</span> <span class="n">ns</span><span class="o">=</span><span class="mf">0.9649</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">0.6736</span><span class="p">,</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">omega_b</span><span class="o">=</span><span class="mf">0.02237</span><span class="p">,</span> <span class="n">omega_c</span><span class="o">=</span><span class="mf">0.1200</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">m_nu</span><span class="o">=</span><span class="mf">0.06</span><span class="p">,</span> <span class="n">w0</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">wa</span><span class="o">=</span><span class="mf">0.0</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># Compute background quantities</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">growth</span> <span class="o">=</span> <span class="n">cosmo</span><span class="o">.</span><span class="n">D_z</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">distance</span> <span class="o">=</span> <span class="n">cosmo</span><span class="o">.</span><span class="n">r_z</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="c1"># Neural network emulator</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">nn_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">...</span><span class="p">}</span>  <span class="c1"># Your network specification</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;weights.npy&#39;</span><span class="p">)</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">emulator</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">init_emulator</span><span class="p">(</span><span class="n">nn_dict</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">FlaxEmulator</span><span class="p">)</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="c1"># Run with automatic JIT</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="n">output</span> <span class="o">=</span> <span class="n">emulator</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="postprocessing-api">Postprocessing API<a class="headerlink" href="#postprocessing-api" title="Permanent link">&para;</a></h2>
+<p>Since version 0.6.0, custom <code>GenericEmulator</code> postprocessing follows the same
+signature as <code>AbstractCosmologicalEmulators.jl</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">postprocessing</span><span class="p">(</span><span class="n">input_params</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">emulator</span><span class="p">):</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">return</span> <span class="n">output</span>
+</span></code></pre></div>
+<p><code>load_trained_emulator</code> expects <code>postprocessing.py</code> to define a function with
+that signature. Older four-argument postprocessing functions with
+<code>auxiliary_params</code> are still accepted for compatibility, but the three-argument
+form is the supported API.</p>
 <h2 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h2>
 <p>With automatic JIT compilation, jaxace achieves:</p>
 <ul>
