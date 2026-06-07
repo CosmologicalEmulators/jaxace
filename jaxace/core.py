@@ -3,6 +3,7 @@ Core emulator types and functions with automatic JIT compilation
 """
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Union
+import inspect
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -171,7 +172,7 @@ class GenericEmulator(AbstractTrainedEmulator):
         out_minmax: Output normalization parameters, shape (n_output_features, 2)
                     Column 0 is min, column 1 is max
         postprocessing: Optional postprocessing function with signature
-                       (input_params, output, auxiliary_params, emulator) -> processed_output
+                       (input_params, output, emulator) -> processed_output
     """
     trained_emulator: AbstractTrainedEmulator
     in_minmax: np.ndarray
@@ -189,7 +190,11 @@ class GenericEmulator(AbstractTrainedEmulator):
 
         # Set default identity postprocessing if None
         if self.postprocessing is None:
-            self.postprocessing = lambda input_params, output, aux, emu: output
+            self.postprocessing = lambda input_params, output, emu: output
+
+        self._postprocessing_accepts_aux = _postprocessing_accepts_auxiliary(
+            self.postprocessing
+        )
 
         # Pre-compile JIT functions
         self._ensure_jit_compiled()
@@ -240,7 +245,8 @@ class GenericEmulator(AbstractTrainedEmulator):
 
         Args:
             input_params: Input parameters, shape (n_features,) or (n_samples, n_features)
-            auxiliary_params: Optional auxiliary parameters passed to postprocessing
+            auxiliary_params: Deprecated. Present only for compatibility with older
+                              jaxace postprocessing functions.
 
         Returns:
             Processed output array
@@ -249,9 +255,7 @@ class GenericEmulator(AbstractTrainedEmulator):
         if not isinstance(input_params, jnp.ndarray):
             input_params = jnp.asarray(input_params)
 
-        if auxiliary_params is None:
-            auxiliary_params = jnp.array([])
-        elif not isinstance(auxiliary_params, jnp.ndarray):
+        if auxiliary_params is not None and not isinstance(auxiliary_params, jnp.ndarray):
             auxiliary_params = jnp.asarray(auxiliary_params)
 
         # Ensure JIT functions are compiled
@@ -267,7 +271,12 @@ class GenericEmulator(AbstractTrainedEmulator):
             output = self._jit_run(input_params)
 
         # Apply postprocessing
-        return self.postprocessing(input_params, output, auxiliary_params, self)
+        if self._postprocessing_accepts_aux:
+            if auxiliary_params is None:
+                auxiliary_params = jnp.array([])
+            return self.postprocessing(input_params, output, auxiliary_params, self)
+
+        return self.postprocessing(input_params, output, self)
 
     def get_emulator_description(self) -> Dict[str, Any]:
         """Get description from the underlying trained emulator."""
@@ -280,3 +289,30 @@ class GenericEmulator(AbstractTrainedEmulator):
     ) -> jnp.ndarray:
         """Allow the emulator to be called directly as a function."""
         return self.run_emulator(input_params, auxiliary_params)
+
+
+def _postprocessing_accepts_auxiliary(postprocessing: callable) -> bool:
+    """Return true for legacy 4-argument postprocessing callables.
+
+    Current ACE.jl parity uses `(input_params, output, emulator)`.  Older
+    jaxace assets/tests used `(input_params, output, auxiliary_params, emulator)`;
+    keep accepting them so existing Python emulator directories do not break.
+    """
+    try:
+        signature = inspect.signature(postprocessing)
+    except (TypeError, ValueError):
+        return False
+
+    parameters = list(signature.parameters.values())
+    if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in parameters):
+        return True
+
+    positional = [
+        p for p in parameters
+        if p.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        )
+    ]
+    return len(positional) >= 4

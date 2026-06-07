@@ -91,6 +91,8 @@ class TestHubbleParameter:
             E_a(1.0, Ωcb0, cosmo.h, mν=cosmo.m_nu, w0=cosmo.w0, wa=cosmo.wa),
             1.0
         )
+        assert np.isfinite(cosmo.Ωtot_z(0.0))
+        assert np.isclose(cosmo.Ωtot_z(0.0), 1.0)
 
 
 class TestCLASSComparison1:

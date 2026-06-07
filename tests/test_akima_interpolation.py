@@ -188,6 +188,21 @@ class TestAkimaInterpolation:
         assert grad_u.shape == u.shape
         assert jnp.all(jnp.isfinite(grad_u))
 
+    def test_flat_and_linear_gradients_are_finite(self):
+        """Flat/linear data should not create inactive-branch 0/0 NaN gradients."""
+        t = jnp.linspace(0, 1, 12)
+        t_new = jnp.linspace(0, 1, 25)
+
+        for u in (jnp.full_like(t, 3.0), 2.0 * t - 0.7):
+            grad_u = jax.grad(lambda u_var: jnp.sum(akima_interpolation(u_var, t, t_new)))(u)
+            assert jnp.all(jnp.isfinite(grad_u))
+
+        u_matrix = jnp.column_stack([jnp.full_like(t, 3.0), 2.0 * t - 0.7])
+        grad_matrix = jax.grad(
+            lambda u_var: jnp.sum(akima_interpolation(u_var, t, t_new))
+        )(u_matrix)
+        assert jnp.all(jnp.isfinite(grad_matrix))
+
     def test_gradient_w_r_t_t_new(self):
         """Test automatic differentiation w.r.t. t_new (query points)."""
         t = jnp.linspace(0, 1, 10)
@@ -361,9 +376,9 @@ class TestAkimaInterpolation2D:
         result_col2 = akima_interpolation(u[:, 2], t, t_new)
 
         # Should be identical
-        np.testing.assert_allclose(result_2d[:, 0], result_col0, rtol=1e-14)
-        np.testing.assert_allclose(result_2d[:, 1], result_col1, rtol=1e-14)
-        np.testing.assert_allclose(result_2d[:, 2], result_col2, rtol=1e-14)
+        np.testing.assert_allclose(result_2d[:, 0], result_col0, rtol=1e-14, atol=1e-14)
+        np.testing.assert_allclose(result_2d[:, 1], result_col1, rtol=1e-14, atol=1e-14)
+        np.testing.assert_allclose(result_2d[:, 2], result_col2, rtol=1e-14, atol=1e-14)
 
     def test_2d_jit(self):
         """Test that 2D version works with JIT."""

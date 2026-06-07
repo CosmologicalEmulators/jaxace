@@ -18,6 +18,7 @@ pip install -e .
 ```python
 import jaxace
 import jax.numpy as jnp
+import numpy as np
 
 # Cosmology
 cosmo = jaxace.w0waCDMCosmology(
@@ -28,13 +29,29 @@ cosmo = jaxace.w0waCDMCosmology(
 
 # Background functions
 z = jnp.array([0.0, 0.5, 1.0])
-growth = jaxace.D_z_from_cosmo(z, cosmo)
-distance = jaxace.r_z_from_cosmo(z, cosmo)
+growth = cosmo.D_z(z)
+distance = cosmo.r_z(z)
 
 # Neural network emulator
 emulator = jaxace.init_emulator(nn_dict, weights, jaxace.FlaxEmulator)
 output = emulator(input_data)  # Auto-JIT + batch detection
 ```
+
+## Postprocessing API
+
+`jaxace` 0.7.0 matches the current `AbstractCosmologicalEmulators.jl` generic
+emulator API. Custom postprocessing functions should take three arguments:
+
+```python
+def postprocessing(input_params, output, emulator):
+    return output
+```
+
+When loading an emulator from disk, `postprocessing.py` should define that
+function. Legacy four-argument functions
+`postprocessing(input_params, output, auxiliary_params, emulator)` are still
+accepted for backward compatibility, but new emulators should use the
+three-argument form.
 
 ## Features
 

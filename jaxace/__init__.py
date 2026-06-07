@@ -70,7 +70,7 @@ from .chebyshev import (
     chebyshev_decomposition,
 )
 
-__version__ = "0.4.1"
+__version__ = "0.7.0"
 
 # Initialize the trained_emulators dictionary
 trained_emulators: Dict[str, GenericEmulator] = {}
@@ -106,7 +106,7 @@ def list_emulators() -> List[str]:
     --------
     >>> import jaxace
     >>> jaxace.list_emulators()
-    ['ACE_mnuw0wacdm_sigma8_basis']
+    ['ACE_mnuw0wacdm_sigma8_basis', 'ACE_mnuw0wacdm_ln10As_basis']
     """
     manager = _get_artifact_manager()
     if manager is None:

@@ -5,6 +5,7 @@ These tests match AbstractCosmologicalEmulators.jl/test/test_generic_emulator.jl
 """
 
 import json
+import os
 import tempfile
 import pytest
 import numpy as np
@@ -16,8 +17,9 @@ from jaxace import (
     FlaxEmulator,
     GenericEmulator,
     init_emulator,
-    load_trained_emulator
+    load_trained_emulator,
 )
+from jaxace import initialization
 
 # Configure JAX for 64-bit precision
 jax.config.update('jax_enable_x64', True)
@@ -64,7 +66,7 @@ class TestGenericEmulatorConstruction:
             trained_emulator=basic_emulator,
             in_minmax=in_minmax,
             out_minmax=out_minmax,
-            postprocessing=lambda params, output, aux, emu: output
+            postprocessing=lambda params, output, emu: output
         )
 
         assert gen_emu.trained_emulator is basic_emulator
@@ -112,7 +114,7 @@ class TestGenericEmulatorEvaluation:
             trained_emulator=flax_emu,
             in_minmax=in_minmax,
             out_minmax=out_minmax,
-            postprocessing=lambda params, output, aux, emu: output
+            postprocessing=lambda params, output, emu: output
         )
 
     def test_single_sample_evaluation(self, gen_emulator):
@@ -135,15 +137,23 @@ class TestGenericEmulatorEvaluation:
         assert result.shape == (3, 10)
         assert np.all(np.isfinite(result))
 
-    def test_auxiliary_params(self, gen_emulator):
-        """Test evaluation with auxiliary parameters."""
+    def test_legacy_auxiliary_params(self, gen_emulator):
+        """Test backward compatibility with legacy auxiliary parameters."""
         input_params = np.array([0.5, 0.5, 0.5])
         aux_params = np.array([1.0, 2.0])
 
-        result = gen_emulator.run_emulator(input_params, aux_params)
+        legacy_emu = GenericEmulator(
+            trained_emulator=gen_emulator.trained_emulator,
+            in_minmax=gen_emulator.in_minmax,
+            out_minmax=gen_emulator.out_minmax,
+            postprocessing=lambda params, output, aux, emu: output + aux[0]
+        )
+        result = legacy_emu.run_emulator(input_params, aux_params)
+        baseline = gen_emulator.run_emulator(input_params)
 
         assert result.shape == (10,)
         assert np.all(np.isfinite(result))
+        np.testing.assert_allclose(result, baseline + 1.0)
 
     def test_callable_interface(self, gen_emulator):
         """Test that GenericEmulator can be called directly."""
@@ -182,12 +192,10 @@ class TestCustomPostprocessing:
         """Test postprocessing that scales outputs."""
         flax_emu, in_minmax, out_minmax = base_emulator
 
-        def scale_postprocess(params, output, aux, emu):
-            # Scale by growth factor squared if aux is provided
-            if aux is not None and len(aux) > 0:
-                growth_factor = aux[0]
-                return output * growth_factor ** 2
-            return output
+        def scale_postprocess(params, output, emu):
+            # Canonical ACE.jl-compatible postprocessing signature.
+            growth_factor = params[0]
+            return output * growth_factor ** 2
 
         gen_emu = GenericEmulator(
             trained_emulator=flax_emu,
@@ -197,13 +205,17 @@ class TestCustomPostprocessing:
         )
 
         input_params = np.array([0.5, 0.5, 0.5])
-        aux_params = np.array([2.0])  # Growth factor = 2
+        baseline_emu = GenericEmulator(
+            trained_emulator=flax_emu,
+            in_minmax=in_minmax,
+            out_minmax=out_minmax,
+            postprocessing=lambda params, output, emu: output
+        )
+        result_scaled = gen_emu.run_emulator(input_params)
+        result_baseline = baseline_emu.run_emulator(input_params)
 
-        result_scaled = gen_emu.run_emulator(input_params, aux_params)
-        result_baseline = gen_emu.run_emulator(input_params, np.array([1.0]))
-
-        # Verify scaling: result_scaled should be 4x baseline (2^2 = 4)
-        assert np.allclose(result_scaled, result_baseline * 4.0)
+        # Verify scaling: result_scaled should be 0.25x baseline (0.5^2)
+        assert np.allclose(result_scaled, result_baseline * 0.25)
 
 
 class TestLoadTrainedEmulator:
@@ -241,13 +253,15 @@ class TestLoadTrainedEmulator:
 
             # Create postprocessing.py
             with open(Path(tmpdir) / "postprocessing.py", "w") as f:
-                f.write("def postprocessing(input_params, output, auxiliary_params, emulator):\n")
+                f.write("def postprocessing(input_params, output, emulator):\n")
                 f.write("    return output\n")
 
             yield tmpdir
 
     def test_load_trained_emulator(self, temp_emulator_dir):
         """Test loading a trained emulator from disk."""
+        assert "identity" in initialization.BUILTIN_POSTPROCESSING
+
         loaded_emu = load_trained_emulator(temp_emulator_dir)
 
         assert isinstance(loaded_emu, GenericEmulator)
@@ -268,6 +282,55 @@ class TestLoadTrainedEmulator:
         desc = loaded_emu.get_emulator_description()
         assert desc["author"] == "Test Author"
         assert desc["version"] == "1.0"
+
+    def test_registered_postprocessing(self, temp_emulator_dir):
+        """Test loading a named builtin postprocessing function from metadata."""
+        input_params = np.array([0.5, 0.5, 0.5])
+
+        baseline_emu = load_trained_emulator(temp_emulator_dir)
+        baseline = baseline_emu.run_emulator(input_params)
+
+        initialization.BUILTIN_POSTPROCESSING["test_scale_by_two"] = (
+            lambda params, output, emu: 2 * output
+        )
+
+        nn_setup_path = Path(temp_emulator_dir) / "nn_setup.json"
+        with open(nn_setup_path, "r") as f:
+            nn_setup = json.load(f)
+        nn_setup["postprocessing_name"] = "test_scale_by_two"
+        with open(nn_setup_path, "w") as f:
+            json.dump(nn_setup, f)
+
+        loaded_emu = load_trained_emulator(temp_emulator_dir)
+        result = loaded_emu.run_emulator(input_params)
+
+        np.testing.assert_allclose(result, 2 * baseline)
+
+    def test_missing_postprocessing_file_falls_back_to_identity(self, temp_emulator_dir):
+        """Test identity fallback when no named or file postprocessing exists."""
+        input_params = np.array([0.5, 0.5, 0.5])
+
+        baseline_emu = load_trained_emulator(temp_emulator_dir)
+        baseline = baseline_emu.run_emulator(input_params)
+
+        os.remove(Path(temp_emulator_dir) / "postprocessing.py")
+
+        loaded_emu = load_trained_emulator(temp_emulator_dir)
+        result = loaded_emu.run_emulator(input_params)
+
+        np.testing.assert_allclose(result, baseline)
+
+    def test_unknown_registered_postprocessing_errors(self, temp_emulator_dir):
+        """Test that unknown named postprocessing requests fail clearly."""
+        nn_setup_path = Path(temp_emulator_dir) / "nn_setup.json"
+        with open(nn_setup_path, "r") as f:
+            nn_setup = json.load(f)
+        nn_setup["postprocessing_name"] = "does_not_exist"
+        with open(nn_setup_path, "w") as f:
+            json.dump(nn_setup, f)
+
+        with pytest.raises(ValueError, match="does_not_exist"):
+            load_trained_emulator(temp_emulator_dir)
 
 
 class TestRealTrainedEmulators:
@@ -321,7 +384,7 @@ class TestJAXIntegrationGenericEmulator:
             trained_emulator=flax_emu,
             in_minmax=in_minmax,
             out_minmax=out_minmax,
-            postprocessing=lambda params, output, aux, emu: output
+            postprocessing=lambda params, output, emu: output
         )
 
     def test_gradient_computation(self, gen_emulator):
