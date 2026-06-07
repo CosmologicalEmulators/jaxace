@@ -48,6 +48,39 @@ emulator = jaxace.init_emulator(nn_dict, weights, jaxace.FlaxEmulator)
 output = emulator(input_data)
 ```
 
+## Included Trained Generic Emulators
+
+`jaxace` includes artifact definitions for the official `300303`
+`GenericEmulator` pair:
+
+- `ACE_mnuw0wacdm_sigma8_basis`
+- `ACE_mnuw0wacdm_ln10As_basis`
+
+Load them by name from the package artifact registry:
+
+```python
+import jaxace
+import numpy as np
+
+# Input order for the sigma8-basis emulator:
+# z, sigma8, ns, H0, ombh2, omch2, Mnu, w0, wa
+emu = jaxace.get_emulator("ACE_mnuw0wacdm_sigma8_basis")
+params = np.array([0.5, 0.8, 0.96, 67.0, 0.022, 0.12, 0.06, -1.0, 0.0])
+output = emu.run_emulator(params)
+
+# The ln10As-basis emulator uses ln10As in the second slot instead of sigma8:
+emu_ln10As = jaxace.get_emulator("ACE_mnuw0wacdm_ln10As_basis")
+params_ln10As = np.array([0.5, 3.044, 0.96, 67.0, 0.022, 0.12, 0.06, -1.0, 0.0])
+output_ln10As = emu_ln10As.run_emulator(params_ln10As)
+```
+
+The first call downloads and caches the emulator. To see the available
+artifact-backed emulators:
+
+```python
+jaxace.list_emulators()
+```
+
 ## Postprocessing API
 
 Since version 0.6.0, custom `GenericEmulator` postprocessing follows the same
