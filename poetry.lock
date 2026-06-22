@@ -404,36 +404,12 @@ files = [
 tests = ["freezegun", "pytest", "pytest-cov"]
 
 [[package]]
-name = "importlib-metadata"
-version = "8.7.0"
-description = "Read metadata from Python packages"
-optional = false
-python-versions = ">=3.9"
-groups = ["dev"]
-files = [
-    {file = "importlib_metadata-8.7.0-py3-none-any.whl", hash = "sha256:e5dd1551894c77868a30651cef00984d50e1002d06942a7101d34870c5f02afd"},
-    {file = "importlib_metadata-8.7.0.tar.gz", hash = "sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000"},
-]
-
-[package.dependencies]
-zipp = ">=3.20"
-
-[package.extras]
-check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\""]
-cover = ["pytest-cov"]
-doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
-enabler = ["pytest-enabler (>=2.2)"]
-perf = ["ipython"]
-test = ["flufl.flake8", "importlib_resources (>=1.3) ; python_version < \"3.9\"", "jaraco.test (>=5.4)", "packaging", "pyfakefs", "pytest (>=6,!=8.1.*)", "pytest-perf (>=0.9.2)"]
-type = ["pytest-mypy"]
-
-[[package]]
 name = "importlib-resources"
 version = "6.5.2"
 description = "Read resources from Python packages"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "dev"]
+groups = ["main"]
 files = [
     {file = "importlib_resources-6.5.2-py3-none-any.whl", hash = "sha256:789cfdc3ed28c78b67a06acb8126751ced69a3d5f79c095a98298cd8a760ccec"},
     {file = "importlib_resources-6.5.2.tar.gz", hash = "sha256:185f87adef5bcc288449d98fb4fba07cea78bc036455dd44c5fc4a2fe78fed2c"},
@@ -746,21 +722,19 @@ files = [
 
 [[package]]
 name = "mike"
-version = "2.1.3"
+version = "2.2.0"
 description = "Manage multiple versions of your MkDocs-powered documentation"
 optional = false
 python-versions = "*"
 groups = ["dev"]
 files = [
-    {file = "mike-2.1.3-py3-none-any.whl", hash = "sha256:d90c64077e84f06272437b464735130d380703a76a5738b152932884c60c062a"},
-    {file = "mike-2.1.3.tar.gz", hash = "sha256:abd79b8ea483fb0275b7972825d3082e5ae67a41820f8d8a0dc7a3f49944e810"},
+    {file = "mike-2.2.0-py3-none-any.whl", hash = "sha256:e1f4981c1152eec7c2490a3401142292cc47d686194188416db2648fdfe1d040"},
+    {file = "mike-2.2.0.tar.gz", hash = "sha256:1e3858e32c0f125aac14432fc7848434358f9ae0962c5c5cde387ad47f6ad25e"},
 ]
 
 [package.dependencies]
-importlib-metadata = "*"
-importlib-resources = "*"
 jinja2 = ">=2.7"
-mkdocs = ">=1.0"
+mkdocs = ">=1.0,<2.0"
 pyparsing = ">=3.0"
 pyyaml = ">=5.1"
 pyyaml-env-tag = "*"
@@ -1260,14 +1234,14 @@ diagrams = ["jinja2", "railroad-diagrams"]
 
 [[package]]
 name = "pytest"
-version = "9.0.2"
+version = "9.1.1"
 description = "pytest: simple powerful testing with Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "pytest-9.0.2-py3-none-any.whl", hash = "sha256:711ffd45bf766d5264d487b917733b453d917afd2b0ad65223959f59089f875b"},
-    {file = "pytest-9.0.2.tar.gz", hash = "sha256:75186651a92bd89611d1d9fc20f0b4345fd827c41ccd5c299a868a05d70edf11"},
+    {file = "pytest-9.1.1-py3-none-any.whl", hash = "sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c"},
+    {file = "pytest-9.1.1.tar.gz", hash = "sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313"},
 ]
 
 [package.dependencies]
@@ -1284,14 +1258,14 @@ dev = ["argcomplete", "attrs (>=19.2)", "hypothesis (>=3.56)", "mock", "requests
 
 [[package]]
 name = "pytest-cov"
-version = "7.0.0"
+version = "7.1.0"
 description = "Pytest plugin for measuring coverage."
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "pytest_cov-7.0.0-py3-none-any.whl", hash = "sha256:3b8e9558b16cc1479da72058bdecf8073661c7f57f7d3c5f22a1c23507f2d861"},
-    {file = "pytest_cov-7.0.0.tar.gz", hash = "sha256:33c97eda2e049a0c5298e91f519302a1334c26ac65c1a483d6206fd458361af1"},
+    {file = "pytest_cov-7.1.0-py3-none-any.whl", hash = "sha256:a0461110b7865f9a271aa1b51e516c9a95de9d696734a2f71e3e78f46e1d4678"},
+    {file = "pytest_cov-7.1.0.tar.gz", hash = "sha256:30674f2b5f6351aa09702a9c8c364f6a01c27aae0c1366ae8016160d1efc56b2"},
 ]
 
 [package.dependencies]
@@ -1417,20 +1391,20 @@ pyyaml = "*"
 
 [[package]]
 name = "quadax"
-version = "0.2.11"
+version = "0.2.13"
 description = "Numerical quadrature with JAX"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "quadax-0.2.11-py3-none-any.whl", hash = "sha256:a191a8bb1b1eff3f769fa395d1e973ed67ce24846ad10e21009a3ec573e9773a"},
-    {file = "quadax-0.2.11.tar.gz", hash = "sha256:397ca546ed8dcbc95262a76228803b5d2e609883405e4565b1431e291792014d"},
+    {file = "quadax-0.2.13-py3-none-any.whl", hash = "sha256:4ab69b77cc3ecdf64fcb1c5091bcadd280386406eab3609002808084860a3eb0"},
+    {file = "quadax-0.2.13.tar.gz", hash = "sha256:136359729026d42f8566dbdbfa361dab78ac906ffb8363705434fc5d4957354b"},
 ]
 
 [package.dependencies]
 equinox = ">=0.11.0,<0.14"
-jax = ">=0.4.36,<0.9"
-numpy = ">=1.20.0,<2.4"
+jax = ">=0.4.36,<0.11"
+numpy = ">=1.20.0,<2.5"
 
 [[package]]
 name = "rich"
@@ -1895,7 +1869,7 @@ version = "3.23.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "dev"]
+groups = ["main"]
 files = [
     {file = "zipp-3.23.0-py3-none-any.whl", hash = "sha256:071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e"},
     {file = "zipp-3.23.0.tar.gz", hash = "sha256:a07157588a12518c9d4034df3fbbee09c814741a33ff63c05fa29d26a2404166"},

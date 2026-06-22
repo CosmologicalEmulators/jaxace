@@ -19,6 +19,11 @@ from jaxace.background import (
 jax.config.update('jax_enable_x64', True)
 
 
+def _central_finite_difference(fn, x, eps):
+    """Centered finite difference for scalar-output functions."""
+    return (fn(x + eps) - fn(x - eps)) / (2 * eps)
+
+
 class TestCLASSComparison3Curvature:
     """
     CLASS comparison tests - cosmology 3 with curvature.
@@ -285,6 +290,80 @@ class TestCurvatureJAXCompatibility:
 
         assert jnp.isfinite(grad_result)
         assert np.isclose(grad_result, expected, rtol=1e-6)
+
+    @pytest.mark.parametrize("Ωk", [-0.1, 0.0, 0.1])
+    def test_backward_ad_S_of_K_curvature_branches_match_finite_difference(self, Ωk):
+        """Test reverse-mode AD for S_of_K in Ωk < 0, Ωk = 0, and Ωk > 0 branches."""
+        r = 0.5
+        eps = 1e-6 if Ωk == 0.0 else 1e-5
+
+        def fn(omega):
+            return S_of_K(omega, r)
+
+        # jax.grad uses reverse-mode AD for scalar-output functions. Compare
+        # the cotangent against a centered finite difference in every branch to
+        # catch sign errors, branch-rule mistakes, or inactive-branch NaNs.
+        backward_grad = jax.grad(fn)(Ωk)
+        finite_difference = _central_finite_difference(fn, Ωk, eps)
+
+        assert jnp.isfinite(backward_grad)
+        assert jnp.isfinite(finite_difference)
+        assert np.isclose(backward_grad, finite_difference, rtol=1e-6, atol=1e-10)
+
+    @pytest.mark.parametrize("Ωk", [-0.1, 0.0, 0.1])
+    def test_forward_ad_S_of_K_curvature_branches_match_finite_difference(self, Ωk):
+        """Test forward-mode AD for S_of_K in Ωk < 0, Ωk = 0, and Ωk > 0 branches."""
+        r = 0.5
+        eps = 1e-6 if Ωk == 0.0 else 1e-5
+
+        def fn(omega):
+            return S_of_K(omega, r)
+
+        # jax.jvp exercises forward-mode AD. Use a unit tangent in Ωk so the
+        # returned tangent is dS/dΩk, then compare it with a centered finite
+        # difference in every curvature branch.
+        _, forward_tangent = jax.jvp(fn, (Ωk,), (1.0,))
+        finite_difference = _central_finite_difference(fn, Ωk, eps)
+
+        assert jnp.isfinite(forward_tangent)
+        assert jnp.isfinite(finite_difference)
+        assert np.isclose(forward_tangent, finite_difference, rtol=1e-6, atol=1e-10)
+
+    @pytest.mark.parametrize("Ωk0", [-0.1, 0.0, 0.1])
+    def test_backward_ad_dM_z_curvature_branches_match_finite_difference(self, Ωk0):
+        """Test reverse-mode AD through S_of_K into transverse distances in every branch."""
+        h = 0.67
+        Ωcb0 = (0.022 + 0.12) / h**2
+        z = 1.0
+        eps = 1e-5
+
+        def fn(omega):
+            return dM_z(z, Ωcb0, h, Ωk0=omega)
+
+        backward_grad = jax.grad(fn)(Ωk0)
+        finite_difference = _central_finite_difference(fn, Ωk0, eps)
+
+        assert jnp.isfinite(backward_grad)
+        assert jnp.isfinite(finite_difference)
+        assert np.isclose(backward_grad, finite_difference, rtol=1e-4, atol=1e-6)
+
+    @pytest.mark.parametrize("Ωk0", [-0.1, 0.0, 0.1])
+    def test_forward_ad_dM_z_curvature_branches_match_finite_difference(self, Ωk0):
+        """Test forward-mode AD through S_of_K into transverse distances in every branch."""
+        h = 0.67
+        Ωcb0 = (0.022 + 0.12) / h**2
+        z = 1.0
+        eps = 1e-5
+
+        def fn(omega):
+            return dM_z(z, Ωcb0, h, Ωk0=omega)
+
+        _, forward_tangent = jax.jvp(fn, (Ωk0,), (1.0,))
+        finite_difference = _central_finite_difference(fn, Ωk0, eps)
+
+        assert jnp.isfinite(forward_tangent)
+        assert jnp.isfinite(finite_difference)
+        assert np.isclose(forward_tangent, finite_difference, rtol=1e-4, atol=1e-6)
 
     def test_vectorization_with_curvature(self):
         """Test that vectorized operations work with curvature."""

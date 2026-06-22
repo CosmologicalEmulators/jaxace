@@ -23,6 +23,25 @@ from jaxace.background import (
 jax.config.update('jax_enable_x64', True)
 
 
+def _assert_forward_and_backward_ad_match_finite_difference(
+    fn, x, *, eps=1e-5, rtol=1e-6, atol=1e-10
+):
+    """Check scalar forward/reverse AD against a centered finite difference."""
+    x = jnp.asarray(x, dtype=jnp.float64)
+
+    primal = fn(x)
+    backward_grad = jax.grad(fn)(x)
+    _, forward_tangent = jax.jvp(fn, (x,), (jnp.ones_like(x),))
+    finite_difference = (fn(x + eps) - fn(x - eps)) / (2 * eps)
+
+    assert jnp.isfinite(primal)
+    assert jnp.isfinite(backward_grad)
+    assert jnp.isfinite(forward_tangent)
+    assert jnp.isfinite(finite_difference)
+    assert np.isclose(backward_grad, finite_difference, rtol=rtol, atol=atol)
+    assert np.isclose(forward_tangent, finite_difference, rtol=rtol, atol=atol)
+
+
 class TestBasicFunctions:
     """Test basic cosmological functions."""
 
@@ -447,6 +466,74 @@ class TestJAXFeatures:
         assert np.isfinite(grad_r)
         # r(z) ∝ 1/h, so gradient should be negative
         assert grad_r < 0
+
+
+class TestBackgroundADFiniteDifferences:
+    """Regression tests for AD through masking/NaN-guarded background code."""
+
+    def test_rhoDE_a_forward_and_backward_ad_match_finite_difference(self):
+        """Dark-energy density guards should not contaminate finite AD paths."""
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda a: rhoDE_a(a, -0.9, 0.2), 0.7
+        )
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda w0: rhoDE_a(0.7, w0, 0.2), -0.9
+        )
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda wa: rhoDE_a(0.7, -0.9, wa), 0.2
+        )
+
+    def test_expansion_forward_and_backward_ad_match_finite_difference(self):
+        """Expansion functions should have finite AD matching finite differences."""
+        Ωcb0 = 0.3
+        h = 0.67
+
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda a: E_a(a, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            0.7,
+        )
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda z: E_z(z, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            0.5,
+        )
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda h_val: E_z(0.5, Ωcb0, h_val, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            h,
+            atol=1e-9,
+        )
+
+    def test_distance_forward_and_backward_ad_match_finite_difference(self):
+        """Distance AD should be finite and agree with finite differences."""
+        Ωcb0 = 0.3
+        h = 0.67
+
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda z: r_z(z, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            0.5,
+            eps=1e-4,
+            rtol=1e-6,
+            atol=1e-5,
+        )
+
+    def test_growth_forward_and_backward_ad_match_finite_difference(self):
+        """Growth wrappers should differentiate without finite-value guard NaNs."""
+        Ωcb0 = 0.3
+        h = 0.67
+
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda z: D_z(z, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            0.5,
+            eps=1e-4,
+            rtol=1e-5,
+            atol=1e-8,
+        )
+        _assert_forward_and_backward_ad_match_finite_difference(
+            lambda z: f_z(z, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            0.5,
+            eps=1e-4,
+            rtol=1e-5,
+            atol=1e-8,
+        )
 
 
 class TestComputedValues:
