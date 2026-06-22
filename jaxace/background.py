@@ -198,11 +198,11 @@ def _handle_infinite_params(value, param_name="parameter"):
     # Check for positive infinity - often problematic
     is_pos_inf = jnp.isposinf(value_array)
 
-    # Check for negative infinity - sometimes acceptable depending on context
-    is_neg_inf = jnp.isneginf(value_array)
-
-    # Return NaN for positive infinity in most cosmological parameters
-    if param_name in ["Ωcb0", "h", "mν"] and jnp.any(is_pos_inf):
+    # Return NaN for positive infinity in most cosmological parameters.  Keep
+    # the Python branch dependent only on the static parameter name: branching
+    # on `jnp.any(is_pos_inf)` attempts to convert traced array data to a host
+    # bool under jit/grad.
+    if param_name in ["Ωcb0", "h", "mν"]:
         return jnp.where(is_pos_inf, jnp.nan, value_array)
 
     return value_array
@@ -978,17 +978,19 @@ def S_of_K(
     Returns:
         Transverse comoving distance
     """
-    # Use jnp.where for JAX compatibility
-    # Handle Ω = 0 case (flat)
+    # Use jnp.where for JAX compatibility, but avoid forming inactive 0/0
+    # branches at Ω = 0.  Reverse-mode AD transposes through both operands of
+    # jnp.where, so dormant sinh(0)/0 or sin(0)/0 branches can poison gradients
+    # even when the primal value is selected from the flat branch.
     flat_result = r
 
     # Handle Ω > 0 case (closed, hyperbolic)
     a = jnp.sqrt(jnp.abs(Ω))
-    closed_result = jnp.sinh(a * r) / a
+    a_safe = jnp.where(a > 0.0, a, 1.0)
+    closed_result = jnp.sinh(a_safe * r) / a_safe
 
     # Handle Ω < 0 case (open, trigonometric)
-    b = jnp.sqrt(jnp.abs(Ω))
-    open_result = jnp.sin(b * r) / b
+    open_result = jnp.sin(a_safe * r) / a_safe
 
     # Select appropriate result based on Ω value
     # Use nested jnp.where for the three-way branch
@@ -1008,7 +1010,7 @@ def S_of_K_jvp(primals, tangents):
     - dS/dΩ at Ω=0 = r³/6 (analytical limit as Ω→0)
     - dS/dr at Ω=0 = 1
 
-    For Ω ≠ 0, uses standard automatic differentiation.
+    For Ω ≠ 0, uses the analytical branch derivatives.
     """
     Ω, r = primals
     dΩ, dr = tangents
@@ -1024,7 +1026,7 @@ def S_of_K_jvp(primals, tangents):
 
     # For Ω < 0 (open/trigonometric):
     #   S = sin(√|Ω| r) / √|Ω|
-    #   dS/dΩ = r/(2|Ω|) [cos(√|Ω| r) - sin(√|Ω| r)/(√|Ω| r)]
+    #   dS/dΩ = r/(2|Ω|) [sin(√|Ω| r)/(√|Ω| r) - cos(√|Ω| r)]
     #   dS/dr = cos(√|Ω| r)
 
     # For Ω = 0 (flat):
@@ -1051,9 +1053,10 @@ def S_of_K_jvp(primals, tangents):
 
     dS_dΩ_closed = r / (2.0 * Ω_safe) * (jnp.cosh(ar) - jnp.sinh(ar) / ar_safe)
 
-    # For Ω < 0: dS/dΩ = r/(2|Ω|) * [cos(√|Ω| r) - sin(√|Ω| r)/(√|Ω| r)]
+    # For Ω < 0: dS/dΩ = r/(2|Ω|) * [sin(√|Ω| r)/(√|Ω| r) - cos(√|Ω| r)]
+    # The sign is opposite to d/d|Ω| because |Ω| = -Ω in this branch.
     Ω_abs_safe = jnp.where(jnp.abs(Ω) > 1e-15, jnp.abs(Ω), 1.0)
-    dS_dΩ_open = r / (2.0 * Ω_abs_safe) * (jnp.cos(ar) - jnp.sin(ar) / ar_safe)
+    dS_dΩ_open = r / (2.0 * Ω_abs_safe) * (jnp.sin(ar) / ar_safe - jnp.cos(ar))
 
     # For Ω = 0: Analytical limit = r³/6
     dS_dΩ_flat = r**3 / 6.0
@@ -1369,17 +1372,19 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     # Use lax.cond to handle this in a JIT-compatible way
     def compute_growth():
         # Convert redshift to scale factor
-        a = a_z(z)
+        z_array = jnp.asarray(z)
+        z_eval = jnp.where(jnp.isnan(z_array), 0.0, z_array)
+        a = a_z(z_eval)
 
         # Handle both scalar and array inputs
-        if jnp.isscalar(z) or jnp.asarray(z).ndim == 0:
+        if jnp.isscalar(z) or z_array.ndim == 0:
             a_span = jnp.array([a])
             D_result = growth_solver(a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
             return D_result[0]
         else:
-            # For array inputs, solve once and interpolate
-            z_array = jnp.asarray(z)
-            a_array = a_z(z_array)
+            # For array inputs, solve once and interpolate.  Evaluate NaN
+            # redshifts at a harmless placeholder and restore their mask below.
+            a_array = a
             return growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
 
     def return_nan():
@@ -1389,8 +1394,14 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
         else:
             return jnp.full_like(jnp.asarray(z), jnp.nan)
 
-    # Use conditional to avoid running solver with NaN
-    return jax.lax.cond(has_nan, return_nan, compute_growth)
+    # Use conditional to avoid running solver with scalar NaN parameters.  For
+    # array-valued redshifts, _check_nan_inputs intentionally leaves the mask to
+    # the caller so one bad element does not force every output to NaN; the
+    # compute branch evaluates those entries at a safe placeholder and restores
+    # the original NaN mask here.
+    result = jax.lax.cond(has_nan, return_nan, compute_growth)
+    z_nan_mask = jnp.isnan(jnp.asarray(z))
+    return jnp.where(z_nan_mask, jnp.full_like(result, jnp.nan), result)
 
 
 @jax.jit
@@ -1411,12 +1422,10 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     # Check for NaN inputs (JAX-compatible)
     has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
 
-    # Convert redshift to scale factor
-    a = a_z(z)
-
     # Handle both scalar and array inputs
     z_array = jnp.asarray(z)
-    a_array = jnp.asarray(a)
+    z_eval = jnp.where(jnp.isnan(z_array), 0.0, z_array)
+    a_array = jnp.asarray(a_z(z_eval))
 
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
@@ -1435,7 +1444,8 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
         f = jnp.clip(f, 0.0, 1.0)
 
         # Propagate NaN if needed
-        return jnp.where(has_nan, jnp.nan, f)
+        input_nan = has_nan | jnp.isnan(z_array)
+        return jnp.where(input_nan, jnp.nan, f)
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
         D_array, dD_dloga_array = growth_solver(
@@ -1452,18 +1462,22 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
         # Ensure physical bounds: 0 ≤ f ≤ 1
         f_array = jnp.clip(f_array, 0.0, 1.0)
 
-        # Propagate NaN if needed
-        return jnp.where(has_nan, jnp.full_like(f_array, jnp.nan), f_array)
+        # Propagate NaN if needed.  Preserve element-wise NaNs in z while using
+        # a safe placeholder for the ODE solution/evaluation above.
+        input_nan = has_nan | jnp.isnan(z_array)
+        return jnp.where(input_nan, jnp.full_like(f_array, jnp.nan), f_array)
 
 
 @jax.jit
 def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
-    # Convert redshift to scale factor
-    a = a_z(z)
+    # Check scalar parameters and scalar redshift for NaN inputs.  Array-valued
+    # redshifts are masked element-wise below.
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
 
     # Handle both scalar and array inputs
     z_array = jnp.asarray(z)
-    a_array = jnp.asarray(a)
+    z_eval = jnp.where(jnp.isnan(z_array), 0.0, z_array)
+    a_array = jnp.asarray(a_z(z_eval))
 
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
@@ -1481,7 +1495,11 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
         # Ensure physical bounds: 0 ≤ f ≤ 1
         f = jnp.clip(f, 0.0, 1.0)
 
-        return (D, f)
+        input_nan = has_nan | jnp.isnan(z_array)
+        return (
+            jnp.where(input_nan, jnp.nan, D),
+            jnp.where(input_nan, jnp.nan, f),
+        )
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
         D_array, dD_dloga_array = growth_solver(
@@ -1498,7 +1516,11 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
         # Ensure physical bounds: 0 ≤ f ≤ 1
         f_array = jnp.clip(f_array, 0.0, 1.0)
 
-        return (D_array, f_array)
+        input_nan = has_nan | jnp.isnan(z_array)
+        return (
+            jnp.where(input_nan, jnp.full_like(D_array, jnp.nan), D_array),
+            jnp.where(input_nan, jnp.full_like(f_array, jnp.nan), f_array),
+        )
 
 
 @jax.jit

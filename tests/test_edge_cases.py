@@ -13,7 +13,7 @@ from jaxace.background import (
     w0waCDMCosmology,
     E_z, E_a, r_z, D_z, f_z, dA_z, dL_z,
     Ωm_a, dlogEdloga, ρc_z,
-    rhoDE_a, rhoDE_z
+    rhoDE_a, rhoDE_z, _handle_infinite_params
 )
 from jaxace.core import FlaxEmulator
 from jaxace.initialization import init_emulator
@@ -95,6 +95,16 @@ class TestNaNInfPropagation:
         )
         result = cosmo_inf_omega.E_z(1.0)
         assert jnp.isnan(result), "E_z returns NaN for Inf in omega_c"
+
+    def test_handle_infinite_params_is_jit_traceable(self):
+        """Inf-to-NaN handling should not branch on traced array values."""
+        values = jnp.array([1.0, jnp.inf, -jnp.inf])
+
+        result = jax.jit(lambda x: _handle_infinite_params(x, "h"))(values)
+
+        assert np.isclose(result[0], 1.0)
+        assert jnp.isnan(result[1])
+        assert jnp.isneginf(result[2])
     
     def test_distance_functions_with_nan(self):
         """Test distance functions with NaN inputs."""
@@ -140,6 +150,22 @@ class TestNaNInfPropagation:
         # Test f_z with NaN in redshift
         result = cosmo.f_z(jnp.nan)
         assert jnp.isnan(result), "f_z should propagate NaN"
+
+        # Test element-wise NaN propagation for vectorized growth calls.
+        z_array = jnp.array([0.0, 0.5, jnp.nan, 1.5])
+        D_result = cosmo.D_z(z_array)
+        f_result = cosmo.f_z(z_array)
+        D_pair, f_pair = cosmo.D_f_z(z_array)
+
+        valid = jnp.array([0, 1, 3])
+        assert jnp.isnan(D_result[2]), "D_z should preserve NaN positions in arrays"
+        assert jnp.isnan(f_result[2]), "f_z should preserve NaN positions in arrays"
+        assert jnp.isnan(D_pair[2]), "D_f_z should preserve NaN positions in D arrays"
+        assert jnp.isnan(f_pair[2]), "D_f_z should preserve NaN positions in f arrays"
+        assert jnp.all(jnp.isfinite(D_result[valid]))
+        assert jnp.all(jnp.isfinite(f_result[valid]))
+        assert jnp.all(jnp.isfinite(D_pair[valid]))
+        assert jnp.all(jnp.isfinite(f_pair[valid]))
 
         # Note: D_z with NaN in parameters requires ODE solver to handle NaN,
         # which is complex. This edge case has been removed.
