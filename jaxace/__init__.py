@@ -61,6 +61,13 @@ from .utils import (
     AkimaSpline,
     prepare_akima_spline,
     evaluate_akima_spline,
+    CubicSpline,
+    prepare_cubic_spline,
+    evaluate_cubic_spline,
+    AkimaSplinePlan,
+    prepare_akima_spline_plan,
+    CubicSplinePlan,
+    prepare_cubic_spline_plan,
 )
 from .chebyshev import (
     ChebyshevPlan,
@@ -190,6 +197,13 @@ __all__ = [
     "AkimaSpline",
     "prepare_akima_spline",
     "evaluate_akima_spline",
+    "CubicSpline",
+    "prepare_cubic_spline",
+    "evaluate_cubic_spline",
+    "AkimaSplinePlan",
+    "prepare_akima_spline_plan",
+    "CubicSplinePlan",
+    "prepare_cubic_spline_plan",
     # Chebyshev optimization
     "ChebyshevPlan",
     "chebpoints",

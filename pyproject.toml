@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jaxace"
-version = "0.6.1"
+version = "0.7.0"
 description = "JAX implementation of AbstractCosmologicalEmulators.jl interface with artifact support"
 authors = ["marcobonici <bonici.marco@gmail.com>"]
 readme = "README.md"
@@ -19,6 +19,7 @@ fetch-artifacts = "^0.1.0"
 pytest = ">=8.4,<10.0"
 pytest-cov = "^7.0"
 mike = "^2.1.3"
+pytest-benchmark = "^5.2.3"
 
 [tool.poetry.scripts]
 test = "pytest:main"

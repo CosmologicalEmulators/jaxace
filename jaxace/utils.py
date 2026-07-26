@@ -1,6 +1,7 @@
 """
 Utility functions matching AbstractCosmologicalEmulators.jl
 """
+from dataclasses import dataclass, field
 from typing import Dict, Any, Union, NamedTuple
 import numpy as np
 import jax
@@ -732,8 +733,6 @@ def akima_interpolation(u, t, t_new) -> Union[float, jnp.ndarray]:
     return _akima_eval(u, t, b, c, d, t_new)
 
 
-from typing import NamedTuple
-
 class AkimaSpline(NamedTuple):
     u: jnp.ndarray
     t: jnp.ndarray
@@ -761,6 +760,77 @@ def evaluate_akima_spline(spline: AkimaSpline, t_new: jnp.ndarray) -> jnp.ndarra
     Evaluate a precomputed Akima spline at new points.
     """
     return _akima_eval(spline.u, spline.t, spline.b, spline.c, spline.d, t_new)
+
+
+def _akima_plan_eval(u, b, c, d, interval_indices, offsets):
+    """Evaluate Akima coefficients using fixed target intervals and offsets."""
+    if jnp.ndim(u) == 1:
+        return (
+            (d[interval_indices] * offsets + c[interval_indices]) * offsets
+            + b[interval_indices]
+        ) * offsets + u[interval_indices]
+
+    offsets_2d = offsets[:, jnp.newaxis]
+    return (
+        (d[interval_indices, :] * offsets_2d + c[interval_indices, :])
+        * offsets_2d
+        + b[interval_indices, :]
+    ) * offsets_2d + u[interval_indices, :]
+
+
+@jax.tree_util.register_pytree_node_class
+@dataclass(frozen=True, eq=False)
+class AkimaSplinePlan:
+    """Interpolation plan for fixed ``t`` and ``t_new`` with changing ``u``."""
+
+    t: jnp.ndarray
+    t_new: jnp.ndarray
+    interval_indices: jnp.ndarray = field(init=False)
+    offsets: jnp.ndarray = field(init=False)
+
+    def __post_init__(self):
+        t = jnp.asarray(self.t)
+        t_new = jnp.asarray(self.t_new)
+        interval_indices = jnp.searchsorted(t, t_new, side="right") - 1
+        interval_indices = jnp.clip(interval_indices, 0, len(t) - 2)
+
+        object.__setattr__(self, "t", t)
+        object.__setattr__(self, "t_new", t_new)
+        object.__setattr__(self, "interval_indices", interval_indices)
+        object.__setattr__(self, "offsets", t_new - t[interval_indices])
+
+    def __call__(self, u):
+        """Interpolate changing values ``u`` on the prepared grids."""
+        m = _akima_slopes(u, self.t)
+        b, c, d = _akima_coefficients(self.t, m)
+        return _akima_plan_eval(
+            u,
+            b,
+            c,
+            d,
+            self.interval_indices,
+            self.offsets,
+        )
+
+    def tree_flatten(self):
+        children = (self.t, self.t_new, self.interval_indices, self.offsets)
+        return children, None
+
+    @classmethod
+    def tree_unflatten(cls, auxiliary_data, children):
+        del auxiliary_data
+        plan = object.__new__(cls)
+        for name, value in zip(
+            ("t", "t_new", "interval_indices", "offsets"),
+            children,
+        ):
+            object.__setattr__(plan, name, value)
+        return plan
+
+
+def prepare_akima_spline_plan(t, t_new) -> AkimaSplinePlan:
+    """Prepare an :class:`AkimaSplinePlan` for fixed source and target grids."""
+    return AkimaSplinePlan(t, t_new)
 
 
 # =============================================================================
@@ -930,3 +1000,156 @@ def cubic_spline_interpolation(u, t, t_new) -> Union[float, jnp.ndarray]:
     """
     h, z = _cubic_spline_coefficients(u, t)
     return _cubic_spline_eval(u, t, h, z, t_new)
+
+
+@jax.tree_util.register_pytree_node_class
+@dataclass(frozen=True, eq=False)
+class CubicSpline:
+    """Natural cubic spline with fixed values ``u`` and source knots ``t``."""
+
+    u: jnp.ndarray
+    t: jnp.ndarray
+    h: jnp.ndarray = field(init=False)
+    z: jnp.ndarray = field(init=False)
+
+    def __post_init__(self):
+        u = jnp.asarray(self.u)
+        t = jnp.asarray(self.t)
+        h, z = _cubic_spline_coefficients(u, t)
+
+        object.__setattr__(self, "u", u)
+        object.__setattr__(self, "t", t)
+        object.__setattr__(self, "h", h)
+        object.__setattr__(self, "z", z)
+
+    def __call__(self, t_new):
+        """Evaluate the prepared spline at changing query points ``t_new``."""
+        return _cubic_spline_eval(self.u, self.t, self.h, self.z, t_new)
+
+    def tree_flatten(self):
+        return (self.u, self.t, self.h, self.z), None
+
+    @classmethod
+    def tree_unflatten(cls, auxiliary_data, children):
+        del auxiliary_data
+        spline = object.__new__(cls)
+        for name, value in zip(("u", "t", "h", "z"), children):
+            object.__setattr__(spline, name, value)
+        return spline
+
+
+def prepare_cubic_spline(u, t) -> CubicSpline:
+    """Precompute cubic-spline coefficients for changing query grids."""
+    return CubicSpline(u, t)
+
+
+def evaluate_cubic_spline(spline: CubicSpline, t_new):
+    """Evaluate a prepared :class:`CubicSpline` at ``t_new``."""
+    return spline(t_new)
+
+
+@jax.tree_util.register_pytree_node_class
+@dataclass(frozen=True, eq=False)
+class CubicSplinePlan:
+    """Natural-cubic-spline plan for fixed grids and changing values ``u``."""
+
+    t: jnp.ndarray
+    t_new: jnp.ndarray
+    second_derivative_operator: jnp.ndarray = field(init=False)
+    interval_indices: jnp.ndarray = field(init=False)
+    left_value_weights: jnp.ndarray = field(init=False)
+    right_value_weights: jnp.ndarray = field(init=False)
+    left_curve_weights: jnp.ndarray = field(init=False)
+    right_curve_weights: jnp.ndarray = field(init=False)
+
+    def __post_init__(self):
+        dtype = jnp.result_type(self.t, 1.0)
+        t = jnp.asarray(self.t, dtype=dtype)
+        t_new = jnp.asarray(self.t_new, dtype=dtype)
+        n = len(t)
+
+        basis = jnp.eye(n, dtype=dtype)
+        _, second_derivative_operator = _cubic_spline_coefficients(basis, t)
+
+        interval_indices = jnp.searchsorted(t, t_new, side="right") - 1
+        interval_indices = jnp.clip(interval_indices, 0, n - 2)
+        dt = t_new - t[interval_indices]
+        dt_next = t[interval_indices + 1] - t_new
+        h = t[interval_indices + 1] - t[interval_indices]
+
+        object.__setattr__(self, "t", t)
+        object.__setattr__(self, "t_new", t_new)
+        object.__setattr__(
+            self,
+            "second_derivative_operator",
+            second_derivative_operator,
+        )
+        object.__setattr__(self, "interval_indices", interval_indices)
+        object.__setattr__(self, "left_value_weights", dt_next / h)
+        object.__setattr__(self, "right_value_weights", dt / h)
+        object.__setattr__(
+            self,
+            "left_curve_weights",
+            dt_next**3 / (6 * h) - h * dt_next / 6,
+        )
+        object.__setattr__(
+            self,
+            "right_curve_weights",
+            dt**3 / (6 * h) - h * dt / 6,
+        )
+
+    def __call__(self, u):
+        """Interpolate changing values ``u`` on the prepared grids."""
+        z = self.second_derivative_operator @ u
+        idx = self.interval_indices
+
+        if jnp.ndim(u) == 1:
+            return (
+                self.left_value_weights * u[idx]
+                + self.right_value_weights * u[idx + 1]
+                + self.left_curve_weights * z[idx]
+                + self.right_curve_weights * z[idx + 1]
+            )
+
+        return (
+            self.left_value_weights[:, jnp.newaxis] * u[idx, :]
+            + self.right_value_weights[:, jnp.newaxis] * u[idx + 1, :]
+            + self.left_curve_weights[:, jnp.newaxis] * z[idx, :]
+            + self.right_curve_weights[:, jnp.newaxis] * z[idx + 1, :]
+        )
+
+    def tree_flatten(self):
+        children = (
+            self.t,
+            self.t_new,
+            self.second_derivative_operator,
+            self.interval_indices,
+            self.left_value_weights,
+            self.right_value_weights,
+            self.left_curve_weights,
+            self.right_curve_weights,
+        )
+        return children, None
+
+    @classmethod
+    def tree_unflatten(cls, auxiliary_data, children):
+        del auxiliary_data
+        plan = object.__new__(cls)
+        names = (
+            "t",
+            "t_new",
+            "second_derivative_operator",
+            "interval_indices",
+            "left_value_weights",
+            "right_value_weights",
+            "left_curve_weights",
+            "right_curve_weights",
+        )
+        for name, value in zip(names, children):
+            object.__setattr__(plan, name, value)
+        return plan
+
+
+def prepare_cubic_spline_plan(t, t_new) -> CubicSplinePlan:
+    """Prepare a :class:`CubicSplinePlan` for fixed source and target grids."""
+    return CubicSplinePlan(t, t_new)
