@@ -2,7 +2,7 @@
 Utility functions matching AbstractCosmologicalEmulators.jl
 """
 from dataclasses import dataclass, field
-from typing import Dict, Any, Union, NamedTuple
+from typing import Dict, Any, Union
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -733,16 +733,45 @@ def akima_interpolation(u, t, t_new) -> Union[float, jnp.ndarray]:
     return _akima_eval(u, t, b, c, d, t_new)
 
 
-class AkimaSpline(NamedTuple):
+@jax.tree_util.register_pytree_node_class
+@dataclass(frozen=True, eq=False, init=False)
+class AkimaSpline:
     u: jnp.ndarray
     t: jnp.ndarray
     b: jnp.ndarray
     c: jnp.ndarray
     d: jnp.ndarray
 
+    def __init__(self, u, t, b=None, c=None, d=None):
+        """Construct an Akima spline from ``(u, t)`` or stored coefficients."""
+        if b is None and c is None and d is None:
+            u = jnp.asarray(u)
+            t = jnp.asarray(t)
+            m = _akima_slopes(u, t)
+            b, c, d = _akima_coefficients(t, m)
+        elif b is None or c is None or d is None:
+            raise TypeError("b, c, and d must be provided together")
+
+        object.__setattr__(self, "u", jnp.asarray(u))
+        object.__setattr__(self, "t", jnp.asarray(t))
+        object.__setattr__(self, "b", jnp.asarray(b))
+        object.__setattr__(self, "c", jnp.asarray(c))
+        object.__setattr__(self, "d", jnp.asarray(d))
+
     def __call__(self, t_new):
         """Evaluate the Akima spline at new points."""
         return _akima_eval(self.u, self.t, self.b, self.c, self.d, t_new)
+
+    def tree_flatten(self):
+        return (self.u, self.t, self.b, self.c, self.d), None
+
+    @classmethod
+    def tree_unflatten(cls, auxiliary_data, children):
+        del auxiliary_data
+        spline = object.__new__(cls)
+        for name, value in zip(("u", "t", "b", "c", "d"), children):
+            object.__setattr__(spline, name, value)
+        return spline
 
 
 def prepare_akima_spline(u: jnp.ndarray, t: jnp.ndarray) -> AkimaSpline:
@@ -750,9 +779,7 @@ def prepare_akima_spline(u: jnp.ndarray, t: jnp.ndarray) -> AkimaSpline:
     Precompute the Akima spline coefficients for repeated evaluation.
     This structure acts as a valid JAX PyTree for JIT and grad.
     """
-    m = _akima_slopes(u, t)
-    b, c, d = _akima_coefficients(t, m)
-    return AkimaSpline(u=u, t=t, b=b, c=c, d=d)
+    return AkimaSpline(u, t)
 
 
 def evaluate_akima_spline(spline: AkimaSpline, t_new: jnp.ndarray) -> jnp.ndarray:
@@ -1051,7 +1078,16 @@ def evaluate_cubic_spline(spline: CubicSpline, t_new):
 @jax.tree_util.register_pytree_node_class
 @dataclass(frozen=True, eq=False)
 class CubicSplinePlan:
-    """Natural-cubic-spline plan for fixed grids and changing values ``u``."""
+    """Natural-cubic plan for fixed grids and changing values ``u``.
+
+    The plan stores an ``n_knots × n_knots`` dense operator mapping source
+    values to natural-spline second derivatives, so storage is ``O(n_knots²)``.
+    With the current dense JAX solve, construction is ``O(n_knots³)``.
+    Applying a completed plan costs ``O(n_knots² + n_query)`` for one value
+    vector and ``O(n_knots² * n_series + n_query * n_series)`` for a matrix.
+    The representation is intended for moderate grids reused enough times to
+    amortize construction.
+    """
 
     t: jnp.ndarray
     t_new: jnp.ndarray
@@ -1063,7 +1099,7 @@ class CubicSplinePlan:
     right_curve_weights: jnp.ndarray = field(init=False)
 
     def __post_init__(self):
-        dtype = jnp.result_type(self.t, 1.0)
+        dtype = jnp.result_type(self.t, self.t_new, 1.0)
         t = jnp.asarray(self.t, dtype=dtype)
         t_new = jnp.asarray(self.t_new, dtype=dtype)
         n = len(t)

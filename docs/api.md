@@ -83,6 +83,37 @@
 ::: jaxace.akima_interpolation
 ::: jaxace.cubic_spline_interpolation
 
+### Fixed values, changing query points
+
+Use a prepared spline when the ordinates and source knots are fixed while the
+query grid changes.
+
+::: jaxace.AkimaSpline
+::: jaxace.prepare_akima_spline
+::: jaxace.evaluate_akima_spline
+::: jaxace.CubicSpline
+::: jaxace.prepare_cubic_spline
+::: jaxace.evaluate_cubic_spline
+
+### Fixed grids, changing values
+
+Use a plan when the source and target grids are fixed while the ordinates
+change. Plans expect one-dimensional source and target grids and vector or
+matrix values with shape `(n_knots, n_series)`, where each column is an
+independent series.
+
+::: jaxace.AkimaSplinePlan
+::: jaxace.prepare_akima_spline_plan
+::: jaxace.CubicSplinePlan
+::: jaxace.prepare_cubic_spline_plan
+
+`CubicSplinePlan` stores a dense `n_knots × n_knots` operator for the
+natural-spline second derivatives, so storage is `O(n_knots²)`. With the
+current dense JAX solve, construction is `O(n_knots³)`. Applying a completed
+plan costs `O(n_knots² + n_query)` for one value vector and
+`O(n_knots² n_series + n_query n_series)` for a matrix. It is intended for
+moderate grids reused enough times to amortize construction.
+
 ## Chebyshev
 
 ::: jaxace.ChebyshevPlan

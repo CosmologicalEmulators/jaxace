@@ -6,8 +6,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+import jaxace
+from importlib.metadata import version
 
 from jaxace import (
+    AkimaSpline,
     AkimaSplinePlan,
     CubicSpline,
     CubicSplinePlan,
@@ -233,3 +236,15 @@ def test_spline_dataclasses_are_jax_pytrees(julia_reference):
     result = evaluate_plan(objects[2], ref["u1"])
     result.block_until_ready()
     np.testing.assert_allclose(result, ref["cubic_u1"], rtol=1e-12, atol=1e-12)
+
+
+def test_akima_spline_has_the_same_constructor_as_cubic(julia_reference):
+    ref = julia_reference
+    spline = AkimaSpline(ref["u1"], ref["t"])
+    result = jax.jit(spline)(ref["t_new"])
+    result.block_until_ready()
+    np.testing.assert_allclose(result, ref["akima_u1"], rtol=1e-12, atol=1e-12)
+
+
+def test_runtime_version_matches_package_metadata():
+    assert jaxace.__version__ == version("jaxace")

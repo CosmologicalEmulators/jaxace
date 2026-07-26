@@ -134,6 +134,7 @@ nav:
   - Examples: examples.md
   - API Reference:
       - Core: api.md
+  - Migration notes: migration.md
   - Contributing: contributing.md
 
 copyright: Copyright &copy; 2024 CosmologicalEmulators
