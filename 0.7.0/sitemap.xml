@@ -2,18 +2,22 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://cosmologicalemulators.github.io/jaxace/0.7.0/</loc>
-         <lastmod>2026-06-07</lastmod>
+         <lastmod>2026-07-27</lastmod>
     </url>
     <url>
          <loc>https://cosmologicalemulators.github.io/jaxace/0.7.0/api/</loc>
-         <lastmod>2026-06-07</lastmod>
+         <lastmod>2026-07-27</lastmod>
     </url>
     <url>
          <loc>https://cosmologicalemulators.github.io/jaxace/0.7.0/contributing/</loc>
-         <lastmod>2026-06-07</lastmod>
+         <lastmod>2026-07-27</lastmod>
     </url>
     <url>
          <loc>https://cosmologicalemulators.github.io/jaxace/0.7.0/examples/</loc>
-         <lastmod>2026-06-07</lastmod>
+         <lastmod>2026-07-27</lastmod>
+    </url>
+    <url>
+         <loc>https://cosmologicalemulators.github.io/jaxace/0.7.0/migration/</loc>
+         <lastmod>2026-07-27</lastmod>
     </url>
 </urlset>

@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
@@ -304,6 +304,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="migration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Migration notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="contributing/" class="md-tabs__link">
         
   
@@ -510,6 +529,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#included-trained-generic-emulators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Included Trained Generic Emulators
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#postprocessing-api" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -670,6 +700,33 @@
   
   
     <li class="md-nav__item">
+      <a href="migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="contributing/" class="md-nav__link">
         
   
@@ -759,11 +816,37 @@
 </span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="c1"># Run with automatic JIT</span>
 </span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="n">output</span> <span class="o">=</span> <span class="n">emulator</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="included-trained-generic-emulators">Included Trained Generic Emulators<a class="headerlink" href="#included-trained-generic-emulators" title="Permanent link">&para;</a></h2>
+<p><code>jaxace</code> includes artifact definitions for the official <code>300303</code>
+<code>GenericEmulator</code> pair:</p>
+<ul>
+<li><code>ACE_mnuw0wacdm_sigma8_basis</code></li>
+<li><code>ACE_mnuw0wacdm_ln10As_basis</code></li>
+</ul>
+<p>Load them by name from the package artifact registry:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jaxace</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Input order for the sigma8-basis emulator:</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># z, sigma8, ns, H0, ombh2, omch2, Mnu, w0, wa</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">emu</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">get_emulator</span><span class="p">(</span><span class="s2">&quot;ACE_mnuw0wacdm_sigma8_basis&quot;</span><span class="p">)</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.96</span><span class="p">,</span> <span class="mf">67.0</span><span class="p">,</span> <span class="mf">0.022</span><span class="p">,</span> <span class="mf">0.12</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">output</span> <span class="o">=</span> <span class="n">emu</span><span class="o">.</span><span class="n">run_emulator</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># The ln10As-basis emulator uses ln10As in the second slot instead of sigma8:</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">emu_ln10As</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">get_emulator</span><span class="p">(</span><span class="s2">&quot;ACE_mnuw0wacdm_ln10As_basis&quot;</span><span class="p">)</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">params_ln10As</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">3.044</span><span class="p">,</span> <span class="mf">0.96</span><span class="p">,</span> <span class="mf">67.0</span><span class="p">,</span> <span class="mf">0.022</span><span class="p">,</span> <span class="mf">0.12</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">output_ln10As</span> <span class="o">=</span> <span class="n">emu_ln10As</span><span class="o">.</span><span class="n">run_emulator</span><span class="p">(</span><span class="n">params_ln10As</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The first call downloads and caches the emulator. To see the available
+artifact-backed emulators:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">jaxace</span><span class="o">.</span><span class="n">list_emulators</span><span class="p">()</span>
+</span></code></pre></div>
 <h2 id="postprocessing-api">Postprocessing API<a class="headerlink" href="#postprocessing-api" title="Permanent link">&para;</a></h2>
-<p>Since version 0.7.0, custom <code>GenericEmulator</code> postprocessing follows the same
+<p>Since version 0.6.0, custom <code>GenericEmulator</code> postprocessing follows the same
 signature as <code>AbstractCosmologicalEmulators.jl</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">postprocessing</span><span class="p">(</span><span class="n">input_params</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">emulator</span><span class="p">):</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">return</span> <span class="n">output</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">postprocessing</span><span class="p">(</span><span class="n">input_params</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">emulator</span><span class="p">):</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">return</span> <span class="n">output</span>
 </span></code></pre></div>
 <p><code>load_trained_emulator</code> expects <code>postprocessing.py</code> to define a function with
 that signature. Older four-argument postprocessing functions with
@@ -882,7 +965,7 @@ form is the supported API.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.instant", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.top", "navigation.footer", "toc.follow", "toc.integrate", "search.suggest", "search.highlight", "content.tabs.link", "content.code.copy", "content.code.annotate", "header.autohide"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="javascripts/mathjax.js"></script>
       
