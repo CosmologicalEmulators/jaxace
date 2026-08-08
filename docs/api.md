@@ -82,6 +82,7 @@
 
 ::: jaxace.akima_interpolation
 ::: jaxace.cubic_spline_interpolation
+::: jaxace.cubic_b_spline_interpolation
 
 ### Fixed values, changing query points
 
@@ -94,6 +95,9 @@ query grid changes.
 ::: jaxace.CubicSpline
 ::: jaxace.prepare_cubic_spline
 ::: jaxace.evaluate_cubic_spline
+::: jaxace.CubicBSpline
+::: jaxace.prepare_cubic_b_spline
+::: jaxace.evaluate_cubic_b_spline
 
 ### Fixed grids, changing values
 
@@ -106,6 +110,8 @@ independent series.
 ::: jaxace.prepare_akima_spline_plan
 ::: jaxace.CubicSplinePlan
 ::: jaxace.prepare_cubic_spline_plan
+::: jaxace.CubicBSplinePlan
+::: jaxace.prepare_cubic_b_spline_plan
 
 `CubicSplinePlan` stores a dense `n_knots × n_knots` operator for the
 natural-spline second derivatives, so storage is `O(n_knots²)`. With the
@@ -113,6 +119,16 @@ current dense JAX solve, construction is `O(n_knots³)`. Applying a completed
 plan costs `O(n_knots² + n_query)` for one value vector and
 `O(n_knots² n_series + n_query n_series)` for a matrix. It is intended for
 moderate grids reused enough times to amortize construction.
+
+`CubicBSpline` and `CubicBSplinePlan` use the same fixed not-a-knot basis as
+AbstractCosmologicalEmulators.jl. Knot placement is derived from the source
+sites and is not configurable. Extrapolation clamps to the nearest endpoint
+by default; `extrapolation="throw"` and `extrapolation="zero"` are explicit
+alternatives. Dynamic `"throw"` checks are unavailable inside `jax.jit`.
+
+`CubicBSplinePlan` stores the complete dense `(n_query, n_sites)` interpolation
+operator. This makes plan execution and reverse-mode differentiation a matrix
+multiplication and its transpose.
 
 ## Chebyshev
 

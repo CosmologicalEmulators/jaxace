@@ -537,7 +537,6 @@ def _akima_coefficients(t, m):
     else:
         # 2D case: m has shape (n+3, n_cols)
         n = len(t)
-        n_cols = m.shape[1]
         dt = jnp.diff(t)
 
         # Initial b values (average of surrounding slopes) for all columns
@@ -649,9 +648,6 @@ def _akima_eval(u, t, b, c, d, tq):
         return result[0] if is_scalar_tq else result
     else:
         # 2D case: u has shape (n, n_cols)
-        n_cols = u.shape[1]
-        n_query = len(tq_arr)
-
         # Vectorized interval finding (same for all columns)
         idx = jnp.searchsorted(t, tq_arr, side='right') - 1
         idx = jnp.clip(idx, 0, n - 2)
@@ -962,11 +958,6 @@ def _cubic_spline_eval(u, t, h, z, tq):
     # We use akima's interval finder logic
     idx = jnp.searchsorted(t, tq_arr, side='right') - 1
 
-    # We create masks for extrapolation
-    mask_left = tq_arr < t[0]
-    mask_right = tq_arr > t[-1]
-    mask_inside = ~(mask_left | mask_right)
-
     idx = jnp.clip(idx, 0, n - 2)
 
     if is_1d:
@@ -982,8 +973,6 @@ def _cubic_spline_eval(u, t, h, z, tq):
 
         return val_inside[0] if is_scalar_tq else val_inside
     else:
-        n_cols = u.shape[1]
-
         dt = tq_arr - t[idx]
         dt_next = t[idx+1] - tq_arr
         h_i = h[idx+1]
@@ -1189,3 +1178,249 @@ class CubicSplinePlan:
 def prepare_cubic_spline_plan(t, t_new) -> CubicSplinePlan:
     """Prepare a :class:`CubicSplinePlan` for fixed source and target grids."""
     return CubicSplinePlan(t, t_new)
+
+
+# =============================================================================
+# Cubic B-Spline Interpolation
+# =============================================================================
+
+_MAX_CUBIC_B_SPLINE_OPERATOR_BYTES = 64 * 1024**2
+
+def _cubic_b_spline_knots(t):
+    """Return the not-a-knot cubic B-spline knot vector derived from ``t``."""
+    t = jnp.asarray(t)
+    if t.ndim != 1 or len(t) < 4:
+        raise ValueError("cubic B-spline interpolation requires at least four sites")
+    return jnp.concatenate((jnp.repeat(t[:1], 4), t[2:-2], jnp.repeat(t[-1:], 4)))
+
+
+def _cubic_b_spline_basis_matrix(knots, query):
+    """Evaluate every cubic B-spline basis function at ``query``."""
+    knots = jnp.asarray(knots)
+    query = jnp.atleast_1d(query)
+    dtype = jnp.result_type(knots, query, 1.0)
+    query = query.astype(dtype)
+    knots = knots.astype(dtype)
+
+    basis = (
+        (query[:, jnp.newaxis] >= knots[:-1])
+        & (query[:, jnp.newaxis] < knots[1:])
+    ).astype(dtype)
+
+    for degree in range(1, 4):
+        n_columns = len(knots) - degree - 1
+        left_denominator = knots[degree:degree + n_columns] - knots[:n_columns]
+        right_denominator = (
+            knots[degree + 1:degree + 1 + n_columns]
+            - knots[1:1 + n_columns]
+        )
+
+        safe_left = jnp.where(
+            left_denominator != 0,
+            left_denominator,
+            jnp.ones_like(left_denominator),
+        )
+        safe_right = jnp.where(
+            right_denominator != 0,
+            right_denominator,
+            jnp.ones_like(right_denominator),
+        )
+        left_factor = jnp.where(
+            left_denominator != 0,
+            (query[:, jnp.newaxis] - knots[:n_columns]) / safe_left,
+            0,
+        )
+        right_factor = jnp.where(
+            right_denominator != 0,
+            (knots[degree + 1:degree + 1 + n_columns] - query[:, jnp.newaxis])
+            / safe_right,
+            0,
+        )
+        basis = left_factor * basis[:, :n_columns] + right_factor * basis[:, 1:n_columns + 1]
+
+    n_basis = len(knots) - 4
+    right_endpoint = jax.nn.one_hot(n_basis - 1, n_basis, dtype=dtype)
+    return jnp.where(
+        (query == knots[-4])[:, jnp.newaxis],
+        right_endpoint[jnp.newaxis, :],
+        basis,
+    )
+
+
+def _validate_extrapolation(extrapolation):
+    if extrapolation not in ("clamp", "throw", "zero"):
+        raise ValueError(
+            "extrapolation must be 'clamp', 'throw', or 'zero', "
+            f"got {extrapolation!r}"
+        )
+
+
+def _cubic_b_spline_query(t, query, extrapolation):
+    """Apply the selected extrapolation policy and return its in-domain mask."""
+    _validate_extrapolation(extrapolation)
+    query = jnp.asarray(query)
+    inside = (query >= t[0]) & (query <= t[-1])
+
+    if extrapolation == "clamp":
+        return jnp.clip(query, t[0], t[-1]), inside
+    if extrapolation == "zero":
+        return jnp.clip(query, t[0], t[-1]), inside
+
+    if isinstance(query, jax.core.Tracer):
+        raise ValueError(
+            "dynamic extrapolation='throw' is not supported inside jax.jit; "
+            "use 'clamp' or 'zero'"
+        )
+    if not bool(np.all(np.asarray(inside))):
+        raise ValueError("query point is outside the cubic B-spline domain")
+    return query, inside
+
+
+def _cubic_b_spline_evaluate(coefficients, knots, query, t, extrapolation):
+    is_scalar = jnp.ndim(query) == 0
+    query_array = jnp.atleast_1d(query)
+    query_eval, inside = _cubic_b_spline_query(t, query_array, extrapolation)
+    result = _cubic_b_spline_basis_matrix(knots, query_eval) @ coefficients
+
+    if extrapolation == "zero":
+        if result.ndim == 1:
+            result = jnp.where(inside, result, jnp.zeros_like(result))
+        else:
+            result = jnp.where(
+                inside[:, jnp.newaxis],
+                result,
+                jnp.zeros_like(result),
+            )
+    return result[0] if is_scalar else result
+
+
+def _cubic_b_spline_coefficients(u, t):
+    """Recover not-a-knot B-spline coefficients for vector or matrix values."""
+    u = jnp.asarray(u)
+    t = jnp.asarray(t)
+    if u.shape[0] != len(t):
+        raise ValueError("the first values dimension must match the number of sites")
+    knots = _cubic_b_spline_knots(t)
+    collocation = _cubic_b_spline_basis_matrix(knots, t)
+    return knots, jnp.linalg.solve(collocation, u)
+
+
+def cubic_b_spline_interpolation(u, t, t_new, extrapolation="clamp"):
+    """Not-a-knot cubic B-spline interpolation for vector or matrix values."""
+    knots, coefficients = _cubic_b_spline_coefficients(u, t)
+    return _cubic_b_spline_evaluate(
+        coefficients,
+        knots,
+        t_new,
+        jnp.asarray(t),
+        extrapolation,
+    )
+
+
+@jax.tree_util.register_pytree_node_class
+@dataclass(frozen=True, eq=False)
+class CubicBSpline:
+    """Prepared not-a-knot cubic B-spline with fixed values and sites."""
+
+    u: jnp.ndarray
+    t: jnp.ndarray
+    extrapolation: str = "clamp"
+    knots: jnp.ndarray = field(init=False)
+    coefficients: jnp.ndarray = field(init=False)
+
+    def __post_init__(self):
+        _validate_extrapolation(self.extrapolation)
+        u = jnp.asarray(self.u)
+        t = jnp.asarray(self.t)
+        knots, coefficients = _cubic_b_spline_coefficients(u, t)
+        object.__setattr__(self, "u", u)
+        object.__setattr__(self, "t", t)
+        object.__setattr__(self, "knots", knots)
+        object.__setattr__(self, "coefficients", coefficients)
+
+    def __call__(self, t_new):
+        return _cubic_b_spline_evaluate(
+            self.coefficients,
+            self.knots,
+            t_new,
+            self.t,
+            self.extrapolation,
+        )
+
+    def tree_flatten(self):
+        return (self.u, self.t, self.knots, self.coefficients), self.extrapolation
+
+    @classmethod
+    def tree_unflatten(cls, auxiliary_data, children):
+        spline = object.__new__(cls)
+        for name, value in zip(("u", "t", "knots", "coefficients"), children):
+            object.__setattr__(spline, name, value)
+        object.__setattr__(spline, "extrapolation", auxiliary_data)
+        return spline
+
+
+def prepare_cubic_b_spline(u, t, extrapolation="clamp") -> CubicBSpline:
+    """Prepare a :class:`CubicBSpline` for changing query grids."""
+    return CubicBSpline(u, t, extrapolation=extrapolation)
+
+
+def evaluate_cubic_b_spline(spline: CubicBSpline, t_new):
+    """Evaluate a prepared :class:`CubicBSpline` at ``t_new``."""
+    return spline(t_new)
+
+
+@jax.tree_util.register_pytree_node_class
+@dataclass(frozen=True, eq=False)
+class CubicBSplinePlan:
+    """Dense fixed-grid B-spline plan for changing vector or matrix values."""
+
+    t: jnp.ndarray
+    t_new: jnp.ndarray
+    extrapolation: str = "clamp"
+    operator: jnp.ndarray = field(init=False)
+
+    def __post_init__(self):
+        _validate_extrapolation(self.extrapolation)
+        dtype = jnp.result_type(self.t, self.t_new, 1.0)
+        t = jnp.asarray(self.t, dtype=dtype)
+        t_new = jnp.asarray(self.t_new, dtype=dtype)
+        operator_bytes = len(t) * len(t_new) * np.dtype(dtype).itemsize
+        if operator_bytes > _MAX_CUBIC_B_SPLINE_OPERATOR_BYTES:
+            raise ValueError(
+                "CubicBSplinePlan requires a dense operator of "
+                f"{operator_bytes / 1024**2:.3f} MiB, exceeding the 64 MiB limit"
+            )
+        query_eval, inside = _cubic_b_spline_query(t, t_new, self.extrapolation)
+        knots = _cubic_b_spline_knots(t)
+        collocation = _cubic_b_spline_basis_matrix(knots, t)
+        evaluation = _cubic_b_spline_basis_matrix(knots, query_eval)
+        operator = jnp.linalg.solve(collocation.T, evaluation.T).T
+        if self.extrapolation == "zero":
+            operator = jnp.where(
+                inside[:, jnp.newaxis],
+                operator,
+                jnp.zeros_like(operator),
+            )
+
+        object.__setattr__(self, "t", t)
+        object.__setattr__(self, "t_new", t_new)
+        object.__setattr__(self, "operator", operator)
+
+    def __call__(self, u):
+        return self.operator @ jnp.asarray(u)
+
+    def tree_flatten(self):
+        return (self.t, self.t_new, self.operator), self.extrapolation
+
+    @classmethod
+    def tree_unflatten(cls, auxiliary_data, children):
+        plan = object.__new__(cls)
+        for name, value in zip(("t", "t_new", "operator"), children):
+            object.__setattr__(plan, name, value)
+        object.__setattr__(plan, "extrapolation", auxiliary_data)
+        return plan
+
+
+def prepare_cubic_b_spline_plan(t, t_new, extrapolation="clamp") -> CubicBSplinePlan:
+    """Prepare a dense :class:`CubicBSplinePlan` for fixed grids."""
+    return CubicBSplinePlan(t, t_new, extrapolation=extrapolation)

@@ -14,14 +14,18 @@ from jaxace import (
     AkimaSplinePlan,
     CubicSpline,
     CubicSplinePlan,
+    CubicBSpline,
+    CubicBSplinePlan,
     akima_interpolation,
     cubic_spline_interpolation,
+    cubic_b_spline_interpolation,
     evaluate_akima_spline,
     evaluate_cubic_spline,
     prepare_akima_spline,
     prepare_akima_spline_plan,
     prepare_cubic_spline,
     prepare_cubic_spline_plan,
+    prepare_cubic_b_spline_plan,
 )
 
 jax.config.update("jax_enable_x64", True)
@@ -43,6 +47,8 @@ def julia_reference():
         "akima_u2": outputs[:, 2],
         "cubic_u1": outputs[:, 3],
         "cubic_u2": outputs[:, 4],
+        "bspline_u1": outputs[:, 5],
+        "bspline_u2": outputs[:, 6],
     }
 
 
@@ -58,6 +64,12 @@ def test_pure_functions_match_julia_reference(julia_reference):
     np.testing.assert_allclose(
         cubic_spline_interpolation(ref["u1"], ref["t"], ref["t_new"]),
         ref["cubic_u1"],
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        cubic_b_spline_interpolation(ref["u1"], ref["t"], ref["t_new"]),
+        ref["bspline_u1"],
         rtol=1e-12,
         atol=1e-12,
     )
@@ -134,6 +146,12 @@ def test_cubic_spline_matrix_jit_and_gradient(julia_reference):
             cubic_spline_interpolation,
             ("cubic_u1", "cubic_u2"),
         ),
+        (
+            CubicBSplinePlan,
+            prepare_cubic_b_spline_plan,
+            cubic_b_spline_interpolation,
+            ("bspline_u1", "bspline_u2"),
+        ),
     ),
 )
 def test_fixed_grid_plans_match_julia_and_accept_changing_values(
@@ -187,6 +205,7 @@ def test_fixed_grid_plans_match_julia_and_accept_changing_values(
     (
         (AkimaSplinePlan, akima_interpolation),
         (CubicSplinePlan, cubic_spline_interpolation),
+        (CubicBSplinePlan, cubic_b_spline_interpolation),
     ),
 )
 def test_fixed_grid_plans_jit_dynamic_values_and_reverse_grad(
@@ -208,10 +227,11 @@ def test_fixed_grid_plans_jit_dynamic_values_and_reverse_grad(
     np.testing.assert_allclose(result2, plan(ref["u2"]), rtol=1e-12, atol=1e-12)
     assert not np.allclose(result1, result2)
 
-    plan_loss = lambda values: jnp.sum(plan(values))
-    pure_loss = lambda values: jnp.sum(
-        interpolation(values, ref["t"], ref["t_new"])
-    )
+    def plan_loss(values):
+        return jnp.sum(plan(values))
+
+    def pure_loss(values):
+        return jnp.sum(interpolation(values, ref["t"], ref["t_new"]))
     plan_grad = jax.jit(jax.grad(plan_loss))(ref["u1"])
     pure_grad = jax.grad(pure_loss)(ref["u1"])
     plan_grad.block_until_ready()
@@ -226,6 +246,8 @@ def test_spline_dataclasses_are_jax_pytrees(julia_reference):
         CubicSpline(ref["u1"], ref["t"]),
         AkimaSplinePlan(ref["t"], ref["t_new"]),
         CubicSplinePlan(ref["t"], ref["t_new"]),
+        CubicBSpline(ref["u1"], ref["t"]),
+        CubicBSplinePlan(ref["t"], ref["t_new"]),
     )
     for obj in objects:
         leaves = jax.tree_util.tree_leaves(obj)
