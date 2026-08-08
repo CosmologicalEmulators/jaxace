@@ -1287,7 +1287,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" cubic_spline_interpolation">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.cubic_b_spline_interpolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;cubic_b_spline_interpolation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" cubic_b_spline_interpolation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1404,7 +1415,40 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" evaluate_cubic_spline">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.CubicBSpline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;CubicBSpline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.prepare_cubic_b_spline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;prepare_cubic_b_spline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.evaluate_cubic_b_spline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;evaluate_cubic_b_spline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" evaluate_cubic_b_spline">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1495,6 +1539,28 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;prepare_cubic_spline_plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.CubicBSplinePlan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;CubicBSplinePlan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.prepare_cubic_b_spline_plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;prepare_cubic_b_spline_plan
       
     </span>
   </a>
@@ -4085,6 +4151,26 @@ this is a matrix of shape <code>(len(t_new), n_cols)</code>.</p>
 
     </div>
 
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.cubic_b_spline_interpolation" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.cubic_b_spline_interpolation</span>
+
+
+<a href="#jaxace.cubic_b_spline_interpolation" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">cubic_b_spline_interpolation</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">t_new</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">&#39;clamp&#39;</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Not-a-knot cubic B-spline interpolation for vector or matrix values.</p>
+
+
+    </div>
+
 </div><h3 id="fixed-values-changing-query-points">Fixed values, changing query points<a class="headerlink" href="#fixed-values-changing-query-points" title="Permanent link">&para;</a></h3>
 <p>Use a prepared spline when the ordinates and source knots are fixed while the
 query grid changes.</p>
@@ -4311,6 +4397,97 @@ This structure acts as a valid JAX PyTree for JIT and grad.</p>
 
     </div>
 
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="jaxace.CubicBSpline" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">jaxace.CubicBSpline</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#jaxace.CubicBSpline" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CubicBSpline</span><span class="p">(</span><span class="n">u</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">extrapolation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;clamp&#39;</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Prepared not-a-knot cubic B-spline with fixed values and sites.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.prepare_cubic_b_spline" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.prepare_cubic_b_spline</span>
+
+
+<a href="#jaxace.prepare_cubic_b_spline" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare_cubic_b_spline</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">&#39;clamp&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CubicBSpline</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Prepare a :class:<code>CubicBSpline</code> for changing query grids.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.evaluate_cubic_b_spline" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.evaluate_cubic_b_spline</span>
+
+
+<a href="#jaxace.evaluate_cubic_b_spline" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">evaluate_cubic_b_spline</span><span class="p">(</span><span class="n">spline</span><span class="p">:</span> <span class="n">CubicBSpline</span><span class="p">,</span> <span class="n">t_new</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Evaluate a prepared :class:<code>CubicBSpline</code> at <code>t_new</code>.</p>
+
+
+    </div>
+
 </div><h3 id="fixed-grids-changing-values">Fixed grids, changing values<a class="headerlink" href="#fixed-grids-changing-values" title="Permanent link">&para;</a></h3>
 <p>Use a plan when the source and target grids are fixed while the ordinates
 change. Plans expect one-dimensional source and target grids and vector or
@@ -4505,12 +4682,91 @@ amortize construction.</p>
 
     </div>
 
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="jaxace.CubicBSplinePlan" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">jaxace.CubicBSplinePlan</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#jaxace.CubicBSplinePlan" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CubicBSplinePlan</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">t_new</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">extrapolation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;clamp&#39;</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Dense fixed-grid B-spline plan for changing vector or matrix values.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.prepare_cubic_b_spline_plan" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.prepare_cubic_b_spline_plan</span>
+
+
+<a href="#jaxace.prepare_cubic_b_spline_plan" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare_cubic_b_spline_plan</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_new</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">&#39;clamp&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CubicBSplinePlan</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Prepare a dense :class:<code>CubicBSplinePlan</code> for fixed grids.</p>
+
+
+    </div>
+
 </div><p><code>CubicSplinePlan</code> stores a dense <code>n_knots × n_knots</code> operator for the
 natural-spline second derivatives, so storage is <code>O(n_knots²)</code>. With the
 current dense JAX solve, construction is <code>O(n_knots³)</code>. Applying a completed
 plan costs <code>O(n_knots² + n_query)</code> for one value vector and
 <code>O(n_knots² n_series + n_query n_series)</code> for a matrix. It is intended for
 moderate grids reused enough times to amortize construction.</p>
+<p><code>CubicBSpline</code> and <code>CubicBSplinePlan</code> use the same fixed not-a-knot basis as
+AbstractCosmologicalEmulators.jl. Knot placement is derived from the source
+sites and is not configurable. Extrapolation clamps to the nearest endpoint
+by default; <code>extrapolation="throw"</code> and <code>extrapolation="zero"</code> are explicit
+alternatives. Dynamic <code>"throw"</code> checks are unavailable inside <code>jax.jit</code>.</p>
+<p><code>CubicBSplinePlan</code> stores the complete dense <code>(n_query, n_sites)</code> interpolation
+operator. This makes plan execution and reverse-mode differentiation a matrix
+multiplication and its transpose.</p>
 <h2 id="chebyshev">Chebyshev<a class="headerlink" href="#chebyshev" title="Permanent link">&para;</a></h2>
 
 
