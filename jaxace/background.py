@@ -1188,6 +1188,10 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
 
     with initial conditions D(a_i) = a_i and $\\mathrm{d}D/\\mathrm{d}(\\ln a)|_{a_i} = 1$ for matter domination.
 
+    The initial conditions set the amplitude normalization. The solution is
+    not subsequently rescaled to unity at the present day; this convention
+    matches Effort.jl and the power-spectrum artifacts that consume it.
+
     Returns:
         Growth factor D(a) or tuple (D, dD/dloga) if return_both=True.
         Returns NaN for invalid inputs instead of crashing.
@@ -1358,8 +1362,9 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     """
     Linear growth factor D(z).
 
-    The growth factor is normalized such that D(z=0) = 1.
-    It satisfies the differential equation given in growth_solver.
+    The growth factor uses the early-time normalization set by
+    :func:`growth_solver`, namely D(a_i) = a_i in matter domination. It is not
+    rescaled to D(z=0) = 1.
 
     Returns:
         jnp.ndarray: Linear growth factor D(z). Returns NaN for NaN inputs,
