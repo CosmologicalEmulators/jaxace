@@ -6,6 +6,7 @@
 import os
 import sys
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Optional, Union
 
@@ -36,6 +37,7 @@ __all__ = [
     "E_z",
     "dlogEdloga",
     "Ωm_a",
+    "Ωm_a_total",
     "D_z",
     "f_z",
     "D_f_z",
@@ -274,23 +276,56 @@ class w0waCDMCosmology:
         Ωk0 = self.omega_k / self.h**2
         return dA_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
 
-    def D_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-        """Linear growth factor D(z)."""
-        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
-        Ωk0 = self.omega_k / self.h**2
-        return D_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+    def D_z(
+        self, z: Union[float, jnp.ndarray], species: str = "cb"
+    ) -> Union[float, jnp.ndarray]:
+        """
+        Linear growth factor D(z).
 
-    def f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-        """Growth rate f(z) = d log D / d log a."""
+        ``species``: ``"cb"`` (default, cold + baryon source, Effort.jl
+        convention) or ``"m"`` (total matter source including the true
+        massive-neutrino density). See :func:`growth_solver`.
+        """
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return D_z(
+            z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0,
+            species=species,
+        )
 
-    def D_f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-        """Linear growth factor and growth rate (D(z), f(z))."""
+    def f_z(
+        self, z: Union[float, jnp.ndarray], species: str = "cb"
+    ) -> Union[float, jnp.ndarray]:
+        """
+        Growth rate f(z) = d log D / d log a.
+
+        ``species``: ``"cb"`` (default, cold + baryon source, Effort.jl
+        convention) or ``"m"`` (total matter source including the true
+        massive-neutrino density). See :func:`growth_solver`.
+        """
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return D_f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return f_z(
+            z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0,
+            species=species,
+        )
+
+    def D_f_z(
+        self, z: Union[float, jnp.ndarray], species: str = "cb"
+    ) -> Union[float, jnp.ndarray]:
+        """
+        Linear growth factor and growth rate (D(z), f(z)).
+
+        ``species``: ``"cb"`` (default, cold + baryon source, Effort.jl
+        convention) or ``"m"`` (total matter source including the true
+        massive-neutrino density). See :func:`growth_solver`.
+        """
+        Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
+        Ωk0 = self.omega_k / self.h**2
+        return D_f_z(
+            z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0,
+            species=species,
+        )
 
     def ρc_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Critical density at redshift z in M☉/Mpc³."""
@@ -796,6 +831,56 @@ def Ωm_a(
     return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
 
 
+@jax.jit
+def Ωm_a_total(
+    a: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[float, jnp.ndarray] = 0.0,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+) -> Union[float, jnp.ndarray]:
+    """
+    Total matter density parameter Ωₘ(a) = Ω_cb(a) + Ω_ν,massive(a) at scale factor a.
+
+    $$\\Omega_{\\mathrm{m}}(a) = \\frac{\\Omega_{\\mathrm{cb},0} a^{-3}
+    + \\left[\\Omega_{\\nu}(a; m_\\nu) - \\Omega_{\\nu}(a; 0)\\right] E(a)^2}{E(a)^2}$$
+
+    Unlike :func:`Ωm_a` (cold dark matter + baryons only), this adds the
+    actual mass-induced neutrino energy density, using the same
+    Fermi-Dirac-integral-based :func:`ΩνE2` as :func:`E_a`/:func:`dlogEdloga`.
+
+    Note the subtraction of $\\Omega_{\\nu}(a; 0)$: with $N_{\\mathrm{eff}}$
+    massless neutrinos, :func:`ΩνE2` does *not* vanish at $m_\\nu = 0$ — it
+    returns the (nonzero) purely relativistic neutrino radiation density,
+    set by the neutrino temperature ($T_\\nu = 0.71611\\,T_{\\mathrm{CMB}}$)
+    exactly like the photon term $\\Omega_{\\gamma,0} a^{-4}$. This floor is
+    its own explicit, separate $\\propto a^{-4}$ term summed directly into
+    $E(a)^2$ in :func:`E_a` (the flatness closure only uses it once, to solve
+    for the constant $\\Omega_{\\Lambda,0}$; it is not otherwise routed through
+    dark energy) — it is radiation, not matter, at every epoch. Subtracting
+    the massless baseline isolates the density genuinely attributable to
+    nonzero neutrino mass: it is identically zero whenever $m_\\nu = 0$ (so
+    ``species="m"`` degenerates exactly to ``species="cb"``, as it must
+    physically), and grows from ~0 in the relativistic regime to the true
+    non-relativistic $\\rho_\\nu(a) \\propto a^{-3}$ once $a$ drops below the
+    non-relativistic transition $z_{\\mathrm{nr}} \\approx 110\\,(\\Sigma
+    m_\\nu / 0.06\\,\\mathrm{eV})$.
+
+    Returns:
+        Total matter density parameter Ωₘ(a), including the mass-induced
+        massive-neutrino contribution.
+    """
+    Ωγ0 = 2.469e-5 / (h**2)  # Photon density parameter
+    N_eff = 3.044  # Effective number of neutrino species
+
+    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    Ων_massive_a = ΩνE2(a, Ωγ0, mν, N_eff) - ΩνE2(a, Ωγ0, 0.0, N_eff)
+
+    return (Ωcb0 * jnp.power(a, -3.0) + Ων_massive_a) / jnp.power(E_a_val, 2.0)
+
+
 def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100):
     """
     Compute dimensionless comoving distance for a single redshift value
@@ -1161,36 +1246,77 @@ def dA_z(
     return dM / (1.0 + z)
 
 
-@jax.jit
-def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
+@partial(jax.jit, static_argnames=("species",))
+def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb"):
+    """
+    Right-hand side of the linear growth ODE, evaluated in log(a).
+
+    ``species`` selects the density parameter that sources growth (see
+    :func:`growth_solver` for the two supported prescriptions). It must be a
+    static (non-traced) string, since it is used for Python-level branching.
+    """
     a = jnp.exp(log_a)
     D, dD_dloga = u
 
     # Get cosmological functions at this scale factor
     dlogE_dloga = dlogEdloga(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
-    Omega_m_a = Ωm_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+
+    if species == "cb":
+        Omega_source_a = Ωm_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    elif species == "m":
+        Omega_source_a = Ωm_a_total(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    else:
+        raise ValueError(
+            f"Unknown growth species prescription {species!r}; expected 'cb' or 'm'."
+        )
 
     # ODE system following Effort.jl exactly:
     # du[1] = dD/d(log a)
-    # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Ωm_a * D
-    du = jnp.array([dD_dloga, -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_m_a * D])
+    # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Omega_source_a * D
+    du = jnp.array(
+        [dD_dloga, -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_source_a * D]
+    )
 
     return du
 
 
-def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False):
+def growth_solver(
+    a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False, species="cb"
+):
     """
     Solve the growth factor ODE.
 
     The linear growth factor D(a) satisfies the differential equation:
 
-    $$\\frac{\\mathrm{d}^2 D}{\\mathrm{d}(\\ln a)^2} + \\left(2 + \\frac{\\mathrm{d} \\ln E}{\\mathrm{d} \\ln a}\\right) \\frac{\\mathrm{d} D}{\\mathrm{d} \\ln a} - \\frac{3}{2} \\Omega_{\\mathrm{m}}(a) D = 0$$
+    $$\\frac{\\mathrm{d}^2 D}{\\mathrm{d}(\\ln a)^2} + \\left(2 + \\frac{\\mathrm{d} \\ln E}{\\mathrm{d} \\ln a}\\right) \\frac{\\mathrm{d} D}{\\mathrm{d} \\ln a} - \\frac{3}{2} \\Omega_{\\mathrm{source}}(a) D = 0$$
 
     with initial conditions D(a_i) = a_i and $\\mathrm{d}D/\\mathrm{d}(\\ln a)|_{a_i} = 1$ for matter domination.
 
     The initial conditions set the amplitude normalization. The solution is
     not subsequently rescaled to unity at the present day; this convention
     matches Effort.jl and the power-spectrum artifacts that consume it.
+
+    ``species`` selects the source term $\\Omega_{\\mathrm{source}}(a)$:
+
+    - ``"cb"`` (default): $\\Omega_{\\mathrm{source}}(a) = \\Omega_{\\mathrm{cb}}(a)$
+      (:func:`Ωm_a`), the cold dark matter + baryon density only. This is the
+      Effort.jl convention and is the correct source for the growth of the
+      cold+baryon field, e.g. for galaxy redshift-space distortions where
+      only cb clusters on small scales.
+    - ``"m"``: $\\Omega_{\\mathrm{source}}(a) = \\Omega_{\\mathrm{cb}}(a) +
+      \\Omega_{\\nu}(a)$ (:func:`Ωm_a_total`), using the true massive-neutrino
+      density $\\rho_\\nu(a)$. This is appropriate for scaling the *total*
+      matter power spectrum $P_{\\mathrm{mm}}$, e.g. the high-z tails that
+      source CMB lensing. Because the actual $\\rho_\\nu(a)$ enters, the
+      neutrino contribution to the source automatically dilutes like
+      radiation above the relativistic-to-non-relativistic transition
+      $z_{\\mathrm{nr}} \\approx 110\\,(\\Sigma m_\\nu / 0.06\\,\\mathrm{eV})$.
+
+    Strictly, neither prescription is exact once neutrinos free-stream:
+    a free-streaming species does not obey the same second-order growth
+    equation as a pressureless fluid, so both source terms carry residuals
+    of order $f_\\nu = \\Omega_\\nu / \\Omega_m$ relative to a full multi-fluid
+    (e.g. Boltzmann-code) growth calculation.
 
     Returns:
         Growth factor D(a) or tuple (D, dD/dloga) if return_both=True.
@@ -1220,9 +1346,11 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
     log_a_min = jnp.log(jnp.maximum(amin, 1e-4))  # Don't go too early
     log_a_max = jnp.log(1.01)  # Slightly past present day for normalization
 
-    # Define ODE system
+    # Define ODE system. `species` is a static Python string, so it is closed
+    # over here rather than threaded through `args` (which diffrax treats as
+    # a pytree of traced values).
     def odefunc(log_a, u, args):
-        return growth_ode_system(log_a, u, *args)
+        return growth_ode_system(log_a, u, *args, species=species)
 
     # Integration arguments
     args = (Ωcb0, h, mν, w0, wa, Ωk0)
@@ -1357,14 +1485,24 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
             return result
 
 
-@jax.jit
-def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.ndarray]:
+@partial(jax.jit, static_argnames=("species",))
+def D_z(
+    z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb"
+) -> Union[float, jnp.ndarray]:
     """
     Linear growth factor D(z).
 
     The growth factor uses the early-time normalization set by
     :func:`growth_solver`, namely D(a_i) = a_i in matter domination. It is not
     rescaled to D(z=0) = 1.
+
+    ``species`` selects the growth-equation source term, see
+    :func:`growth_solver`: ``"cb"`` (default) sources growth with the cold +
+    baryon density only (Effort.jl convention, correct for galaxy RSD);
+    ``"m"`` sources growth with total matter including the true massive
+    neutrino density $\\rho_\\nu(a)$ (appropriate for scaling $P_{\\mathrm{mm}}$,
+    e.g. CMB-lensing high-z tails). The default reproduces the exact
+    pre-existing behaviour of this function.
 
     Returns:
         jnp.ndarray: Linear growth factor D(z). Returns NaN for NaN inputs,
@@ -1384,13 +1522,17 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
         # Handle both scalar and array inputs
         if jnp.isscalar(z) or z_array.ndim == 0:
             a_span = jnp.array([a])
-            D_result = growth_solver(a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+            D_result = growth_solver(
+                a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, species=species
+            )
             return D_result[0]
         else:
             # For array inputs, solve once and interpolate.  Evaluate NaN
             # redshifts at a harmless placeholder and restore their mask below.
             a_array = a
-            return growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+            return growth_solver(
+                a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, species=species
+            )
 
     def return_nan():
         # Return NaN with appropriate shape
@@ -1409,8 +1551,10 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     return jnp.where(z_nan_mask, jnp.full_like(result, jnp.nan), result)
 
 
-@jax.jit
-def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.ndarray]:
+@partial(jax.jit, static_argnames=("species",))
+def f_z(
+    z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb"
+) -> Union[float, jnp.ndarray]:
     """
     Growth rate f(z) = d log D / d log a.
 
@@ -1419,6 +1563,10 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     $$f(z) = \\frac{\\mathrm{d} \\ln D}{\\mathrm{d} \\ln a}$$
 
     where D is the linear growth factor.
+
+    ``species`` selects the growth-equation source term used to compute D,
+    see :func:`growth_solver`: ``"cb"`` (default, reproduces the exact
+    pre-existing behaviour of this function) or ``"m"``.
 
     Returns:
         jnp.ndarray: Growth rate f(z). Returns NaN for NaN inputs, handles
@@ -1435,7 +1583,15 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
         D, dD_dloga = growth_solver(
-            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+            a_array,
+            Ωcb0,
+            h,
+            mν=mν,
+            w0=w0,
+            wa=wa,
+            Ωk0=Ωk0,
+            return_both=True,
+            species=species,
         )
 
         # Apply numerical stability check
@@ -1454,7 +1610,15 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
         D_array, dD_dloga_array = growth_solver(
-            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+            a_array,
+            Ωcb0,
+            h,
+            mν=mν,
+            w0=w0,
+            wa=wa,
+            Ωk0=Ωk0,
+            return_both=True,
+            species=species,
         )
 
         # Apply numerical stability check element-wise
@@ -1473,8 +1637,15 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
         return jnp.where(input_nan, jnp.full_like(f_array, jnp.nan), f_array)
 
 
-@jax.jit
-def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
+@partial(jax.jit, static_argnames=("species",))
+def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb"):
+    """
+    Linear growth factor and growth rate (D(z), f(z)).
+
+    ``species`` selects the growth-equation source term, see
+    :func:`growth_solver`: ``"cb"`` (default, reproduces the exact
+    pre-existing behaviour of this function) or ``"m"``.
+    """
     # Check scalar parameters and scalar redshift for NaN inputs.  Array-valued
     # redshifts are masked element-wise below.
     has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
@@ -1487,7 +1658,15 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
         D, dD_dloga = growth_solver(
-            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+            a_array,
+            Ωcb0,
+            h,
+            mν=mν,
+            w0=w0,
+            wa=wa,
+            Ωk0=Ωk0,
+            return_both=True,
+            species=species,
         )
 
         # Apply numerical stability check for growth rate computation
@@ -1508,7 +1687,15 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
         D_array, dD_dloga_array = growth_solver(
-            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+            a_array,
+            Ωcb0,
+            h,
+            mν=mν,
+            w0=w0,
+            wa=wa,
+            Ωk0=Ωk0,
+            return_both=True,
+            species=species,
         )
 
         # Apply numerical stability check element-wise
