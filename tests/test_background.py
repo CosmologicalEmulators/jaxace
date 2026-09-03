@@ -7,8 +7,10 @@ matching the tests in AbstractCosmologicalEmulators.jl/test/test_background.jl
 
 import pytest
 import numpy as np
+import diffrax
 import jax
 import jax.numpy as jnp
+from jaxace import background
 from jaxace.background import (
     w0waCDMCosmology,
     a_z, E_a, E_z, dlogEdloga, Ωm_a, Ωm_a_total,
@@ -1278,22 +1280,14 @@ class TestGrowthSpeciesPrescriptions:
         )
         assert np.isclose(grad_h, fd_h, rtol=1e-3)
 
-        # dD/dmν is deliberately NOT compared to a finite difference here.
-        # Investigated directly: the converged central finite difference is
-        # stable across eps in [1e-8, 1e-3], but jax.grad disagrees with it
-        # by a fixed relative offset that does not shrink as eps -> 0 (i.e.
-        # it is a real bias in the reverse-mode adjoint through diffrax's
-        # adaptive-step solve w.r.t. an ODE *parameter*, not FD noise). This
-        # bias already exists on the pre-existing species="cb" path (~0.2-
-        # 0.3% offset at mν=0.06,0.3) and is not introduced by species="m"
-        # (~0.02-1.1% offset, depending on mν); diffrax's diffeqsolve also
-        # has no custom_jvp (jax.jvp against mν raises "can't apply
-        # forward-mode autodiff to a custom_vjp function"), so there is no
-        # independent AD cross-check available either. This is presumably
-        # why the repo's own TestBackgroundADFiniteDifferences regression
-        # test fixes mν=0.0 and only differentiates D_z/f_z w.r.t. z. We
-        # therefore only require the mν gradient to be finite here, matching
-        # TestJacobianComputation's precedent for ODE-threaded parameters.
+        # dD/dmν is checked against a converged solve in
+        # TestGrowthParameterGradients, which is the only reference that can
+        # resolve it: a finite difference of D_z itself measures the adaptive
+        # mesh's own bias rather than the growth factor's derivative.
+        forward_mν = jax.jvp(
+            lambda m: D_species_m(m, 0.67), (0.3,), (1.0,)
+        )[1]
+        assert np.isclose(grad_mν, forward_mν, rtol=0, atol=1e-12)
 
         # f_z with species="m" is also differentiable and finite.
         def f_species_m(mν_val, h_val):
@@ -1303,6 +1297,201 @@ class TestGrowthSpeciesPrescriptions:
         grad_f_h = jax.grad(f_species_m, argnums=1)(0.3, 0.67)
         assert np.isfinite(grad_f_mν)
         assert np.isfinite(grad_f_h)
+
+
+# Cosmologies spanning the massive-neutrino regimes that matter for the growth
+# derivative: the fiducial minimal mass, a heavy mass whose y = mν a / (k_B T_ν)
+# runs off the top of the F(y) grid, and the massless edge case.
+_GROWTH_GRADIENT_COSMOLOGIES = {
+    "fiducial": jnp.array([0.30, 0.67, 0.06, -1.0, 0.0, 0.0]),
+    "heavy_nu": jnp.array([0.32, 0.70, 0.30, -0.9, 0.2, 0.01]),
+    "massless": jnp.array([0.28, 0.64, 0.00, -1.1, -0.1, -0.01]),
+}
+
+# Captured from the implementation that solved and interpolated inline, before
+# the custom-JVP wrapper: the wrapper must not move the primal.
+_GROWTH_EXPECTED_PRIMAL = {
+    "cb": (
+        [
+            0.7164980008927855,
+            0.5583289646700335,
+            0.4471420390903573,
+            0.3135763214059083,
+            0.16198110577759123,
+        ],
+        [
+            0.5093348345435195,
+            0.7142972570242886,
+            0.8232849410612403,
+            0.9164400289699257,
+            0.976125581710291,
+        ],
+    ),
+    "m": (
+        [
+            0.7234896505867547,
+            0.5633745204791195,
+            0.45090023391555323,
+            0.31590020911341626,
+            0.16289077036634123,
+        ],
+        [
+            0.5108092971318466,
+            0.7163251470392361,
+            0.825593313982002,
+            0.9189641739073662,
+            0.9786996448066972,
+        ],
+    ),
+}
+
+
+class TestGrowthParameterGradients:
+    """Growth derivatives with respect to the ODE parameters.
+
+    The adaptive controller sizes its ~20 steps from the local error of D
+    alone, so the derivative of what the solve returns is not the derivative of
+    the converged growth factor: for mν the two differ by ~0.8%. growth_solver
+    therefore takes parameter derivatives on a uniform mesh, and the reference
+    here has to come from a converged mesh too -- finite-differencing D_z
+    itself would only re-measure the adaptive mesh's bias.
+    """
+
+    PARAM_NAMES = ("Ωcb0", "h", "mν", "w0", "wa", "Ωk0")
+    Z = jnp.array([0.0, 0.5, 1.0, 2.0])
+    LOG_A = jnp.log(1.0 / (1.0 + Z))
+
+    # Steps for the reference solve. Its derivatives are converged to ~1e-6 in
+    # every parameter, an order below the tolerances asserted against it.
+    REFERENCE_STEPS = 8000
+
+    # Worst measured error over these three cosmologies, both species, and both
+    # D and f. mν is the outlier because ΩνE2 reads a C¹-only Akima spline, so
+    # ∂(RHS)/∂mν is discontinuous at every knot and refining the mesh converges
+    # only slowly; the others sit at or below 4e-6.
+    RTOL_MNU = 1e-4
+    RTOL_OTHER = 1e-5
+
+    def _converged(self, params, species):
+        """[D, f] from a mesh fine enough to converge the parameter derivatives."""
+        span = background._GROWTH_LOG_A_MAX - background._GROWTH_LOG_A_MIN
+        state = background._growth_diffeqsolve(
+            self.LOG_A,
+            tuple(params),
+            species,
+            stepsize_controller=diffrax.ConstantStepSize(),
+            dt0=span / self.REFERENCE_STEPS,
+            adjoint=diffrax.RecursiveCheckpointAdjoint(),
+            max_steps=self.REFERENCE_STEPS + 1,
+        )
+        return jnp.stack([state[:, 0], state[:, 1] / state[:, 0]])
+
+    def _solved(self, params, species):
+        """[D, f] from the wrapped solve that growth_solver actually calls."""
+        state = background._growth_solve(self.LOG_A, tuple(params), species)
+        return jnp.stack([state[:, 0], state[:, 1] / state[:, 0]])
+
+    def _reference_derivative(self, params, index, species, eps=1e-4):
+        step = jnp.zeros_like(params).at[index].set(eps)
+        return (
+            self._converged(params + step, species)
+            - self._converged(params - step, species)
+        ) / (2 * eps)
+
+    @pytest.mark.parametrize("species", ["cb", "m"])
+    @pytest.mark.parametrize("name", ["fiducial", "heavy_nu", "massless"])
+    def test_parameter_gradients_match_converged_finite_difference(self, name, species):
+        """Reverse-mode AD reproduces a finite difference of the converged solve."""
+        params = _GROWTH_GRADIENT_COSMOLOGIES[name]
+        jacobian = jax.jacrev(lambda p: self._solved(p, species))(params)
+
+        for index, param in enumerate(self.PARAM_NAMES):
+            if param == "mν" and float(params[index]) == 0.0:
+                # A central difference would step to mν < 0, where F(y) is read
+                # off the low end of its interpolation grid.
+                continue
+            reference = self._reference_derivative(params, index, species)
+            error = jnp.max(jnp.abs(jacobian[..., index] - reference)) / jnp.max(
+                jnp.abs(reference)
+            )
+            rtol = self.RTOL_MNU if param == "mν" else self.RTOL_OTHER
+            assert error < rtol, f"{name}/{species} d/d{param}: {float(error):.2e}"
+
+    @pytest.mark.parametrize("species", ["cb", "m"])
+    def test_forward_and_reverse_parameter_gradients_agree(self, species):
+        """Both AD modes read the same custom JVP rule, so they cannot drift."""
+        params = _GROWTH_GRADIENT_COSMOLOGIES["fiducial"]
+        reverse = jax.jacrev(lambda p: self._solved(p, species))(params)
+        forward = jax.jacfwd(lambda p: self._solved(p, species))(params)
+        assert np.allclose(reverse, forward, rtol=0, atol=1e-12)
+
+    @pytest.mark.parametrize("name", ["fiducial", "massless"])
+    def test_parameter_gradients_are_finite(self, name):
+        """Including at mν = 0, the low edge of the F(y) interpolation grid."""
+        params = _GROWTH_GRADIENT_COSMOLOGIES[name]
+        for species in ("cb", "m"):
+            jacobian = jax.jacrev(lambda p, s=species: self._solved(p, s))(params)
+            assert jnp.all(jnp.isfinite(jacobian)), f"{name}/{species}"
+
+    def test_differentiating_the_adaptive_solve_is_the_defect_being_fixed(self):
+        """Guard the wrapper: without it, dD/dmν is ~300x further from truth."""
+        params = _GROWTH_GRADIENT_COSMOLOGIES["fiducial"]
+        index = self.PARAM_NAMES.index("mν")
+        reference = self._reference_derivative(params, index, "cb")
+        scale = jnp.max(jnp.abs(reference))
+
+        def adaptive(p):
+            state = background._growth_adaptive_solve(self.LOG_A, tuple(p), "cb")
+            return jnp.stack([state[:, 0], state[:, 1] / state[:, 0]])
+
+        unwrapped = jax.jacrev(adaptive)(params)[..., index]
+        wrapped = jax.jacrev(lambda p: self._solved(p, "cb"))(params)[..., index]
+
+        error_unwrapped = jnp.max(jnp.abs(unwrapped - reference)) / scale
+        error_wrapped = jnp.max(jnp.abs(wrapped - reference)) / scale
+        assert error_unwrapped > 1e-3
+        assert error_wrapped < self.RTOL_MNU
+        assert error_wrapped * 100 < error_unwrapped
+
+    def test_outer_grad_composes_through_D_z(self):
+        """The JVP rule must transpose correctly inside a larger reverse graph."""
+        params = _GROWTH_GRADIENT_COSMOLOGIES["fiducial"]
+
+        def loss(p, growth):
+            return jnp.sum(growth(p, "cb")[0] ** 2)
+
+        gradient = jax.jit(jax.grad(lambda p: loss(p, self._solved)))(params)
+        assert jnp.all(jnp.isfinite(gradient))
+
+        eps = 1e-4
+        for index, param in enumerate(self.PARAM_NAMES):
+            step = jnp.zeros_like(params).at[index].set(eps)
+            reference = (
+                loss(params + step, self._converged)
+                - loss(params - step, self._converged)
+            ) / (2 * eps)
+            rtol = self.RTOL_MNU if param == "mν" else self.RTOL_OTHER
+            assert np.isclose(gradient[index], reference, rtol=rtol, atol=1e-9), param
+
+    @pytest.mark.parametrize("species", ["cb", "m"])
+    def test_wrapper_forwards_the_adaptive_primal_bitwise(self, species):
+        """The custom JVP rule must not perturb the primal by a single ulp."""
+        for params in _GROWTH_GRADIENT_COSMOLOGIES.values():
+            wrapped = background._growth_solve(self.LOG_A, tuple(params), species)
+            direct = background._growth_adaptive_solve(
+                self.LOG_A, tuple(params), species
+            )
+            assert jnp.array_equal(wrapped, direct)
+
+    @pytest.mark.parametrize("species", ["cb", "m"])
+    def test_growth_values_are_bitwise_unchanged(self, species):
+        """D_z and f_z must be untouched by the derivative machinery."""
+        z = jnp.array([0.0, 0.5, 1.0, 2.0, 5.0])
+        expected_D, expected_f = _GROWTH_EXPECTED_PRIMAL[species]
+        D = D_z(z, 0.3, 0.67, mν=0.06, w0=-0.9, wa=0.2, Ωk0=0.01, species=species)
+        f = f_z(z, 0.3, 0.67, mν=0.06, w0=-0.9, wa=0.2, Ωk0=0.01, species=species)
+        assert np.array_equal(np.asarray(D), np.array(expected_D))
+        assert np.array_equal(np.asarray(f), np.array(expected_f))
 
 
 if __name__ == "__main__":
