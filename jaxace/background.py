@@ -1280,6 +1280,145 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, sp
     return du
 
 
+# Integration range and initial conditions, following Effort.jl: start in deep
+# matter domination, stop slightly past the present day. Held at module scope so
+# that the primal solve and the derivative solve below share them exactly.
+_GROWTH_AMIN = 1.0 / 139.0
+_GROWTH_LOG_A_MIN = jnp.log(_GROWTH_AMIN)
+_GROWTH_LOG_A_MAX = jnp.log(1.01)
+_GROWTH_U0 = jnp.array([_GROWTH_AMIN, _GROWTH_AMIN])  # [D, dD/d(log a)] at a_min
+
+# Number of uniform log(a) steps used for the *derivative* solve only.
+#
+# The adaptive controller sizes steps from the local error of D alone and
+# settles on ~20 steps (0.34 in log a) across the range. That resolves D to
+# rtol=1e-6 but not its parameter sensitivities: mν enters only through
+# y = mν a / (k_B T_ν), and F(y) is an Akima spline whose low-y knots are
+# spaced 12.3% apart in y, i.e. 0.116 in log a. An Akima spline is C¹ only, so
+# ∂(RHS)/∂mν is discontinuous at every knot, and a 20-step mesh straddles
+# several knots per step — which biases dD/dmν by ~1% no matter which adjoint
+# or AD mode is used (diffrax already freezes the mesh for AD via the
+# stop_gradient on its PID step factor, so the bias is a property of the mesh,
+# not of the differentiation).
+#
+# A uniform log(a) mesh is the matched shape here, since the knots are
+# themselves uniform in log a. Convergence against a 16000-step reference is
+# limited by those kinks and so is slow (~n^-0.65): 250 steps leave dD/dmν at
+# 4.4e-4 relative, 4000 steps reach 2.9e-5, with every other parameter already
+# at ~1e-6 throughout. 4000 is chosen because the cost of this solve is
+# dominated by fixed per-call adjoint overhead rather than by the step count,
+# so refining it is nearly free.
+_GROWTH_DERIVATIVE_STEPS = 4000
+
+
+def _growth_diffeqsolve(
+    log_a_eval, params, species, stepsize_controller, dt0, adjoint, max_steps
+):
+    """
+    Integrate the growth ODE and sample its dense solution at ``log_a_eval``.
+
+    ``params`` is the ``(Ωcb0, h, mν, w0, wa, Ωk0)`` tuple threaded into
+    :func:`growth_ode_system`; ``species`` is a static Python string.
+
+    Returns:
+        Array of shape ``(len(log_a_eval), 2)`` holding [D, dD/dlog a].
+    """
+
+    # `species` is a static Python string, so it is closed over here rather than
+    # threaded through `args` (which diffrax treats as a pytree of traced values).
+    def odefunc(log_a, u, args):
+        return growth_ode_system(log_a, u, *args, species=species)
+
+    solution = diffrax.diffeqsolve(
+        terms=diffrax.ODETerm(odefunc),
+        solver=diffrax.Tsit5(),  # Same as Effort.jl
+        t0=_GROWTH_LOG_A_MIN,
+        t1=_GROWTH_LOG_A_MAX,
+        dt0=dt0,
+        y0=_GROWTH_U0,
+        args=params,
+        saveat=diffrax.SaveAt(dense=True),
+        stepsize_controller=stepsize_controller,
+        adjoint=adjoint,
+        max_steps=max_steps,
+    )
+    return jax.vmap(solution.evaluate)(log_a_eval)
+
+
+def _growth_adaptive_solve(log_a_eval, params, species):
+    """
+    Adaptive growth-ODE solve, exactly as Effort.jl configures it.
+
+    Returns:
+        Array of shape ``(len(log_a_eval), 2)`` holding [D, dD/dlog a].
+    """
+    return _growth_diffeqsolve(
+        log_a_eval,
+        params,
+        species,
+        stepsize_controller=diffrax.PIDController(rtol=1e-6, atol=1e-8),
+        dt0=0.01,  # Larger initial step
+        adjoint=diffrax.RecursiveCheckpointAdjoint(),
+        max_steps=10000,  # Increased from default
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(2,))
+def _growth_solve(log_a_eval, params, species):
+    """
+    Growth ODE solution [D, dD/dlog a] at ``log_a_eval``, with a stable derivative.
+
+    The primal is the adaptive Tsit5 solve. Derivatives with respect to
+    ``params`` are redirected onto a uniform mesh by the custom JVP rule below;
+    see :data:`_GROWTH_DERIVATIVE_STEPS` for why the adaptive mesh cannot be
+    used for them.
+
+    Returns:
+        Array of shape ``(len(log_a_eval), 2)`` holding [D, dD/dlog a].
+    """
+    return _growth_adaptive_solve(log_a_eval, params, species)
+
+
+@_growth_solve.defjvp
+def _growth_solve_jvp(species, primals, tangents):
+    """
+    Tangents for :func:`_growth_solve`, taken on a mesh that resolves them.
+
+    A custom JVP (rather than a custom VJP) keeps the wrapper differentiable in
+    both directions: JAX obtains the VJP by transposing this rule, so
+    ``jax.grad`` and ``jax.jvp`` both compose through it.
+    """
+    log_a_eval, params = primals
+    d_log_a_eval, d_params = tangents
+
+    # Evaluation-point tangents differentiate only the dense interpolation, not
+    # the mesh, so the adaptive primal supplies them unchanged.
+    primal_out, eval_tangent = jax.jvp(
+        lambda points: _growth_adaptive_solve(points, params, species),
+        (log_a_eval,),
+        (d_log_a_eval,),
+    )
+
+    # Parameter tangents need the uniform mesh. DirectAdjoint is the only
+    # diffrax adjoint that is both forward-mode differentiable and
+    # transposable, which is what lets JAX derive the VJP from this rule.
+    _, param_tangent = jax.jvp(
+        lambda p: _growth_diffeqsolve(
+            log_a_eval,
+            p,
+            species,
+            stepsize_controller=diffrax.ConstantStepSize(),
+            dt0=(_GROWTH_LOG_A_MAX - _GROWTH_LOG_A_MIN) / _GROWTH_DERIVATIVE_STEPS,
+            adjoint=diffrax.DirectAdjoint(),
+            max_steps=_GROWTH_DERIVATIVE_STEPS + 1,
+        ),
+        (params,),
+        (d_params,),
+    )
+
+    return primal_out, eval_tangent + param_tangent
+
+
 def growth_solver(
     a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False, species="cb"
 ):
@@ -1318,6 +1457,13 @@ def growth_solver(
     of order $f_\\nu = \\Omega_\\nu / \\Omega_m$ relative to a full multi-fluid
     (e.g. Boltzmann-code) growth calculation.
 
+    The ODE is integrated adaptively, but differentiated on a uniform log(a)
+    mesh (:data:`_GROWTH_DERIVATIVE_STEPS`), because the adaptive mesh is sized
+    by the local error of D alone and does not resolve the parameter
+    sensitivities. Derivatives therefore approximate those of the converged
+    growth factor rather than those of the adaptive solve itself; the two
+    differ by ~1% in $m_\\nu$. Both AD modes are supported.
+
     Returns:
         Growth factor D(a) or tuple (D, dD/dloga) if return_both=True.
         Returns NaN for invalid inputs instead of crashing.
@@ -1338,46 +1484,11 @@ def growth_solver(
     Ωcb0 = jnp.maximum(Ωcb0, 1e-6)  # Ensure positive matter density
     h = jnp.maximum(h, 1e-6)  # Ensure positive Hubble parameter
 
-    # Initial conditions following Effort.jl exactly
-    amin = 1.0 / 139.0  # Deep matter domination
-    u0 = jnp.array([amin, amin])  # [D(amin), dD/d(log a)(amin)]
-
-    # Integration range in log(a) - more conservative for stability
-    log_a_min = jnp.log(jnp.maximum(amin, 1e-4))  # Don't go too early
-    log_a_max = jnp.log(1.01)  # Slightly past present day for normalization
-
-    # Define ODE system. `species` is a static Python string, so it is closed
-    # over here rather than threaded through `args` (which diffrax treats as
-    # a pytree of traced values).
-    def odefunc(log_a, u, args):
-        return growth_ode_system(log_a, u, *args, species=species)
+    log_a_min = _GROWTH_LOG_A_MIN
+    log_a_max = _GROWTH_LOG_A_MAX
 
     # Integration arguments
     args = (Ωcb0, h, mν, w0, wa, Ωk0)
-
-    # Set up ODE problem with better stability
-    term = diffrax.ODETerm(odefunc)
-    solver = diffrax.Tsit5()  # Same as Effort.jl
-
-    # More robust step size controller
-    stepsize_controller = diffrax.PIDController(rtol=1e-6, atol=1e-8)
-
-    # Dense output for interpolation at requested points
-    saveat = diffrax.SaveAt(dense=True)
-
-    # Solve ODE with increased max steps
-    solution = diffrax.diffeqsolve(
-        terms=term,
-        solver=solver,
-        t0=log_a_min,
-        t1=log_a_max,
-        dt0=0.01,  # Larger initial step
-        y0=u0,
-        args=args,
-        saveat=saveat,
-        stepsize_controller=stepsize_controller,
-        max_steps=10000,  # Increased from default
-    )
 
     # No normalization - return raw ODE solution to match Effort.jl
     # (Effort.jl does not normalize D(z) to D(z=0) = 1)
@@ -1386,12 +1497,22 @@ def growth_solver(
     a_span = jnp.asarray(a_span)
     log_a_span = jnp.log(a_span)
 
+    # One solve serves every evaluation point: the two range endpoints used by
+    # the extrapolation branches, followed by the requested points.
+    sampled = _growth_solve(
+        jnp.concatenate(
+            [jnp.stack([log_a_min, log_a_max]), jnp.atleast_1d(log_a_span)]
+        ),
+        args,
+        species,
+    )
+    sol_min = sampled[0]
+    sol_max = sampled[1]
+    sol_span = sampled[2:]
+
     # Handle both scalar and array inputs
     if jnp.isscalar(a_span) or a_span.ndim == 0:
-        # Use JAX-compatible conditional logic
-        sol_min = solution.evaluate(log_a_min)
-        sol_max = solution.evaluate(log_a_max)
-        sol_normal = solution.evaluate(log_a_span)
+        sol_normal = sol_span[0]
 
         # Early times: D ∝ a in matter domination
         early_D = a_span / jnp.exp(log_a_min) * sol_min[0]
@@ -1434,14 +1555,10 @@ def growth_solver(
             return D_result
     else:
 
-        def evaluate_single(log_a_val):
+        def evaluate_single(log_a_val, sol_normal):
             # For values outside integration range, extrapolate
             early_condition = log_a_val < log_a_min
             late_condition = log_a_val > log_a_max
-
-            sol_min = solution.evaluate(log_a_min)
-            sol_max = solution.evaluate(log_a_max)
-            sol_normal = solution.evaluate(log_a_val)
 
             # Early times: D ∝ a in matter domination
             early_D = jnp.exp(log_a_val) / jnp.exp(log_a_min) * sol_min[0]
@@ -1471,7 +1588,7 @@ def growth_solver(
                 return D_result
 
         if return_both:
-            results = jax.vmap(evaluate_single)(log_a_span)
+            results = jax.vmap(evaluate_single)(log_a_span, sol_span)
             D_array = results[0]
             dD_array = results[1]
             # Handle potential numerical issues
@@ -1479,7 +1596,7 @@ def growth_solver(
             dD_array = jnp.where(jnp.isfinite(dD_array), dD_array, 0.0)
             return (D_array, dD_array)
         else:
-            result = jax.vmap(evaluate_single)(log_a_span)
+            result = jax.vmap(evaluate_single)(log_a_span, sol_span)
             # Handle potential numerical issues
             result = jnp.where(jnp.isfinite(result), result, 0.0)
             return result
