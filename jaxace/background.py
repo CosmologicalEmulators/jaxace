@@ -283,8 +283,8 @@ class w0waCDMCosmology:
         Linear growth factor D(z).
 
         ``species``: ``"cb"`` (default, cold + baryon source, Effort.jl
-        convention) or ``"m"`` (total matter source including the true
-        massive-neutrino density). See :func:`growth_solver`.
+        convention) or ``"m"`` (mass-induced neutrino source approximation).
+        Neither is full scale-dependent perturbation growth. See :func:`growth_solver`.
         """
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
         Ωk0 = self.omega_k / self.h**2
@@ -876,7 +876,10 @@ def Ωm_a_total(
     N_eff = 3.044  # Effective number of neutrino species
 
     E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
-    Ων_massive_a = ΩνE2(a, Ωγ0, mν, N_eff) - ΩνE2(a, Ωγ0, 0.0, N_eff)
+    # Subtract the massless reference for every supplied species, not just one.
+    Ων_massive_a = ΩνE2(a, Ωγ0, mν, N_eff) - ΩνE2(
+        a, Ωγ0, jnp.zeros_like(jnp.asarray(mν)), N_eff
+    )
 
     return (Ωcb0 * jnp.power(a, -3.0) + Ων_massive_a) / jnp.power(E_a_val, 2.0)
 
@@ -1246,38 +1249,38 @@ def dA_z(
     return dM / (1.0 + z)
 
 
-@partial(jax.jit, static_argnames=("species",))
-def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb"):
-    """
-    Right-hand side of the linear growth ODE, evaluated in log(a).
+_GROWTH_SOURCES = {"cb": Ωm_a, "m": Ωm_a_total}
 
-    ``species`` selects the density parameter that sources growth (see
-    :func:`growth_solver` for the two supported prescriptions). It must be a
-    static (non-traced) string, since it is used for Python-level branching.
-    """
-    a = jnp.exp(log_a)
-    D, dD_dloga = u
 
-    # Get cosmological functions at this scale factor
-    dlogE_dloga = dlogEdloga(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
-
-    if species == "cb":
-        Omega_source_a = Ωm_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
-    elif species == "m":
-        Omega_source_a = Ωm_a_total(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
-    else:
+def _growth_source(species):
+    """Resolve the static model choice before constructing the ODE term."""
+    try:
+        return _GROWTH_SOURCES[species]
+    except KeyError:
         raise ValueError(
             f"Unknown growth species prescription {species!r}; expected 'cb' or 'm'."
-        )
+        ) from None
 
-    # ODE system following Effort.jl exactly:
-    # du[1] = dD/d(log a)
-    # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Omega_source_a * D
+
+@partial(jax.jit, static_argnames=("source_fn",))
+def _growth_rhs(log_a, u, params, source_fn):
+    """Numerical RHS specialized on a stable module-level source callable."""
+    a = jnp.exp(log_a)
+    D, dD_dloga = u
+    dlogE_dloga = dlogEdloga(a, *params)
+    Omega_source_a = source_fn(a, *params)
     du = jnp.array(
         [dD_dloga, -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_source_a * D]
     )
-
     return du
+
+
+@partial(jax.jit, static_argnames=("species",))
+def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb"):
+    """Compatibility entry point; the species string is resolved at trace time."""
+    return _growth_rhs(
+        log_a, u, (Ωcb0, h, mν, w0, wa, Ωk0), _growth_source(species)
+    )
 
 
 def growth_solver(
@@ -1303,14 +1306,11 @@ def growth_solver(
       Effort.jl convention and is the correct source for the growth of the
       cold+baryon field, e.g. for galaxy redshift-space distortions where
       only cb clusters on small scales.
-    - ``"m"``: $\\Omega_{\\mathrm{source}}(a) = \\Omega_{\\mathrm{cb}}(a) +
-      \\Omega_{\\nu}(a)$ (:func:`Ωm_a_total`), using the true massive-neutrino
-      density $\\rho_\\nu(a)$. This is appropriate for scaling the *total*
-      matter power spectrum $P_{\\mathrm{mm}}$, e.g. the high-z tails that
-      source CMB lensing. Because the actual $\\rho_\\nu(a)$ enters, the
-      neutrino contribution to the source automatically dilutes like
-      radiation above the relativistic-to-non-relativistic transition
-      $z_{\\mathrm{nr}} \\approx 110\\,(\\Sigma m_\\nu / 0.06\\,\\mathrm{eV})$.
+    - ``"m"``: adds the mass-induced background density
+      ``rho_nu(masses) - rho_nu(zeros_like(masses))`` (:func:`Ωm_a_total`).
+      This is a scale-independent source approximation, not a Boltzmann
+      prediction of total-matter growth. It is not ``rho_nu - 3*p_nu`` and
+      does not model scale-dependent neutrino clustering or free-streaming.
 
     Strictly, neither prescription is exact once neutrinos free-stream:
     a free-streaming species does not obey the same second-order growth
@@ -1346,11 +1346,10 @@ def growth_solver(
     log_a_min = jnp.log(jnp.maximum(amin, 1e-4))  # Don't go too early
     log_a_max = jnp.log(1.01)  # Slightly past present day for normalization
 
-    # Define ODE system. `species` is a static Python string, so it is closed
-    # over here rather than threaded through `args` (which diffrax treats as
-    # a pytree of traced values).
+    # Resolve once; only numerical cosmological parameters enter Diffrax args.
+    source_fn = _growth_source(species)
     def odefunc(log_a, u, args):
-        return growth_ode_system(log_a, u, *args, species=species)
+        return _growth_rhs(log_a, u, args, source_fn)
 
     # Integration arguments
     args = (Ωcb0, h, mν, w0, wa, Ωk0)
@@ -1498,10 +1497,9 @@ def D_z(
 
     ``species`` selects the growth-equation source term, see
     :func:`growth_solver`: ``"cb"`` (default) sources growth with the cold +
-    baryon density only (Effort.jl convention, correct for galaxy RSD);
-    ``"m"`` sources growth with total matter including the true massive
-    neutrino density $\\rho_\\nu(a)$ (appropriate for scaling $P_{\\mathrm{mm}}$,
-    e.g. CMB-lensing high-z tails). The default reproduces the exact
+    baryon density only (the smooth-neutrino approximation);
+    ``"m"`` adds the mass-induced neutrino source approximation. Neither
+    is a full scale-dependent growth prediction. The default reproduces the exact
     pre-existing behaviour of this function.
 
     Returns:
