@@ -70,6 +70,53 @@ Available artifact-backed emulators can be listed with:
 jaxace.list_emulators()
 ```
 
+## Three-mass backgrounds, Neff, and growth sources
+
+The background APIs accept three **individual physical masses in eV**, including
+zeros, and a differentiable `Neff`. This extends the background calculations; it
+does not add inputs to the existing trained neural-network artifacts.
+
+```python
+cosmo = jaxace.w0waCDMCosmology(
+    ln10As=3.044, ns=0.965, h=0.67, omega_b=0.0224, omega_c=0.12,
+    m_nu=(0.0, 0.0086, 0.0502), Neff=4.0,
+    neutrino_prescription="temperature",
+)
+D, f = cosmo.D_f_z(z, species="cb", reltol=1e-10, abstol=1e-12)
+```
+
+- `"temperature"`: scale all three temperatures from the CLASS anchor
+  `Tnu/Tgamma=0.71611` by `(Neff/3.044)**0.25`, and scale the reference massless
+  remainder by `Neff/3.044`. The intended Neff range `[2,5]` is supported.
+- `"radiation"`: keep the three temperatures fixed and vary only massless
+  radiation. Requires `Neff >= 3*(0.71611/(4/11)**(1/3))**4`, approximately
+  `3.0396`. Neither the photon temperature (2.7255 K) nor the masses are rescaled.
+
+These are explicit thermal prescriptions, **not CAMB's default hybrid rule**.
+The scalar mass path preserves historical results at Neff=3.044; variable Neff
+requires three masses. The previous naive vector sum is replaced by a consistent
+three-species density, including the massless remainder and photon density at
+the same temperature. Old vector-path outputs can therefore change.
+
+Invalid numerical domains return NaN under eager/JIT execution; they are not
+silently clamped into another model. Wrong vector lengths or unknown static
+prescriptions raise `ValueError`. `Neff` and masses remain traced numerical
+inputs; the prescription and growth species are static model choices.
+
+`species="cb"` preserves the cold+baryon source with smooth neutrinos.
+`species="m"` adds `rho_nu(masses)-rho_nu(zeros_like(masses))`, at the same
+temperature and Neff. It is a **scale-independent approximation**, not
+`rho_nu-3*p_nu` or a prediction of scale-dependent total-matter growth.
+The source callable is selected once before the ODE, not by a dynamic branch in
+its RHS. Both modes retain `D(a_i)=a_i` at `a_i=1/139`, not `D(0)=1`.
+Historical solver defaults are `reltol=1e-6`, `abstol=1e-8`; use tighter settings
+and check convergence for small growth derivatives.
+
+Saved CLASS and Julia primal/gradient references are in
+`tests/data/neutrino_neff/`. The vector kernel uses 128-point fixed
+Fermi–Dirac momentum quadrature; the scalar interpolation path is unchanged.
+The CLASS growth fixture tests its background ODE, not its perturbation growth.
+
 ## Postprocessing API
 
 `jaxace` 0.6.0 matches the current `AbstractCosmologicalEmulators.jl` generic

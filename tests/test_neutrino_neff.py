@@ -1,0 +1,147 @@
+"""Three-mass/Neff port: saved CLASS and Julia references, JIT and AD."""
+from pathlib import Path
+import itertools
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+import pytest
+
+from jaxace import background as bg
+from jaxace import _neutrinos as nu
+
+DATA = Path(__file__).parent / "data/neutrino_neff"
+H = .67
+OCB = .1424/H**2
+
+
+def _cross_loss(x, policy, species):
+    return bg.D_z(jnp.array([0.,.5,1.,3.,5.]),OCB,H,mν=x[:3],Neff=x[3],
+                  neutrino_prescription=policy,species=species,reltol=1e-10,abstol=1e-12).sum()
+
+
+_cross_gradient = jax.jit(jax.grad(_cross_loss),static_argnames=("policy","species"))
+
+
+@pytest.mark.parametrize("policy", ["temperature","radiation"])
+@pytest.mark.parametrize("species", ["cb","m"])
+def test_julia_growth_and_gradient_reference(policy,species):
+    groups={}
+    for line in (DATA/"julia_growth_reference.txt").read_text().splitlines():
+        if line.startswith("#"):
+            continue
+        p,s,*values=line.split()
+        if (p,s)!=(policy,species):
+            continue
+        row=np.array(values,dtype=float)
+        groups.setdefault(tuple(row[:4]),[]).append(row)
+    for (n,m1,m2,m3),rows in groups.items():
+        rows=np.array(rows); z=jnp.asarray(rows[:,4]); x=jnp.array([m1,m2,m3,n])
+        kw=dict(mν=x[:3],Neff=n,neutrino_prescription=policy)
+        d,f=bg.D_f_z(z,OCB,H,**kw,species=species,reltol=1e-10,abstol=1e-12)
+        np.testing.assert_allclose(d,rows[:,7],rtol=2e-6)
+        np.testing.assert_allclose(f,rows[:,8],rtol=2e-6)
+        np.testing.assert_allclose(_cross_gradient(x,policy,species),rows[0,9:],rtol=2e-5,atol=1e-6)
+
+
+@pytest.mark.parametrize("policy", ["temperature", "radiation"])
+def test_saved_class_references(policy):
+    cache = {}
+    for line in (DATA/"class_neff_reference.txt").read_text().splitlines():
+        if line.startswith("#"):
+            continue
+        name, preset, *numbers = line.split()
+        if preset != policy:
+            continue
+        neff,m1,m2,m3,w0,wa,z,hubble,chi,dref,fref = map(float,numbers)
+        kw = dict(mν=jnp.array([m1,m2,m3]),Neff=neff,neutrino_prescription=policy,w0=w0,wa=wa)
+        np.testing.assert_allclose(bg.E_z(z,OCB,H,**kw)*100*H,hubble,rtol=2e-7)
+        if z<=5:
+            np.testing.assert_allclose(bg.r_z(z,OCB,H,**kw),chi,rtol=2e-8,atol=1e-9)
+            key=(name,neff)
+            if key not in cache:
+                cache[key]=bg.D_f_z(jnp.array([0.,.5,1.,3.,5.]),OCB,H,**kw)
+            d,f=cache[key]; i=[0.,.5,1.,3.,5.].index(z)
+            np.testing.assert_allclose(d[i]/d[0],dref,rtol=5e-5)
+            np.testing.assert_allclose(f[i],fref,rtol=1e-4)
+
+
+def test_saved_julia_default_reference():
+    for row in np.loadtxt(DATA/"pre_neff_baseline.txt"):
+        m1,m2,m3,z,e,r,d,f=row
+        kw=dict(mν=jnp.array([m1,m2,m3]))
+        np.testing.assert_allclose(bg.E_z(z,OCB,H,**kw),e,rtol=2e-7)
+        np.testing.assert_allclose(bg.r_z(z,OCB,H,**kw),r,rtol=2e-8,atol=1e-9)
+        ds,fs=bg.D_f_z(jnp.array([0.,z]),OCB,H,**kw)
+        np.testing.assert_allclose(ds[1]/ds[0],d,rtol=5e-5)
+        np.testing.assert_allclose(fs[1],f,rtol=1e-4)
+
+
+@pytest.mark.parametrize("neff", [2.,3.044,5.])
+def test_massless_density_and_closure(neff):
+    m=jnp.zeros(3); a=jnp.array([.001,.01,.2,1.])
+    omega=nu.OMEGA_GAMMA_H2/H**2
+    ratio=bg.ΩνE2(a,omega,m,neff)/(omega/a**4)
+    np.testing.assert_allclose(ratio,neff*7/8*(4/11)**(4/3),rtol=1e-12)
+    np.testing.assert_allclose(bg.E_a(1.,OCB,H,mν=jnp.array([.01,.02,.03]),Neff=neff),1.,atol=1e-14)
+    np.testing.assert_allclose(bg.Ωm_a_total(a,OCB,H,mν=m,Neff=neff),
+                               bg.Ωm_a(a,OCB,H,mν=m,Neff=neff),rtol=1e-14)
+
+
+def test_species_axis_permutations_and_vmap():
+    a=jnp.array([.05,.2,.4,.8,1.])
+    m=jnp.array([0.,.0086,.0502])
+    ref=bg.E_a(a,OCB,H,mν=m,Neff=5.)
+    for perm in itertools.permutations([0,1,2]):
+        np.testing.assert_allclose(bg.E_a(a,OCB,H,mν=m[jnp.array(perm)],Neff=5.),ref,rtol=1e-14)
+    np.testing.assert_allclose(jax.vmap(lambda ai: bg.E_a(ai,OCB,H,mν=m,Neff=5.))(a),ref,rtol=1e-14)
+    jac=jax.jacrev(lambda mass: bg.E_a(a,OCB,H,mν=mass,Neff=5.))(m)
+    assert jac.shape==(5,3) and np.isfinite(jac).all()
+    np.testing.assert_allclose(jac[:,0],0.,atol=1e-14)
+
+
+@pytest.mark.parametrize("policy", ["temperature","radiation"])
+def test_all_object_wrappers(policy):
+    cosmo=bg.w0waCDMCosmology(3.,.965,H,.0224,.12,m_nu=(.01,.02,.03),Neff=5.,neutrino_prescription=policy)
+    z=jnp.array([1.5,.2,3.,.7])
+    kw=dict(mν=cosmo.m_nu,Neff=5.,neutrino_prescription=policy)
+    for name in ("E_z","r_z","dM_z","dA_z","dL_z","ρc_z","r̃_z","d̃M_z","d̃A_z"):
+        np.testing.assert_allclose(getattr(cosmo,name)(z),getattr(bg,name)(z,OCB,H,**kw),rtol=1e-12)
+    for species in ("cb","m"):
+        for name in ("D_z","f_z","D_f_z"):
+            np.testing.assert_allclose(getattr(cosmo,name)(z,species=species),
+                getattr(bg,name)(z,OCB,H,**kw,species=species),rtol=1e-12)
+
+
+@pytest.mark.parametrize("policy", ["temperature","radiation"])
+@pytest.mark.parametrize("species", ["cb","m"])
+def test_live_neff_mass_gradients(policy,species):
+    z=jnp.array([.2,1.,3.]); x=jnp.array([.01,.02,.03,3.5])
+    def loss(x):
+        return bg.D_z(z,OCB,H,mν=x[:3],Neff=x[3],neutrino_prescription=policy,
+                      species=species,reltol=1e-10,abstol=1e-12).sum()
+    gradient=jax.jit(jax.grad(loss))(x)
+    assert np.isfinite(gradient).all()
+    # Diffrax's default checkpointed reverse adjoint does not support jvp.
+    # Compare against finite differences of the complete public solve instead.
+    for i in range(4):
+        step=jnp.zeros(4).at[i].set(1e-4)
+        finite=(loss(x+step)-loss(x-step))/2e-4
+        np.testing.assert_allclose(gradient[i],finite,rtol=2e-4,atol=2e-8)
+    background=lambda v: bg.E_z(z,OCB,H,mν=v[:3],Neff=v[3],neutrino_prescription=policy).sum()
+    np.testing.assert_allclose(jax.jacfwd(background)(x),jax.grad(background)(x),rtol=1e-10,atol=1e-12)
+
+
+def test_invalid_domains_are_not_clamped_into_valid_models():
+    for n in (0.,-1.,np.nan,np.inf):
+        assert np.isnan(bg.E_z(1.,OCB,H,mν=jnp.zeros(3),Neff=n))
+    assert np.isnan(bg.E_z(1.,OCB,H,mν=.06,Neff=5.))
+    assert np.isnan(bg.r_z(0.,OCB,H,mν=jnp.zeros(3),Neff=-1.))
+    assert np.isnan(bg.E_z(1.,OCB,H,mν=jnp.zeros(3),Neff=2.,neutrino_prescription="radiation"))
+    for m in ([0.,0.,-.1],[0.,0.,np.nan]):
+        assert np.isnan(bg.E_z(1.,OCB,H,mν=jnp.array(m)))
+    assert np.isnan(bg.D_z(1.,OCB,H,mν=jnp.zeros(3),Neff=2.,neutrino_prescription="radiation"))
+    with pytest.raises(ValueError,match="exactly three"):
+        bg.E_z(1.,OCB,H,mν=jnp.zeros(2))
+    with pytest.raises(ValueError,match="neutrino_prescription"):
+        bg.E_z(1.,OCB,H,mν=jnp.zeros(3),neutrino_prescription="typo")
