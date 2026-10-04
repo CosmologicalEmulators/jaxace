@@ -11,7 +11,7 @@ import jax
 import jax.numpy as jnp
 from jaxace.background import (
     w0waCDMCosmology,
-    a_z, E_a, E_z, dlogEdloga, Ωm_a,
+    a_z, E_a, E_z, dlogEdloga, Ωm_a, Ωm_a_total,
     D_z, f_z, D_f_z,
     r̃_z, d̃M_z, d̃A_z,
     r_z, dA_z, dL_z, dM_z,
@@ -1122,6 +1122,187 @@ class TestTildeFunctions:
         # Check monotonicity (distances should increase with z for reasonable cosmologies)
         assert np.all(np.diff(r_tilde) > 0)
         assert np.all(np.diff(dM_tilde) > 0)
+
+
+class TestGrowthSpeciesPrescriptions:
+    """
+    Test the "cb" vs "m" growth-source prescriptions added to growth_solver /
+    D_z / f_z / D_f_z (and the w0waCDMCosmology wrappers).
+
+    - species="cb" (default): sources growth with Ωm_a, the cold + baryon
+      density only (the pre-existing behaviour; the Effort.jl convention).
+    - species="m": sources growth with Ωm_a_total = Ω_cb(a) + Ω_ν,massive(a),
+      where Ω_ν,massive(a) is built from the package's actual
+      Fermi-Dirac-integral neutrino density ΩνE2(a) (the same function used
+      in E_a/dlogEdloga), *minus* its massless (mν=0) baseline:
+      Ω_ν,massive(a) ∝ ΩνE2(a; mν) - ΩνE2(a; 0). That subtraction is required
+      because ΩνE2(a; mν=0) is *not* zero: with N_eff massless neutrinos it
+      returns the nonzero relativistic neutrino radiation density (set by
+      the neutrino temperature, exactly like the photon term), which is its
+      own separate radiation-like term in E(a)^2 and is not matter at any
+      epoch. Subtracting it isolates the density genuinely attributable to
+      nonzero neutrino mass, so it vanishes exactly at mν=0.
+    """
+
+    @pytest.fixture
+    def varied_cosmologies(self):
+        """Cosmologies spanning w0, wa != (-1, 0) and Ωk0 != 0."""
+        return [
+            dict(Ωcb0=0.30, h=0.67, w0=-1.0, wa=0.0, Ωk0=0.0),
+            dict(Ωcb0=0.31, h=0.68, w0=-0.9, wa=0.2, Ωk0=0.0),
+            dict(Ωcb0=0.28, h=0.70, w0=-1.1, wa=-0.3, Ωk0=0.02),
+            dict(Ωcb0=0.32, h=0.65, w0=-0.8, wa=0.4, Ωk0=-0.015),
+        ]
+
+    def test_species_default_matches_unspecified_call(self):
+        """The species keyword defaults to "cb" and must reproduce the exact
+        pre-existing call signature/behaviour when omitted."""
+        Ωcb0, h = 0.3, 0.67
+        z = jnp.array([0.0, 0.5, 1.0, 2.0])
+
+        assert jnp.array_equal(D_z(z, Ωcb0, h), D_z(z, Ωcb0, h, species="cb"))
+        assert jnp.array_equal(f_z(z, Ωcb0, h), f_z(z, Ωcb0, h, species="cb"))
+
+        D1, f1 = D_f_z(z, Ωcb0, h)
+        D2, f2 = D_f_z(z, Ωcb0, h, species="cb")
+        assert jnp.array_equal(D1, D2)
+        assert jnp.array_equal(f1, f2)
+
+    def test_omega_m_a_total_matches_omega_m_a_at_zero_neutrino_mass(self):
+        """Ωm_a_total's neutrino term is ΩνE2(a; 0) - ΩνE2(a; 0) = 0
+        identically at every scale factor when mν=0, so it must reduce
+        exactly to Ωm_a (cb-only)."""
+        Ωcb0, h = 0.3, 0.67
+        for a in [1.0, 0.5, 0.1, 1.0 / 139.0]:
+            assert np.isclose(
+                Ωm_a_total(a, Ωcb0, h, mν=0.0), Ωm_a(a, Ωcb0, h), atol=1e-12
+            )
+
+    def test_species_m_degenerates_with_cb_at_zero_neutrino_mass(
+        self, varied_cosmologies
+    ):
+        """With Σmν=0 the "m" source term is algebraically identical to the
+        "cb" source term (see class docstring), so D_z/f_z with species="m"
+        must match species="cb" to solver tolerance, across cosmologies
+        including w0/wa != (-1, 0) and Ωk0 != 0."""
+        z = jnp.array([0.0, 0.5, 1.0, 2.0, 5.0])
+
+        for c in varied_cosmologies:
+            kwargs = dict(mν=0.0, w0=c["w0"], wa=c["wa"], Ωk0=c["Ωk0"])
+            D_cb = D_z(z, c["Ωcb0"], c["h"], species="cb", **kwargs)
+            D_m = D_z(z, c["Ωcb0"], c["h"], species="m", **kwargs)
+            assert np.allclose(D_cb, D_m, atol=1e-9), c
+
+            f_cb = f_z(z, c["Ωcb0"], c["h"], species="cb", **kwargs)
+            f_m = f_z(z, c["Ωcb0"], c["h"], species="m", **kwargs)
+            assert np.allclose(f_cb, f_m, atol=1e-9), c
+
+    def test_species_m_source_direction_and_magnitude(self):
+        """
+        At fixed Ωcb0/h, nonzero neutrino mass strictly increases the "m"
+        source term relative to "cb" (Ωm_a_total >= Ωm_a, since the
+        mass-induced excess Ω_ν,massive(a) >= 0 always). Integrating the
+        growth ODE with a larger source term accumulates *more* growth at
+        every scale factor: the unnormalized D_m(a) > D_cb(a) for all
+        a > a_min ("more source -> more growth accumulated").
+
+        This extra source acts continuously from a_min upward, so its
+        multiplicative effect on D keeps compounding with each e-fold: the
+        relative boost D_m(a)/D_cb(a) is *largest* at a=1 (today, after the
+        most e-folds of extra source) and smaller at earlier times/higher z.
+        Consequently the *normalized* ratio D(z)/D(z=0) -- which divides by
+        the more strongly boosted present-day value -- ends up *smaller* for
+        species="m" than for species="cb" at every z > 0:
+
+            D_m(z)/D_m(0) < D_cb(z)/D_cb(0)  for z > 0.
+
+        (Verified numerically before writing this test: the unnormalized
+        D_m(z) is larger than D_cb(z) at every z, consistent with "more
+        source -> more accumulated growth"; only the *normalized* ratio
+        flips sign, because the boost compounds most by z=0.)
+        """
+        Ωcb0, h = 0.3, 0.67
+        mν = 0.06
+        z = jnp.array([0.5, 1.0, 2.0, 5.0, 10.0])
+
+        D_cb = D_z(z, Ωcb0, h, mν=mν, species="cb")
+        D_m = D_z(z, Ωcb0, h, mν=mν, species="m")
+        D_cb0 = D_z(0.0, Ωcb0, h, mν=mν, species="cb")
+        D_m0 = D_z(0.0, Ωcb0, h, mν=mν, species="m")
+
+        # Unnormalized growth factor is larger for "m" at every z tested:
+        # more source accumulates more growth.
+        assert jnp.all(D_m > D_cb)
+
+        ratio_cb = D_cb / D_cb0
+        ratio_m = D_m / D_m0
+        diff = ratio_m - ratio_cb
+
+        # Nonzero, with the derived sign (negative), at every z tested.
+        assert jnp.all(diff < 0.0)
+
+        # O(f_nu): fractional size relative to the cb ratio, between 1e-4
+        # and 1e-2 over z in [0, 10].
+        frac = jnp.abs(diff) / ratio_cb
+        assert jnp.all(frac > 1e-4)
+        assert jnp.all(frac < 1e-2)
+
+    def test_species_m_jit_and_differentiable(self):
+        """species="m" must be jit-compilable and differentiable w.r.t. mν
+        and h, mirroring TestJAXFeatures.test_jit_compilation/test_gradients
+        and the AD-vs-finite-difference checks in
+        TestBackgroundADFiniteDifferences."""
+        Ωcb0 = 0.3
+
+        @jax.jit
+        def D_species_m(mν_val, h_val):
+            return D_z(1.0, Ωcb0, h_val, mν=mν_val, species="m")
+
+        # Repeated calls of the jitted function agree (and compile).
+        D1 = D_species_m(0.3, 0.67)
+        D2 = D_species_m(0.3, 0.67)
+        assert np.isclose(D1, D2)
+        assert np.isfinite(D1)
+
+        grad_mν = jax.grad(D_species_m, argnums=0)(0.3, 0.67)
+        grad_h = jax.grad(D_species_m, argnums=1)(0.3, 0.67)
+        assert np.isfinite(grad_mν)
+        assert np.isfinite(grad_h)
+
+        # dD/dh matches a central finite difference tightly: h enters
+        # growth_solver's ODE parameters smoothly, and reverse-mode AD
+        # through diffrax's adjoint reproduces it to high precision.
+        eps = 1e-6
+        fd_h = (D_species_m(0.3, 0.67 + eps) - D_species_m(0.3, 0.67 - eps)) / (
+            2 * eps
+        )
+        assert np.isclose(grad_h, fd_h, rtol=1e-3)
+
+        # dD/dmν is deliberately NOT compared to a finite difference here.
+        # Investigated directly: the converged central finite difference is
+        # stable across eps in [1e-8, 1e-3], but jax.grad disagrees with it
+        # by a fixed relative offset that does not shrink as eps -> 0 (i.e.
+        # it is a real bias in the reverse-mode adjoint through diffrax's
+        # adaptive-step solve w.r.t. an ODE *parameter*, not FD noise). This
+        # bias already exists on the pre-existing species="cb" path (~0.2-
+        # 0.3% offset at mν=0.06,0.3) and is not introduced by species="m"
+        # (~0.02-1.1% offset, depending on mν); diffrax's diffeqsolve also
+        # has no custom_jvp (jax.jvp against mν raises "can't apply
+        # forward-mode autodiff to a custom_vjp function"), so there is no
+        # independent AD cross-check available either. This is presumably
+        # why the repo's own TestBackgroundADFiniteDifferences regression
+        # test fixes mν=0.0 and only differentiates D_z/f_z w.r.t. z. We
+        # therefore only require the mν gradient to be finite here, matching
+        # TestJacobianComputation's precedent for ODE-threaded parameters.
+
+        # f_z with species="m" is also differentiable and finite.
+        def f_species_m(mν_val, h_val):
+            return f_z(1.0, Ωcb0, h_val, mν=mν_val, species="m")
+
+        grad_f_mν = jax.grad(f_species_m, argnums=0)(0.3, 0.67)
+        grad_f_h = jax.grad(f_species_m, argnums=1)(0.3, 0.67)
+        assert np.isfinite(grad_f_mν)
+        assert np.isfinite(grad_f_h)
 
 
 if __name__ == "__main__":
