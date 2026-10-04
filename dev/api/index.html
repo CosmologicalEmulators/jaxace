@@ -2308,8 +2308,9 @@ rescaled to D(z=0) = 1.</p>
 :func:<code>growth_solver</code>: <code>"cb"</code> (default) sources growth with the cold +
 baryon density only (the smooth-neutrino approximation);
 <code>"m"</code> adds the mass-induced neutrino source approximation. Neither
-is a full scale-dependent growth prediction. The default reproduces the exact
-pre-existing behaviour of this function.</p>
+is a full scale-dependent growth prediction. The default retains the
+historical cb-source equation, not bitwise outputs of older ODE solvers.
+Queries outside 1/139 &lt;= a &lt;= 1.01 return NaN.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -2358,8 +2359,8 @@ handles invalid parameters gracefully.</p>
 <div class="arithmatex">\[f(z) = \frac{\mathrm{d} \ln D}{\mathrm{d} \ln a}\]</div>
 <p>where D is the linear growth factor.</p>
 <p><code>species</code> selects the growth-equation source term used to compute D,
-see :func:<code>growth_solver</code>: <code>"cb"</code> (default, reproduces the exact
-pre-existing behaviour of this function) or <code>"m"</code>.</p>
+see :func:<code>growth_solver</code>: <code>"cb"</code> (historical default source) or <code>"m"</code>.
+Queries outside 1/139 &lt;= a &lt;= 1.01 return NaN.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -2405,8 +2406,8 @@ invalid parameters gracefully.</p>
 
         <p>Linear growth factor and growth rate (D(z), f(z)).</p>
 <p><code>species</code> selects the growth-equation source term, see
-:func:<code>growth_solver</code>: <code>"cb"</code> (default, reproduces the exact
-pre-existing behaviour of this function) or <code>"m"</code>.</p>
+:func:<code>growth_solver</code>: <code>"cb"</code> (historical default source) or <code>"m"</code>.
+Queries outside 1/139 &lt;= a &lt;= 1.01 return NaN.</p>
 
 
     </div>
@@ -3919,6 +3920,17 @@ Matches Julia's inv_maximin function.</p>
     </div>
 
 </div><h2 id="interpolation">Interpolation<a class="headerlink" href="#interpolation" title="Permanent link">&para;</a></h2>
+<p>Cubic B-splines require finite, strictly increasing source sites. This is
+checked for concrete inputs and is a precondition when the sites are traced.
+At either endpoint, query derivatives use the interior polynomial convention;
+<code>clamp</code> and <code>zero</code> have zero query derivatives strictly outside the interval.
+This is an explicit choice at the extension's boundary kink, not a claim of
+two-sided differentiability there.</p>
+<p>Construction uses a dense collocation solve (cubic time in the number of
+sites). Fixed-grid plans have a 64 MiB stored-operator limit; all B-spline
+paths additionally check a conservative 512 MiB dense-workspace estimate.
+These are allocation safeguards, not bounds on total compiler, AD or process
+memory. Large source grids require a different algorithm, not just fewer queries.</p>
 
 
 <div class="doc doc-object doc-function">
@@ -4444,6 +4456,11 @@ This structure acts as a valid JAX PyTree for JIT and grad.</p>
 
 
         <p>Prepared not-a-knot cubic B-spline with fixed values and sites.</p>
+<p>Sites must be finite and strictly increasing (checked eagerly; a
+precondition for traced sites). Endpoint query derivatives use the interior
+polynomial. Clamped/zero extensions have zero query derivatives strictly
+outside the interval; this explicitly selects a convention at their kinks.
+Dense construction/evaluation has a 512 MiB workspace-estimate limit.</p>
 
 
 
@@ -4729,6 +4746,10 @@ amortize construction.</p>
 
 
         <p>Dense fixed-grid B-spline plan for changing vector or matrix values.</p>
+<p>Requires finite strictly increasing sites and a one-dimensional query grid.
+The stored operator is limited to 64 MiB; dense construction also has the
+same 512 MiB workspace-estimate limit as CubicBSpline. Neither bound includes
+all compiler/AD/process memory. Construction uses a dense cubic-time solve.</p>
 
 
 
