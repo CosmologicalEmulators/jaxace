@@ -139,10 +139,11 @@ def test_production_shape_matches_saved_julia_reference():
 
 @pytest.mark.parametrize("policy", ["clamp", "zero"])
 @pytest.mark.parametrize("prepared", [False, True])
-def test_endpoint_query_derivatives_use_interior_polynomial(policy, prepared):
+@pytest.mark.parametrize("nonpolynomial", [False, True])
+def test_endpoint_query_derivatives_use_interior_polynomial(policy, prepared, nonpolynomial):
     from scipy.interpolate import make_interp_spline
     t = jnp.array([0., .2, .5, .9, 1.4, 2.])
-    u = t**3 + 2*t
+    u = jnp.exp(.3*t)*jnp.sin(2*t) if nonpolynomial else t**3 + 2*t
     oracle = make_interp_spline(np.asarray(t), np.asarray(u))
     fn = (CubicBSpline(u, t, extrapolation=policy) if prepared else
           lambda q: cubic_b_spline_interpolation(u, t, q, extrapolation=policy))

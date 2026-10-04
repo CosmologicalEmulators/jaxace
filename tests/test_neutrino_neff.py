@@ -54,6 +54,33 @@ def _cross_loss(x, policy, species):
                   neutrino_prescription=policy,species=species,reltol=1e-10,abstol=1e-12).sum()
 
 
+@pytest.mark.parametrize("policy", ["temperature", "radiation"])
+@pytest.mark.parametrize("species", ["cb", "m"])
+def test_masked_growth_models_preserve_shared_parameter_gradients(policy, species):
+    def single(x, mass, neff):
+        kw = dict(mν=mass,Neff=neff,neutrino_prescription=policy,species=species)
+        d,f = bg.D_f_z(.7,x[0],x[1],**kw)
+        return jnp.array([bg.D_z(.7,x[0],x[1],**kw),bg.f_z(.7,x[0],x[1],**kw),d,f])
+    def masked(x, bad_mass, bad_neff):
+        masses = jnp.stack([x[2:5],bad_mass])
+        ns = jnp.array([x[5],bad_neff])
+        values = jax.vmap(lambda m,n:single(x,m,n))(masses,ns)
+        return jnp.where(jnp.array([True,False])[:,None],values,0.).sum(axis=0)
+    derivative = jax.jacrev(masked,argnums=0)
+    compiled = jax.jit(derivative)
+    x = jnp.array([.31,.67,.01,.02,.03,3.5])
+    expected = jax.jacrev(lambda v:single(v,v[2:5],v[5]))(x)
+    invalids = [(x[2:5],-1. if policy=="temperature" else 2.),
+                (x[2:5],jnp.nan), (jnp.array([-.01,.02,.03]),3.5),
+                (jnp.array([jnp.nan,.02,.03]),3.5)]
+    for mass,neff in invalids:
+        assert np.all(np.isnan(single(x,mass,neff)))
+        for fn in (derivative,compiled):
+            actual = fn(x,mass,neff)
+            assert np.all(np.isfinite(actual))
+            np.testing.assert_allclose(actual,expected,rtol=1e-10,atol=1e-10)
+
+
 def test_invalid_thermal_model_is_not_overridden_by_infinite_redshift():
     assert np.isinf(bg.E_a(0., OCB, H, mν=jnp.zeros(3)))
     assert np.isnan(bg.E_a(0., OCB, H, mν=jnp.zeros(3), Neff=-1.))

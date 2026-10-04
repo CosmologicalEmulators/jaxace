@@ -62,6 +62,37 @@ def test_growth_domain_is_not_silently_extrapolated():
     np.testing.assert_allclose(f,1.,rtol=1e-13)
     d,f = D_f_z(1100.,.3,.67)
     assert np.isnan(d) and np.isnan(f)
+    lower_z = 1/1.01-1
+    for fn in (D_z, f_z, D_f_z):
+        assert np.all(np.isfinite(fn(lower_z,.3,.67)))
+        assert np.all(np.isnan(fn(1/1.010001-1,.3,.67)))
+
+
+@pytest.mark.parametrize("species", ["cb", "m"])
+def test_original_equation_reference_includes_rates_and_mass_sensitivities(species):
+    rows = np.loadtxt(Path(__file__).parent / "data/scalar_growth_original_reference.txt")
+    for mass in (.06,.3,.75,.1):
+        group = rows[(rows[:,0] == (species=="m")) & (rows[:,1] == mass)]
+        ocb,h,w0,wa,k = group[0,2:7]
+        z = jnp.asarray(group[:,7])
+        def predict(m):
+            d,f = D_f_z(z,ocb,h,mν=m,w0=w0,wa=wa,Ωk0=k,species=species,
+                        reltol=1e-12,abstol=1e-14)
+            return jnp.stack([d,f],axis=1)
+        np.testing.assert_allclose(predict(mass),group[:,8:10],rtol=2e-9,atol=2e-11)
+        np.testing.assert_allclose(jax.jit(jax.jacrev(predict))(mass),group[:,10:12],
+                                   rtol=5e-6,atol=2e-8)
+
+
+def test_independent_original_and_julia_flux_references_agree():
+    data = Path(__file__).parent / "data"
+    original = np.loadtxt(data/"scalar_growth_original_reference.txt")
+    julia = np.loadtxt(data/"scalar_growth_julia_reference.txt")
+    for species,mass,d,gradient in julia:
+        row = original[(original[:,0]==species) & (original[:,1]==mass)
+                       & (original[:,7]==1.)][0]
+        np.testing.assert_allclose(d,row[8],rtol=2e-10,atol=2e-12)
+        np.testing.assert_allclose(gradient,row[10],rtol=1e-7,atol=1e-8)
 
 
 @pytest.mark.parametrize("species", ["cb", "m"])

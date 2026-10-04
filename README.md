@@ -127,6 +127,15 @@ the **same frozen JAX polynomial model**, not Julia's different native tables.
 Finite differences at loose solver tolerances can differentiate integration
 error rather than the desired sensitivity.
 
+An additional NumPy/SciPy oracle solves the **original `(D,Dprime)` equation**,
+restarting DOP853 at every Akima knot and checking complex-step mass derivatives.
+Its immutable fixtures cover D, f and both sensitivities at six redshifts,
+including a second, phantom-dark-energy cosmology. See
+`tests/generate_original_growth_reference.py` and the
+[CI-stack convergence table](docs/scalar_growth_convergence.md) for errors over
+`reltol=1e-8` through `1e-13`. Tightening tolerance is not a guarantee of monotonic
+sensitivity convergence; use the absolute errors as well as relative errors.
+
 The legacy scalar model includes approximately one third of standard
 early-time neutrino radiation, not three physical species. Its historical
 Akima table ends at `y=1000` and extrapolates beyond that (roughly scalar mass

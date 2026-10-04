@@ -745,6 +745,9 @@ class TestComputedValuesNewParams:
             (2.0, 9.913202163273395e-01),
         ]
 
+        from pathlib import Path
+        reference = np.loadtxt(Path(__file__).parent / "data/scalar_growth_original_reference.txt")
+        converged = reference[(reference[:,0] == 0) & (reference[:,1] == .1)]
         for z, expected in test_cases:
             # These historical numbers are only accurate to ~1e-5: both old
             # and flux equations converge to f(2)=0.99131035, not 0.99132022.
@@ -752,6 +755,8 @@ class TestComputedValuesNewParams:
             computed = cosmo.f_z(z, reltol=1e-10, abstol=1e-12)
             assert np.isclose(computed, expected, rtol=1e-5), \
                 f"f({z}) = {computed:.15e}, expected {expected:.15e}"
+            oracle = converged[converged[:,7] == z,9][0]
+            np.testing.assert_allclose(computed,oracle,rtol=2e-9,atol=2e-11)
 
     def test_neutrino_background_functions(self):
         """Test neutrino background function values against computed results."""
