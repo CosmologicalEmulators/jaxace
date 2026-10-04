@@ -1,5 +1,9 @@
 """Steady-state JAX benchmarks for reusable spline objects and plans."""
 
+import subprocess
+import sys
+import types
+
 import jax
 import jax.numpy as jnp
 import pytest
@@ -15,6 +19,16 @@ from jaxace import (
 )
 
 jax.config.update("jax_enable_x64", True)
+
+
+@pytest.fixture(scope="module")
+def original_utils():
+    source = subprocess.check_output(["git", "show", "dff94dc:jaxace/utils.py"], text=True)
+    module = types.ModuleType("jaxace._spline_reference")
+    module.__package__ = "jaxace"
+    sys.modules[module.__name__] = module
+    exec(compile(source, "spline_reference_dff94dc.py", "exec"), module.__dict__)
+    return module
 
 
 @pytest.fixture(scope="module")
@@ -96,8 +110,11 @@ def test_spline_runtime(benchmark, spline_benchmark_data, name):
 )
 @pytest.mark.parametrize("path", ("on_the_fly", "plan"))
 @pytest.mark.parametrize("operation", ("forward", "gradient"))
+@pytest.mark.parametrize("implementation", ("original", "current"))
 def test_cubic_b_spline_comparison_runtime(
     benchmark,
+    original_utils,
+    implementation,
     case,
     n_query,
     matrix,
@@ -117,11 +134,15 @@ def test_cubic_b_spline_comparison_runtime(
 
     if path == "on_the_fly":
 
+        interpolate = (original_utils.cubic_b_spline_interpolation
+                       if implementation == "original" else cubic_b_spline_interpolation)
+
         def evaluate(ordinates):
-            return cubic_b_spline_interpolation(ordinates, t, query)
+            return interpolate(ordinates, t, query)
 
     else:
-        plan = CubicBSplinePlan(t, query)
+        plan_type = original_utils.CubicBSplinePlan if implementation == "original" else CubicBSplinePlan
+        plan = plan_type(t, query)
         evaluate = plan
 
     if operation == "gradient":

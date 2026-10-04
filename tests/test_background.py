@@ -746,7 +746,10 @@ class TestComputedValuesNewParams:
         ]
 
         for z, expected in test_cases:
-            computed = cosmo.f_z(z)
+            # These historical numbers are only accurate to ~1e-5: both old
+            # and flux equations converge to f(2)=0.99131035, not 0.99132022.
+            # Do not spend that reference-error budget on default solve error.
+            computed = cosmo.f_z(z, reltol=1e-10, abstol=1e-12)
             assert np.isclose(computed, expected, rtol=1e-5), \
                 f"f({z}) = {computed:.15e}, expected {expected:.15e}"
 
@@ -1278,22 +1281,12 @@ class TestGrowthSpeciesPrescriptions:
         )
         assert np.isclose(grad_h, fd_h, rtol=1e-3)
 
-        # dD/dmν is deliberately NOT compared to a finite difference here.
-        # Investigated directly: the converged central finite difference is
-        # stable across eps in [1e-8, 1e-3], but jax.grad disagrees with it
-        # by a fixed relative offset that does not shrink as eps -> 0 (i.e.
-        # it is a real bias in the reverse-mode adjoint through diffrax's
-        # adaptive-step solve w.r.t. an ODE *parameter*, not FD noise). This
-        # bias already exists on the pre-existing species="cb" path (~0.2-
-        # 0.3% offset at mν=0.06,0.3) and is not introduced by species="m"
-        # (~0.02-1.1% offset, depending on mν); diffrax's diffeqsolve also
-        # has no custom_jvp (jax.jvp against mν raises "can't apply
-        # forward-mode autodiff to a custom_vjp function"), so there is no
-        # independent AD cross-check available either. This is presumably
-        # why the repo's own TestBackgroundADFiniteDifferences regression
-        # test fixes mν=0.0 and only differentiates D_z/f_z w.r.t. z. We
-        # therefore only require the mν gradient to be finite here, matching
-        # TestJacobianComputation's precedent for ODE-threaded parameters.
+        # Scalar mass-gradient accuracy is checked in test_growth_dispatch:
+        # independent Julia ForwardDiff on the identical frozen polynomial
+        # model, plus finite differences at tight solve tolerances. The flux
+        # formulation avoids second derivatives of the scalar Akima table in
+        # the RHS sensitivities. Loose-solve finite differences can instead
+        # differentiate adaptive integration error and are not a ground truth.
 
         # f_z with species="m" is also differentiable and finite.
         def f_species_m(mν_val, h_val):

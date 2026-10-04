@@ -46,7 +46,7 @@ for (policy,species,n,m1,m2,m3),rows in groups.items():
             item["absolute_case"]=dict(policy=policy,species=species,Neff=n,masses=[m1,m2,m3],index=int(err.argmax()))
         item["max_relative"]=max(item["max_relative"],float(relative.max()))
         if name.startswith("gradient"):
-            np.testing.assert_allclose(value,reference,rtol=2e-5,atol=1e-6)
+            np.testing.assert_allclose(value,reference,rtol=2e-5,atol=8e-8)
         else:
-            np.testing.assert_allclose(value,reference,rtol=2e-6,atol=1e-9)
+            np.testing.assert_allclose(value,reference,rtol=3e-9,atol=1e-9)
 print(json.dumps(report,indent=2))

@@ -41,6 +41,18 @@ def valid_parameters(masses, Neff, prescription):
     return valid
 
 
+def safe_parameters(masses, Neff, prescription):
+    """Keep invalid neutrino inputs out of arithmetic; retain their final mask.
+
+    Every composed public calculation must sanitize before calling another
+    public function that can return NaN. Masking after a reciprocal/sqrt is
+    too late for shared-parameter reverse gradients of a masked batch.
+    """
+    valid = valid_parameters(masses, Neff, prescription)
+    masses = jnp.asarray(masses)
+    return valid, jnp.where(valid, masses, jnp.zeros_like(masses)), jnp.where(valid, Neff, NREF)
+
+
 def thermal_parameters(Neff, prescription):
     if prescription == "temperature":
         scale = Neff/NREF

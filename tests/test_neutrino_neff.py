@@ -15,9 +15,50 @@ H = .67
 OCB = .1424/H**2
 
 
+@pytest.mark.parametrize("policy", ["temperature", "radiation"])
+@pytest.mark.parametrize("bad", ["neff", "nan_neff", "mass", "nan_mass"])
+def test_masked_invalid_models_do_not_poison_shared_gradients(policy, bad):
+    invalid_neff = jnp.nan if bad == "nan_neff" else (2. if policy == "radiation" else -1.)
+    def models(x):
+        masses, neff = x[6:9], x[9]
+        invalid_mass = masses.at[0].set(jnp.nan if bad == "nan_mass" else -.01)
+        ns = jnp.array([neff, invalid_neff if "neff" in bad else neff])
+        ms = jnp.stack([masses, invalid_mass if "mass" in bad else masses])
+        return ms, ns
+    def observables(x, m, n):
+        h, ocb, w0, wa, curvature, z = x[:6]
+        kw = dict(mν=m, Neff=n, neutrino_prescription=policy, w0=w0, wa=wa, Ωk0=curvature)
+        distances = [f(z, ocb, h, **kw) for f in
+                     (bg.r̃_z, bg.d̃M_z, bg.d̃A_z, bg.r_z, bg.dM_z, bg.dA_z, bg.dL_z)]
+        a = 1/(1+z)
+        return jnp.array([bg.E_z(z, ocb, h, **kw), *distances,
+                          bg.ρc_z(z, ocb, h, **kw)/1e11,
+                          bg.dlogEdloga(a, ocb, h, **kw),
+                          bg.Ωm_a(a, ocb, h, **kw), bg.Ωm_a_total(a, ocb, h, **kw)])
+    def masked(x):
+        ms, ns = models(x)
+        values = jax.vmap(lambda m, n: observables(x, m, n))(ms, ns)
+        return jnp.where(jnp.array([True, False])[:, None], values, 0.).sum(axis=0)
+    x = jnp.array([.67, .31, -1., .05, .01, 1., .01, .02, .03, 3.5])
+    ms, ns = models(x)
+    assert np.all(np.isnan(observables(x, ms[1], ns[1])))
+    expected = jax.jacrev(lambda v: observables(v, v[6:9], v[9]))(x)
+    for derivative in (jax.jacrev(masked), jax.jit(jax.jacrev(masked))):
+        actual = derivative(x)
+        assert np.all(np.isfinite(actual))
+        np.testing.assert_allclose(actual, expected, rtol=1e-11, atol=1e-10)
+
+
 def _cross_loss(x, policy, species):
     return bg.D_z(jnp.array([0.,.5,1.,3.,5.]),OCB,H,mν=x[:3],Neff=x[3],
                   neutrino_prescription=policy,species=species,reltol=1e-10,abstol=1e-12).sum()
+
+
+def test_invalid_thermal_model_is_not_overridden_by_infinite_redshift():
+    assert np.isinf(bg.E_a(0., OCB, H, mν=jnp.zeros(3)))
+    assert np.isnan(bg.E_a(0., OCB, H, mν=jnp.zeros(3), Neff=-1.))
+    assert np.all(np.isnan(bg.E_a(jnp.array([0., .5]), OCB, H,
+                                 mν=jnp.array([-.01, .02, .03]))))
 
 
 _cross_gradient = jax.jit(jax.grad(_cross_loss),static_argnames=("policy","species"))
@@ -39,9 +80,9 @@ def test_julia_growth_and_gradient_reference(policy,species):
         rows=np.array(rows); z=jnp.asarray(rows[:,4]); x=jnp.array([m1,m2,m3,n])
         kw=dict(mν=x[:3],Neff=n,neutrino_prescription=policy)
         d,f=bg.D_f_z(z,OCB,H,**kw,species=species,reltol=1e-10,abstol=1e-12)
-        np.testing.assert_allclose(d,rows[:,7],rtol=2e-6)
-        np.testing.assert_allclose(f,rows[:,8],rtol=2e-6)
-        np.testing.assert_allclose(_cross_gradient(x,policy,species),rows[0,9:],rtol=2e-5,atol=1e-6)
+        np.testing.assert_allclose(d,rows[:,7],rtol=3e-9)
+        np.testing.assert_allclose(f,rows[:,8],rtol=3e-9)
+        np.testing.assert_allclose(_cross_gradient(x,policy,species),rows[0,9:],rtol=2e-5,atol=8e-8)
 
 
 @pytest.mark.parametrize("policy", ["temperature", "radiation"])

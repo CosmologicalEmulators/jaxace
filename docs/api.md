@@ -80,6 +80,19 @@
 
 ## Interpolation
 
+Cubic B-splines require finite, strictly increasing source sites. This is
+checked for concrete inputs and is a precondition when the sites are traced.
+At either endpoint, query derivatives use the interior polynomial convention;
+`clamp` and `zero` have zero query derivatives strictly outside the interval.
+This is an explicit choice at the extension's boundary kink, not a claim of
+two-sided differentiability there.
+
+Construction uses a dense collocation solve (cubic time in the number of
+sites). Fixed-grid plans have a 64 MiB stored-operator limit; all B-spline
+paths additionally check a conservative 512 MiB dense-workspace estimate.
+These are allocation safeguards, not bounds on total compiler, AD or process
+memory. Large source grids require a different algorithm, not just fewer queries.
+
 ::: jaxace.akima_interpolation
 ::: jaxace.cubic_spline_interpolation
 ::: jaxace.cubic_b_spline_interpolation

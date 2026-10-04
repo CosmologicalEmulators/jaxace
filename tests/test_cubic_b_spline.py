@@ -135,3 +135,64 @@ def test_production_shape_matches_saved_julia_reference():
     values = jnp.column_stack((u, 1.001 * u, 1.161 * u))
     result = CubicBSplinePlan(t, jnp.asarray(reference[:, 0]))(values)
     np.testing.assert_allclose(result, reference[:, 1:], rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("policy", ["clamp", "zero"])
+@pytest.mark.parametrize("prepared", [False, True])
+def test_endpoint_query_derivatives_use_interior_polynomial(policy, prepared):
+    from scipy.interpolate import make_interp_spline
+    t = jnp.array([0., .2, .5, .9, 1.4, 2.])
+    u = t**3 + 2*t
+    oracle = make_interp_spline(np.asarray(t), np.asarray(u))
+    fn = (CubicBSpline(u, t, extrapolation=policy) if prepared else
+          lambda q: cubic_b_spline_interpolation(u, t, q, extrapolation=policy))
+    for order in (0, 1, 2):
+        derivative = fn
+        for _ in range(order):
+            derivative = jax.grad(derivative)
+        eager = jax.vmap(derivative)
+        for evaluate in (eager, jax.jit(eager)):
+            np.testing.assert_allclose(evaluate(t), oracle(np.asarray(t), nu=order),
+                                       rtol=1e-10, atol=1e-10)
+    np.testing.assert_allclose(jax.vmap(jax.grad(fn))(jnp.array([-.1, 2.1])), 0., atol=0.)
+
+
+def test_endpoint_matrix_and_plan_query_gradients():
+    t = jnp.array([0., .2, .5, 1.])
+    u = jnp.column_stack([t**3 + 2*t, t**2])
+    spline = CubicBSpline(u, t)
+    expected = jnp.array([[2., 0.], [5., 2.]])
+    np.testing.assert_allclose(jax.jit(jax.vmap(jax.jacrev(spline)))(t[jnp.array([0, -1])]),
+                               expected, atol=1e-12)
+    def plan_value(q):
+        return CubicBSplinePlan(t, jnp.atleast_1d(q))(u)[0]
+    np.testing.assert_allclose(jax.jit(jax.vmap(jax.jacrev(plan_value)))(t[jnp.array([0, -1])]),
+                               expected, atol=1e-12)
+
+
+@pytest.mark.parametrize("sites", [[0., .2, .2, 1.], [0., .5, .2, 1.],
+                                  [0., .2, np.nan, 1.], [0., .2, 1., np.inf]])
+def test_invalid_sites_rejected_eagerly(sites):
+    t = jnp.asarray(sites)
+    with pytest.raises(ValueError, match="finite and strictly increasing"):
+        CubicBSpline(jnp.ones(4), t)
+    with pytest.raises(ValueError, match="finite and strictly increasing"):
+        CubicBSplinePlan(t, jnp.array([.1]))
+
+
+def test_dense_construction_budget_with_small_query_grid():
+    t = jnp.linspace(0., 1., 4096)
+    with pytest.raises(ValueError, match="construction"):
+        CubicBSplinePlan(t, jnp.array([.5]))
+    with pytest.raises(ValueError, match="construction"):
+        CubicBSpline(jnp.ones_like(t), t)
+
+
+def test_clamp_boundary_tangents_include_moving_bounds():
+    from jaxace.utils import _cubic_b_spline_query
+    jacobian = jax.jit(jax.jacrev(lambda x: _cubic_b_spline_query(
+        jnp.array([x[1], x[2]]), x[0], "clamp")[0]))
+    for query, expected in ((-.1, [0.,1.,0.]), (0., [1.,0.,0.]),
+                            (.5, [1.,0.,0.]), (1., [1.,0.,0.]),
+                            (1.1, [0.,0.,1.])):
+        np.testing.assert_array_equal(jacobian(jnp.array([query,0.,1.])), expected)

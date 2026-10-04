@@ -1,0 +1,11 @@
+# Julia 1.12.6 Tsit5 + ForwardDiff; rtol=1e-12 atol=1e-14
+# Frozen JAX scalar polynomial model sha256 6b6a61839de1d05ee5543043e0cd1f6ef4966b4ef433a5e4dee4e7d7d14dca3e
+# Same legacy physics/interpolant, not native Julia's different tables; no physical accuracy claim for scalar extrapolation
+# h=.67 Omega_cb=.3 w0=-1 wa=0 Omega_k=0 Neff=3.044 z=1; D(ai)=Dprime(ai)=ai=1/139
+# species_m mass_eV D_raw derivative_mass
+0 0.06 4.6680784711032453e-01 -7.7936508734834209e-02
+0 0.30 4.4817670720955038e-01 -7.5494719779202288e-02
+0 0.75 4.1625877927131710e-01 -6.6568270883374081e-02
+1 0.06 4.7078344265603678e-01 2.4436706007851660e-04
+1 0.30 4.7124087926524161e-01 2.4451078764232796e-03
+1 0.75 4.7237481055133795e-01 2.5080009411554811e-03

@@ -678,7 +678,8 @@ def E_a(
         has_nan = _check_nan_inputs(a, Ωcb0, h, mν, w0, wa, Ωk0)
         nan_mask = None
 
-    # Physics constants
+    # Compute with a finite placeholder model; only the public result is NaN.
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     Ωγ0 = _photon_density(h, mν)
     N_eff = Neff
 
@@ -711,10 +712,10 @@ def E_a(
 
     # Return Hubble parameter E(a) = √[E²(a)]
     result = jnp.sqrt(E_squared)
-    result = jnp.where(_neutrinos.valid_parameters(mν, Neff, neutrino_prescription), result, jnp.nan)
 
     # Handle a=0 (z=inf) case: E(0) = inf (radiation/matter dominate)
     result = jnp.where(a_array == 0.0, jnp.inf, result)
+    result = jnp.where(valid_neutrinos, result, jnp.nan)
 
     # Propagate NaN appropriately
     if a_array.ndim > 0 and nan_mask is not None:
@@ -777,7 +778,7 @@ def dlogEdloga(
         Logarithmic derivative d(ln E)/d(ln a).
     """
 
-    # Physics constants
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     Ωγ0 = _photon_density(h, mν)
     N_eff = Neff
 
@@ -813,7 +814,7 @@ def dlogEdloga(
     dE_da = 0.5 / E_a_val * dE2_da
 
     # d(log E)/d(log a) = (a/E) * dE/da
-    return (a / E_a_val) * dE_da
+    return jnp.where(valid_neutrinos, (a / E_a_val) * dE_da, jnp.nan)
 
 
 @partial(jax.jit, static_argnames=("neutrino_prescription",))
@@ -839,10 +840,11 @@ def Ωm_a(
         Matter density parameter Ωₘ(a).
     """
     # Get E(a)
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Formula: Ωm(a) = Ωcb0 × a^(-3) / E(a)²
-    return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
+    return jnp.where(valid_neutrinos, Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0), jnp.nan)
 
 
 @partial(jax.jit, static_argnames=("neutrino_prescription",))
@@ -858,26 +860,18 @@ def Ωm_a_total(
     neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
-    Total matter density parameter Ωₘ(a) = Ω_cb(a) + Ω_ν,massive(a) at scale factor a.
+    Scale-independent matter-growth-source proxy (historical Ωm_a_total API).
 
     $$\\Omega_{\\mathrm{m}}(a) = \\frac{\\Omega_{\\mathrm{cb},0} a^{-3}
     + \\left[\\Omega_{\\nu}(a; m_\\nu) - \\Omega_{\\nu}(a; 0)\\right] E(a)^2}{E(a)^2}$$
 
     Unlike :func:`Ωm_a` (cold dark matter + baryons only), this adds the
-    actual mass-induced neutrino energy density, using the same
+    massive-minus-massless neutrino energy density, using the same
     Fermi-Dirac-integral-based :func:`ΩνE2` as :func:`E_a`/:func:`dlogEdloga`.
 
-    Note the subtraction of $\\Omega_{\\nu}(a; 0)$: with $N_{\\mathrm{eff}}$
-    massless neutrinos, :func:`ΩνE2` does *not* vanish at $m_\\nu = 0$ — it
-    returns the (nonzero) purely relativistic neutrino radiation density,
-    set by the neutrino temperature ($T_\\nu = 0.71611\\,T_{\\mathrm{CMB}}$)
-    exactly like the photon term $\\Omega_{\\gamma,0} a^{-4}$. This floor is
-    its own explicit, separate $\\propto a^{-4}$ term summed directly into
-    $E(a)^2$ in :func:`E_a` (the flatness closure only uses it once, to solve
-    for the constant $\\Omega_{\\Lambda,0}$; it is not otherwise routed through
-    dark energy) — it is radiation, not matter, at every epoch. Subtracting
-    the massless baseline isolates the density genuinely attributable to
-    nonzero neutrino mass: it is identically zero whenever $m_\\nu = 0$ (so
+    The massless reference is nonzero radiation and is already included once
+    in :func:`E_a`. Subtracting it makes this additional source identically
+    zero whenever every input mass is zero (so
     ``species="m"`` degenerates exactly to ``species="cb"``, as it must
     by definition). In the non-relativistic limit the leading term scales
     like matter. This background-density prescription is not ``rho_nu-3*p_nu``
@@ -885,9 +879,10 @@ def Ωm_a_total(
     uses the same Neff and temperatures with every input mass set to zero.
 
     Returns:
-        Total matter density parameter Ωₘ(a), including the mass-induced
-        massive-neutrino contribution.
+        Growth-source density proxy including the mass-induced contribution,
+        not a general pressureless-matter density or perturbation prediction.
     """
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     Ωγ0 = _photon_density(h, mν)
     N_eff = Neff
 
@@ -897,7 +892,7 @@ def Ωm_a_total(
         a, Ωγ0, jnp.zeros_like(jnp.asarray(mν)), N_eff, neutrino_prescription
     )
 
-    return (Ωcb0 * jnp.power(a, -3.0) + Ων_massive_a) / jnp.power(E_a_val, 2.0)
+    return jnp.where(valid_neutrinos, (Ωcb0 * jnp.power(a, -3.0) + Ων_massive_a) / jnp.power(E_a_val, 2.0), jnp.nan)
 
 
 def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100, Neff=3.044, neutrino_prescription="temperature"):
@@ -978,6 +973,7 @@ def r̃_z(
     # Convert to array for consistent handling
     z_array = jnp.asarray(z)
 
+    _, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     # Use 100 GL points for all computations (may be made configurable later)
     n_points = 100
 
@@ -1026,10 +1022,11 @@ def d̃M_z(
         Dimensionless transverse comoving distance
     """
     # Get dimensionless comoving distance
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     r̃ = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply curvature correction
-    return S_of_K(Ωk0, r̃)
+    return jnp.where(valid_neutrinos, S_of_K(Ωk0, r̃), jnp.nan)
 
 
 @partial(jax.jit, static_argnames=("neutrino_prescription",))
@@ -1063,10 +1060,11 @@ def d̃A_z(
         Dimensionless angular diameter distance
     """
     # Get dimensionless transverse comoving distance
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     d̃M = d̃M_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply (1+z) factor for angular diameter distance
-    return d̃M / (1.0 + z)
+    return jnp.where(valid_neutrinos, d̃M / (1.0 + z), jnp.nan)
 
 
 @jax.custom_jvp
@@ -1206,10 +1204,11 @@ def r_z(
     c_over_H0 = 2997.92458  # c/H₀ in Mpc when h=1 (speed of light / 100 km/s/Mpc)
 
     # Get conformal distance
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Scale to physical units
-    return c_over_H0 * r_tilde / h
+    return jnp.where(valid_neutrinos, c_over_H0 * r_tilde / h, jnp.nan)
 
 
 @partial(jax.jit, static_argnames=("neutrino_prescription",))
@@ -1239,6 +1238,7 @@ def dM_z(
     c_over_H0 = 2997.92458  # c/H₀ in Mpc when h=1 (speed of light / 100 km/s/Mpc)
 
     # Get conformal distance
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply curvature correction
@@ -1246,7 +1246,7 @@ def dM_z(
     r_tilde_curved = S_of_K(Ωk0, r_tilde)
 
     # Scale to physical units
-    return c_over_H0 * r_tilde_curved / h
+    return jnp.where(valid_neutrinos, c_over_H0 * r_tilde_curved / h, jnp.nan)
 
 
 @partial(jax.jit, static_argnames=("neutrino_prescription",))
@@ -1271,10 +1271,11 @@ def dA_z(
         Angular diameter distance in Mpc
     """
     # Get transverse comoving distance
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     dM = dM_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply (1+z) factor
-    return dM / (1.0 + z)
+    return jnp.where(valid_neutrinos, dM / (1.0 + z), jnp.nan)
 
 
 _GROWTH_SOURCES = {"cb": Ωm_a, "m": Ωm_a_total}
@@ -1309,6 +1310,38 @@ def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, sp
     return _growth_rhs(
         log_a, u, (Ωcb0, h, mν, w0, wa, Ωk0, Neff), _growth_source(species), neutrino_prescription
     )
+
+
+def _cb_growth_density(a, params, neutrino_prescription):
+    return params[0]/a**3
+
+
+def _matter_growth_density(a, params, neutrino_prescription):
+    ocb, h, masses, _, _, _, neff = params
+    omega_gamma = _photon_density(h, masses)
+    excess = (ΩνE2(a, omega_gamma, masses, neff, neutrino_prescription)
+              - ΩνE2(a, omega_gamma, jnp.zeros_like(jnp.asarray(masses)), neff, neutrino_prescription))
+    return ocb/a**3 + excess
+
+
+_GROWTH_DENSITIES = {"cb": _cb_growth_density, "m": _matter_growth_density}
+
+
+@partial(jax.jit, static_argnames=("source_fn", "neutrino_prescription"))
+def _growth_flux_rhs(log_a, u, params, source_fn, neutrino_prescription):
+    """Equivalent state (D, Q), Q=a² E D′.
+
+    Avoids differentiating an interpolated E in the RHS. In particular the
+    scalar Akima model is C1: its second derivatives jump at knots, making
+    sensitivities of the original D′ equation much harder to integrate.
+    The public growth_ode_system retains its historical (D, D′) contract.
+    """
+    a = jnp.exp(log_a)
+    e = E_a(a, *params, neutrino_prescription=neutrino_prescription)
+    density = source_fn(a, params, neutrino_prescription)
+    # Cancel E/E² analytically rather than differentiating two composed public
+    # density fractions. The source numerator has no extra expansion factor.
+    return jnp.array([u[1]/(a*a*e), 1.5*a*a/e*density*u[0]])
 
 
 def growth_solver(
@@ -1349,7 +1382,8 @@ def growth_solver(
 
     Returns:
         Growth factor D(a) or tuple (D, dD/dloga) if return_both=True.
-        Returns NaN for invalid inputs instead of crashing.
+        Queries outside 1/139 <= a <= 1.01 return NaN. No extrapolation is
+        provided. Invalid neutrino inputs also return NaN.
     """
 
     # Parameter validation for non-JIT context
@@ -1375,16 +1409,20 @@ def growth_solver(
 
     # Initial conditions following Effort.jl exactly
     amin = 1.0 / 139.0  # Deep matter domination
-    u0 = jnp.array([amin, amin])  # [D(amin), dD/d(log a)(amin)]
+    # The initial flux remains AD-tracked, even though D and D′ are specified
+    # independently of cosmology at the initial time.
+    initial_E = E_a(amin, Ωcb0, h, mν, w0, wa, Ωk0, Neff, neutrino_prescription)
+    u0 = jnp.array([amin, amin**3*initial_E])
 
     # Integration range in log(a) - more conservative for stability
     log_a_min = jnp.log(jnp.maximum(amin, 1e-4))  # Don't go too early
     log_a_max = jnp.log(1.01)  # Slightly past present day for normalization
 
     # Resolve once; only numerical cosmological parameters enter Diffrax args.
-    source_fn = _growth_source(species)
+    _growth_source(species)  # preserve validation and its public error message
+    source_fn = _GROWTH_DENSITIES[species]
     def odefunc(log_a, u, args):
-        return _growth_rhs(log_a, u, args, source_fn, neutrino_prescription)
+        return _growth_flux_rhs(log_a, u, args, source_fn, neutrino_prescription)
 
     # Integration arguments
     args = (Ωcb0, h, mν, w0, wa, Ωk0, Neff)
@@ -1413,112 +1451,22 @@ def growth_solver(
         max_steps=10000,  # Increased from default
     )
 
-    # No normalization - return raw ODE solution to match Effort.jl
-    # (Effort.jl does not normalize D(z) to D(z=0) = 1)
+    # No extrapolation beyond the actual integration domain. Evaluate invalid
+    # queries at a finite placeholder before restoring their NaN mask.
+    def evaluate_single(a):
+        valid_a = jnp.isfinite(a) & (a >= amin) & (a <= 1.01)
+        safe_a = jnp.where(valid_a, a, 1.)
+        D, Q = solution.evaluate(jnp.log(safe_a))
+        valid = valid_a & valid_neutrinos
+        if not return_both:
+            return jnp.where(valid, D, jnp.nan)
+        e = E_a(safe_a, Ωcb0, h, mν, w0, wa, Ωk0, Neff, neutrino_prescription)
+        dD = Q/(safe_a**2*e)
+        return jnp.where(valid, D, jnp.nan), jnp.where(valid, dD, jnp.nan)
 
-    # Evaluate at requested scale factors without normalization
     a_span = jnp.asarray(a_span)
-    log_a_span = jnp.log(a_span)
-
-    # Handle both scalar and array inputs
-    if jnp.isscalar(a_span) or a_span.ndim == 0:
-        # Use JAX-compatible conditional logic
-        sol_min = solution.evaluate(log_a_min)
-        sol_max = solution.evaluate(log_a_max)
-        sol_normal = solution.evaluate(log_a_span)
-
-        # Early times: D ∝ a in matter domination
-        early_D = a_span / jnp.exp(log_a_min) * sol_min[0]
-        early_dD = sol_min[1]
-
-        # Late times: use latest solution value
-        late_D = sol_max[0]
-        late_dD = sol_max[1]
-
-        # Normal range: use interpolated solution
-        normal_D = sol_normal[0]
-        normal_dD = sol_normal[1]
-
-        # Use JAX conditional to select result
-        D_result = jax.lax.cond(
-            log_a_span < log_a_min,
-            lambda: early_D,
-            lambda: jax.lax.cond(
-                log_a_span > log_a_max, lambda: late_D, lambda: normal_D
-            ),
-        )
-
-        if return_both:
-            dD_dloga_result = jax.lax.cond(
-                log_a_span < log_a_min,
-                lambda: early_dD,
-                lambda: jax.lax.cond(
-                    log_a_span > log_a_max, lambda: late_dD, lambda: normal_dD
-                ),
-            )
-
-        # Handle potential numerical issues
-        D_result = jnp.where(jnp.isfinite(D_result), D_result, 0.0)
-        if return_both:
-            dD_dloga_result = jnp.where(
-                jnp.isfinite(dD_dloga_result), dD_dloga_result, 0.0
-            )
-            return (jnp.where(valid_neutrinos, D_result, jnp.nan),
-                    jnp.where(valid_neutrinos, dD_dloga_result, jnp.nan))
-        else:
-            return jnp.where(valid_neutrinos, D_result, jnp.nan)
-    else:
-
-        def evaluate_single(log_a_val):
-            # For values outside integration range, extrapolate
-            early_condition = log_a_val < log_a_min
-            late_condition = log_a_val > log_a_max
-
-            sol_min = solution.evaluate(log_a_min)
-            sol_max = solution.evaluate(log_a_max)
-            sol_normal = solution.evaluate(log_a_val)
-
-            # Early times: D ∝ a in matter domination
-            early_D = jnp.exp(log_a_val) / jnp.exp(log_a_min) * sol_min[0]
-            early_dD = sol_min[1]
-
-            # Late times: use latest solution value
-            late_D = sol_max[0]
-            late_dD = sol_max[1]
-
-            # Normal range: interpolate from solution
-            normal_D = sol_normal[0]
-            normal_dD = sol_normal[1]
-
-            # Choose result based on conditions
-            D_result = jnp.where(
-                early_condition, early_D, jnp.where(late_condition, late_D, normal_D)
-            )
-
-            if return_both:
-                dD_result = jnp.where(
-                    early_condition,
-                    early_dD,
-                    jnp.where(late_condition, late_dD, normal_dD),
-                )
-                return (D_result, dD_result)
-            else:
-                return D_result
-
-        if return_both:
-            results = jax.vmap(evaluate_single)(log_a_span)
-            D_array = results[0]
-            dD_array = results[1]
-            # Handle potential numerical issues
-            D_array = jnp.where(jnp.isfinite(D_array), D_array, 0.0)
-            dD_array = jnp.where(jnp.isfinite(dD_array), dD_array, 0.0)
-            return (jnp.where(valid_neutrinos, D_array, jnp.nan),
-                    jnp.where(valid_neutrinos, dD_array, jnp.nan))
-        else:
-            result = jax.vmap(evaluate_single)(log_a_span)
-            # Handle potential numerical issues
-            result = jnp.where(jnp.isfinite(result), result, 0.0)
-            return jnp.where(valid_neutrinos, result, jnp.nan)
+    result = evaluate_single(a_span) if a_span.ndim == 0 else jax.vmap(evaluate_single)(a_span)
+    return result
 
 
 @partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
@@ -1537,8 +1485,9 @@ def D_z(
     :func:`growth_solver`: ``"cb"`` (default) sources growth with the cold +
     baryon density only (the smooth-neutrino approximation);
     ``"m"`` adds the mass-induced neutrino source approximation. Neither
-    is a full scale-dependent growth prediction. The default reproduces the exact
-    pre-existing behaviour of this function.
+    is a full scale-dependent growth prediction. The default retains the
+    historical cb-source equation, not bitwise outputs of older ODE solvers.
+    Queries outside 1/139 <= a <= 1.01 return NaN.
 
     Returns:
         jnp.ndarray: Linear growth factor D(z). Returns NaN for NaN inputs,
@@ -1604,8 +1553,8 @@ def f_z(
     where D is the linear growth factor.
 
     ``species`` selects the growth-equation source term used to compute D,
-    see :func:`growth_solver`: ``"cb"`` (default, reproduces the exact
-    pre-existing behaviour of this function) or ``"m"``.
+    see :func:`growth_solver`: ``"cb"`` (historical default source) or ``"m"``.
+    Queries outside 1/139 <= a <= 1.01 return NaN.
 
     Returns:
         jnp.ndarray: Growth rate f(z). Returns NaN for NaN inputs, handles
@@ -1685,8 +1634,8 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
     Linear growth factor and growth rate (D(z), f(z)).
 
     ``species`` selects the growth-equation source term, see
-    :func:`growth_solver`: ``"cb"`` (default, reproduces the exact
-    pre-existing behaviour of this function) or ``"m"``.
+    :func:`growth_solver`: ``"cb"`` (historical default source) or ``"m"``.
+    Queries outside 1/139 <= a <= 1.01 return NaN.
     """
     # Check scalar parameters and scalar redshift for NaN inputs.  Array-valued
     # redshifts are masked element-wise below.
@@ -1774,8 +1723,9 @@ def ρc_z(
     # Critical density: ρc(z) = 3H²(z)/(8πG) = ρc0 × h² × E²(z)
     # where ρc0 = 2.7754×10¹¹ M☉/Mpc³ (in h=1 units)
     rho_c0_h2 = 2.7754e11  # M☉/Mpc³ in h² units
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     E_z_val = E_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
-    return rho_c0_h2 * h**2 * E_z_val**2
+    return jnp.where(valid_neutrinos, rho_c0_h2 * h**2 * E_z_val**2, jnp.nan)
 
 
 @jax.jit
@@ -1824,7 +1774,8 @@ def dL_z(
         Luminosity distance in Mpc
     """
     # Get transverse comoving distance
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     dM = dM_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply (1+z) factor for luminosity distance
-    return dM * (1.0 + z)
+    return jnp.where(valid_neutrinos, dM * (1.0 + z), jnp.nan)
