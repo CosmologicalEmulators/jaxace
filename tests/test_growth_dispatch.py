@@ -18,9 +18,13 @@ def test_scalar_growth_reference(species):
         selected = rows[(rows[:, 0] == mass) & (rows[:, 1] == (species == "m"))]
         z = jnp.asarray(selected[:, 2])
         d, f = D_f_z(z, .1424/.67**2, .67, mν=mass, species=species)
-        np.testing.assert_allclose(d, selected[:, 4], rtol=2e-10, atol=2e-12)
-        np.testing.assert_allclose(f, selected[:, 5], rtol=2e-10, atol=2e-12)
-        np.testing.assert_allclose(E_z(z, .1424/.67**2, .67, mν=mass), selected[:, 3], rtol=2e-13)
+        # These frozen outputs use JAX 0.4.38 / quadax 0.2.11. With CI's
+        # 0.6.2 / 0.2.13, even unmodified 4a5871a drifts by 7.25e-11 in E
+        # and 1.12e-9 in f at mass=.75; current and original agree exactly
+        # on that stack. Allow this dependency drift, not ODE-scale errors.
+        np.testing.assert_allclose(d, selected[:, 4], rtol=5e-9, atol=2e-12)
+        np.testing.assert_allclose(f, selected[:, 5], rtol=5e-9, atol=2e-12)
+        np.testing.assert_allclose(E_z(z, .1424/.67**2, .67, mν=mass), selected[:, 3], rtol=2e-10)
 
 
 def test_zero_vector_source_has_no_spurious_radiation():
