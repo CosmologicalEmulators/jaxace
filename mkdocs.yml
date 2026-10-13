@@ -135,6 +135,7 @@ nav:
   - API Reference:
       - Core: api.md
   - Migration notes: migration.md
+  - Scalar gradient convergence: scalar_growth_convergence.md
   - Contributing: contributing.md
 
 copyright: Copyright &copy; 2024 CosmologicalEmulators
