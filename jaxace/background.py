@@ -1307,9 +1307,13 @@ def _growth_rhs(log_a, u, params, source_fn, neutrino_prescription="temperature"
 @partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
 def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb", Neff=3.044, neutrino_prescription="temperature"):
     """Compatibility entry point; the species string is resolved at trace time."""
-    return _growth_rhs(
+    # Sanitize before NaN background coefficients can multiply the shared ODE
+    # state: masking that product afterward would poison its reverse gradient.
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    du = _growth_rhs(
         log_a, u, (Ωcb0, h, mν, w0, wa, Ωk0, Neff), _growth_source(species), neutrino_prescription
     )
+    return jnp.where(valid_neutrinos, du, jnp.nan)
 
 
 def _cb_growth_density(a, params, neutrino_prescription):

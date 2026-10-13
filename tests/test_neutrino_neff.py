@@ -81,6 +81,45 @@ def test_masked_growth_models_preserve_shared_parameter_gradients(policy, specie
             np.testing.assert_allclose(actual,expected,rtol=1e-10,atol=1e-10)
 
 
+@pytest.mark.parametrize("policy", ["temperature", "radiation"])
+@pytest.mark.parametrize("species", ["cb", "m"])
+def test_masked_public_growth_rhs_preserves_state_and_parameter_gradients(policy, species):
+    # Include the shared ODE state: NaN background coefficients must not reach
+    # its multiplication in the compatibility (D, D') RHS before masking.
+    x = jnp.array([.6, .4, np.log(.5), .31, .67, -1., .05, .01,
+                   .01, .02, .03, 3.5])
+
+    def single(v, mass, neff):
+        return bg.growth_ode_system(
+            v[2], v[:2], v[3], v[4], mν=mass, w0=v[5], wa=v[6], Ωk0=v[7],
+            Neff=neff, neutrino_prescription=policy, species=species,
+        )
+
+    def masked(v, bad_mass, bad_neff):
+        masses = jnp.stack([v[8:11], bad_mass])
+        neffs = jnp.array([v[11], bad_neff])
+        values = jax.vmap(lambda m, n: single(v, m, n))(masses, neffs)
+        return jnp.where(jnp.array([True, False])[:, None], values, 0.).sum(axis=0)
+
+    reference = lambda v: single(v, v[8:11], v[11])
+    expected = jax.jacfwd(reference)(x)
+    np.testing.assert_allclose(jax.jacrev(reference)(x), expected, rtol=1e-10, atol=1e-10)
+    derivative = jax.jacrev(masked, argnums=0)
+    compiled = jax.jit(derivative)
+    invalids = [(x[8:11], -1. if policy == "temperature" else 2.),
+                (x[8:11], jnp.nan), (x[8:11], jnp.inf),
+                (jnp.array([-.01, .02, .03]), 3.5),
+                (jnp.array([jnp.nan, .02, .03]), 3.5),
+                (jnp.array([jnp.inf, .02, .03]), 3.5)]
+    for mass, neff in invalids:
+        np.testing.assert_allclose(masked(x, mass, neff), reference(x), atol=1e-14)
+        for fn in (derivative, compiled):
+            actual = fn(x, mass, neff)
+            assert np.all(np.isfinite(actual))
+            np.testing.assert_allclose(actual, expected, rtol=1e-10, atol=1e-10)
+        assert np.all(np.isnan(single(x, mass, neff)))
+
+
 def test_invalid_thermal_model_is_not_overridden_by_infinite_redshift():
     assert np.isinf(bg.E_a(0., OCB, H, mν=jnp.zeros(3)))
     assert np.isnan(bg.E_a(0., OCB, H, mν=jnp.zeros(3), Neff=-1.))
