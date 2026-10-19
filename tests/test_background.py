@@ -11,11 +11,10 @@ import jax
 import jax.numpy as jnp
 from jaxace.background import (
     w0waCDMCosmology,
-    a_z, E_a, E_z, dlogEdloga, Ωm_a,
+    a_z, E_a, E_z, dlogEdloga, Ωm_a, Ωm_a_total,
     D_z, f_z, D_f_z,
     r̃_z, d̃M_z, d̃A_z,
     r_z, dA_z, dL_z, dM_z,
-    gety, F, dFdy,
     rhoDE_a, rhoDE_z, drhoDE_da
 )
 
@@ -66,17 +65,6 @@ class TestBasicFunctions:
         assert rho_a > 0
         assert np.isfinite(rho_a)
 
-    def test_neutrino_functions(self):
-        """Test neutrino-related functions."""
-        # y=0 should give limiting values
-        assert np.isclose(gety(0.0, 1.0), 0.0)
-        assert np.isclose(dFdy(0.0), 0.0, atol=1e-10)
-
-        # F(y) should be positive for y>0
-        assert F(0.5) > 0.0
-        assert F(1.0) > 0.0
-        assert F(10.0) > 0.0
-
 
 class TestHubbleParameter:
     """Test Hubble parameter functions."""
@@ -91,15 +79,15 @@ class TestHubbleParameter:
         assert np.isclose(E_a(1.0, Ωcb0, h), 1.0)
 
         # With massive neutrinos
-        assert np.isclose(E_z(0.0, Ωcb0, h, mν=0.06), 1.0)
-        assert np.isclose(E_a(1.0, Ωcb0, h, mν=0.06), 1.0)
+        assert np.isclose(E_z(0.0, Ωcb0, h, mν=(0.02, 0.02, 0.02)), 1.0)
+        assert np.isclose(E_a(1.0, Ωcb0, h, mν=(0.02, 0.02, 0.02)), 1.0)
 
     def test_cosmology_struct(self):
         """Test using w0waCDMCosmology structure."""
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.636,
             omega_b=0.02237, omega_c=0.1,
-            m_nu=0.06, w0=-2.0, wa=1.0
+            m_nu=(0.02, 0.02, 0.02), w0=-2.0, wa=1.0
         )
 
         # Calculate Ωcb0 from cosmology
@@ -114,209 +102,9 @@ class TestHubbleParameter:
         assert np.isclose(cosmo.Ωtot_z(0.0), 1.0)
 
 
-class TestCLASSComparison1:
-    """
-    CLASS comparison tests - cosmology 1.
-
-    Parameters: h = 0.67, Ωb h² = 0.022, Ωc h² = 0.12,
-                mν = 0.09 eV, w0 = -0.7, wa = 0.7
-    """
-
-    @pytest.fixture
-    def cosmo_params(self):
-        """Set up cosmology parameters."""
-        return {
-            'Ωcb0': (0.02 + 0.12) / 0.67**2,  # Total Ωcb0
-            'h': 0.67,
-            'mν': 0.4,
-            'w0': -1.9,
-            'wa': 0.7
-        }
-
-    @pytest.fixture
-    def cosmo(self):
-        """Set up cosmology object."""
-        return w0waCDMCosmology(
-            ln10As=3.0, ns=0.96, h=0.67,
-            omega_b=0.02, omega_c=0.12,
-            m_nu=0.4, w0=-1.9, wa=0.7
-        )
-
-    def test_z0_values(self, cosmo_params, cosmo):
-        """Test values at z = 0.0."""
-        z = 0.0
-
-        # D(z=0) normalization
-        D0 = cosmo.D_z(z)
-        assert np.isclose(D0 / D0, 1.0, rtol=1e-6)
-
-        # Growth rate at z=0
-        f0 = cosmo.f_z(z)
-        # Matching Julia tolerance
-        assert np.isclose(f0, 0.5336534234376753, rtol=2e-5)  # Same tolerance as Julia
-
-        # Hubble parameter H(z=0) = H0
-        H0 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H0, 67.00000032897867, rtol=1e-6)
-
-        # Distances at z=0 should be zero
-        assert np.isclose(cosmo.r_z(z), 0.0, atol=1e-10)
-        assert np.isclose(cosmo.dL_z(z), 0.0, atol=1e-10)
-        assert np.isclose(cosmo.dA_z(z), 0.0, atol=1e-10)
-
-    def test_z1_values(self, cosmo_params, cosmo):
-        """Test values at z = 1.0."""
-        z = 1.0
-        D0 = cosmo.D_z(0.0)
-
-        # Linear growth factor (normalized)
-        D1 = cosmo.D_z(z)
-        assert np.isclose(D1 / D0, 0.5713231567487467, rtol=1e-4)  # 1% tolerance for growth factor
-
-        # Growth rate
-        f1 = cosmo.f_z(z)
-        assert np.isclose(f1, 0.951063970660909, rtol=2e-4)
-
-        # Hubble parameter
-        H1 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H1, 110.69104662880478, rtol=1e-4)
-
-        # Comoving distance
-        assert np.isclose(cosmo.r_z(z), 3796.313631546915, rtol=1e-4)
-
-        # Luminosity distance
-        assert np.isclose(cosmo.dL_z(z), 7592.627263093831, rtol=1e-4)
-
-        # Angular diameter distance
-        assert np.isclose(cosmo.dA_z(z), 1898.1568157734582, rtol=1e-4)
-
-    def test_z2_values(self, cosmo_params, cosmo):
-        """Test values at z = 2.0."""
-        z = 2.0
-        D0 = cosmo.D_z(0.0)
-
-        # Linear growth factor (normalized)
-        D2 = cosmo.D_z(z)
-        assert np.isclose(D2 / D0, 0.38596027450669235, rtol=1e-4)  # 1% tolerance for growth factor
-
-        # Growth rate
-        f2 = cosmo.f_z(z)
-        assert np.isclose(f2, 0.9763011446824891, rtol=2e-4)
-
-        # Hubble parameter
-        H2 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H2, 198.43712939715508, rtol=2e-4)
-
-        # Comoving distance
-        assert np.isclose(cosmo.r_z(z), 5815.253842752389, rtol=1e-4)
-
-        # Luminosity distance
-        assert np.isclose(cosmo.dL_z(z), 17445.761528257153, rtol=1e-4)
-
-        # Angular diameter distance
-        assert np.isclose(cosmo.dA_z(z), 1938.4179475841324, rtol=1e-4)
-
-
-class TestCLASSComparison2:
-    """
-    CLASS comparison tests - cosmology 2.
-
-    Parameters: h = 0.6, Ωb h² = 0.02, Ωc h² = 0.16,
-                mν = 0.2 eV, w0 = -0.9, wa = -0.7
-    """
-
-    @pytest.fixture
-    def cosmo_params(self):
-        """Set up cosmology parameters."""
-        return {
-            'Ωcb0': (0.02 + 0.16) / 0.6**2,  # Total Ωcb0
-            'h': 0.6,
-            'mν': 0.2,
-            'w0': -0.9,
-            'wa': -0.7
-        }
-
-    @pytest.fixture
-    def cosmo(self):
-        """Set up cosmology object."""
-        return w0waCDMCosmology(
-            ln10As=3.0, ns=0.96, h=0.6,
-            omega_b=0.02, omega_c=0.16,
-            m_nu=0.2, w0=-0.9, wa=-0.7
-        )
-
-    def test_z0_values(self, cosmo_params, cosmo):
-        """Test values at z = 0.0."""
-        z = 0.0
-
-        # D(z=0) normalization
-        D0 = cosmo.D_z(z)
-        assert np.isclose(D0 / D0, 1.0, rtol=1e-6)
-
-        # Growth rate at z=0
-        f0 = cosmo.f_z(z)
-        assert np.isclose(f0, 0.682532170290542, rtol=2e-5)
-
-        # Hubble parameter H(z=0) = H0
-        H0 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H0, 60.00000540313085, rtol=1e-6)
-
-        # Distances at z=0 should be zero
-        assert np.isclose(cosmo.r_z(z), 0.0, atol=1e-10)
-        assert np.isclose(cosmo.dL_z(z), 0.0, atol=1e-10)
-        assert np.isclose(cosmo.dA_z(z), 0.0, atol=1e-10)
-
-    def test_z1_values(self, cosmo_params, cosmo):
-        """Test values at z = 1.0."""
-        z = 1.0
-        D0 = cosmo.D_z(0.0)
-
-        # Linear growth factor (normalized)
-        D1 = cosmo.D_z(z)
-        assert np.isclose(D1 / D0, 0.5608386428835493, rtol=1e-4)  # 1% tolerance for growth factor
-
-        # Growth rate
-        f1 = cosmo.f_z(z)
-        assert np.isclose(f1, 0.9428198389771597, rtol=2e-4)
-
-        # Hubble parameter
-        H1 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H1, 126.63651334029939, rtol=1e-4)
-
-        # Comoving distance
-        assert np.isclose(cosmo.r_z(z), 3477.5826389146628, rtol=1e-4)
-
-        # Luminosity distance
-        assert np.isclose(cosmo.dL_z(z), 6955.1652778293255, rtol=1e-4)
-
-        # Angular diameter distance
-        assert np.isclose(cosmo.dA_z(z), 1738.7913194573318, rtol=1e-4)
-
-    def test_z2_values(self, cosmo_params, cosmo):
-        """Test values at z = 2.0."""
-        z = 2.0
-        D0 = cosmo.D_z(0.0)
-
-        # Linear growth factor (normalized)
-        D2 = cosmo.D_z(z)
-        assert np.isclose(D2 / D0, 0.378970688908124, rtol=1e-4)  # 1% tolerance for growth factor
-
-        # Growth rate
-        f2 = cosmo.f_z(z)
-        assert np.isclose(f2, 0.981855910972107, rtol=2e-4)
-
-        # Hubble parameter
-        H2 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H2, 224.06947149941828, rtol=2e-4)
-
-        # Comoving distance
-        assert np.isclose(cosmo.r_z(z), 5254.860436794502, rtol=1e-4)
-
-        # Luminosity distance
-        assert np.isclose(cosmo.dL_z(z), 15764.581310383495, rtol=1e-4)
-
-        # Angular diameter distance
-        assert np.isclose(cosmo.dA_z(z), 1751.6201455981693, rtol=1e-4)
+# Removed with the scalar-mν mode: this block compared against references that were
+# generated for a single Fermi-Dirac species carrying the total mass. CLASS/CAMB and
+# Julia three-mass references live in tests/test_neutrino_neff.py.
 
 
 class TestAdditionalFunctions:
@@ -347,15 +135,20 @@ class TestAdditionalFunctions:
         assert Ωm_a(0.5, Ωcb0, h) > Ωcb0
 
         # In matter domination (small a), Ωm should approach 1
-        # Note: Relaxed from > 0.99 to > 0.97 to account for numerical differences
-        assert Ωm_a(0.01, Ωcb0, h) > 0.97
+        # The massless default contains all Neff radiation. Check the analytic
+        # matter+radiation+Lambda expression rather than a legacy scalar bound.
+        from jaxace import _neutrinos as nu
+        a = 0.01
+        omega_r = nu.OMEGA_GAMMA_H2 / h**2 * (1 + 7/8 * nu.RINST**4 * nu.NREF)
+        expected = Ωcb0 / a**3 / (omega_r / a**4 + Ωcb0 / a**3 + 1 - Ωcb0 - omega_r)
+        np.testing.assert_allclose(Ωm_a(a, Ωcb0, h), expected, rtol=1e-13)
 
     def test_combined_growth_functions(self):
         """Test D_f_z returning both D and f."""
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z = 1.0
 
@@ -374,7 +167,7 @@ class TestAdditionalFunctions:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z_array = jnp.array([0.0, 0.5, 1.0, 2.0, 3.0])
 
@@ -417,7 +210,7 @@ class TestJAXFeatures:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z = 1.0
 
@@ -442,7 +235,7 @@ class TestJAXFeatures:
             cosmo = w0waCDMCosmology(
                 ln10As=3.0, ns=0.96, h=0.67,
                 omega_b=0.02, omega_c=omega_c,
-                m_nu=0.0, w0=-1.0, wa=0.0
+                m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
             )
             return cosmo.E_z(z) ** 2
 
@@ -458,7 +251,7 @@ class TestJAXFeatures:
             cosmo = w0waCDMCosmology(
                 ln10As=3.0, ns=0.96, h=h_val,
                 omega_b=0.02, omega_c=0.118,
-                m_nu=0.0, w0=-1.0, wa=0.0
+                m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
             )
             return cosmo.r_z(z)
 
@@ -489,15 +282,15 @@ class TestBackgroundADFiniteDifferences:
         h = 0.67
 
         _assert_forward_and_backward_ad_match_finite_difference(
-            lambda a: E_a(a, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            lambda a: E_a(a, Ωcb0, h, mν=(0.0, 0.0, 0.0), w0=-0.9, wa=0.2, Ωk0=0.01),
             0.7,
         )
         _assert_forward_and_backward_ad_match_finite_difference(
-            lambda z: E_z(z, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            lambda z: E_z(z, Ωcb0, h, mν=(0.0, 0.0, 0.0), w0=-0.9, wa=0.2, Ωk0=0.01),
             0.5,
         )
         _assert_forward_and_backward_ad_match_finite_difference(
-            lambda h_val: E_z(0.5, Ωcb0, h_val, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            lambda h_val: E_z(0.5, Ωcb0, h_val, mν=(0.0, 0.0, 0.0), w0=-0.9, wa=0.2, Ωk0=0.01),
             h,
             atol=1e-9,
         )
@@ -508,7 +301,7 @@ class TestBackgroundADFiniteDifferences:
         h = 0.67
 
         _assert_forward_and_backward_ad_match_finite_difference(
-            lambda z: r_z(z, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            lambda z: r_z(z, Ωcb0, h, mν=(0.0, 0.0, 0.0), w0=-0.9, wa=0.2, Ωk0=0.01),
             0.5,
             eps=1e-4,
             rtol=1e-6,
@@ -521,280 +314,19 @@ class TestBackgroundADFiniteDifferences:
         h = 0.67
 
         _assert_forward_and_backward_ad_match_finite_difference(
-            lambda z: D_z(z, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            lambda z: D_z(z, Ωcb0, h, mν=(0.0, 0.0, 0.0), w0=-0.9, wa=0.2, Ωk0=0.01),
             0.5,
             eps=1e-4,
             rtol=1e-5,
             atol=1e-8,
         )
         _assert_forward_and_backward_ad_match_finite_difference(
-            lambda z: f_z(z, Ωcb0, h, mν=0.0, w0=-0.9, wa=0.2, Ωk0=0.01),
+            lambda z: f_z(z, Ωcb0, h, mν=(0.0, 0.0, 0.0), w0=-0.9, wa=0.2, Ωk0=0.01),
             0.5,
             eps=1e-4,
             rtol=1e-5,
             atol=1e-8,
         )
-
-
-class TestComputedValues:
-    """
-    Test against values computed by compute_background_python.py and compute_background_julia.jl.
-
-    These tests verify that jaxace produces the same values as those computed
-    in the comparison scripts for w0waCDM cosmology with massive neutrinos.
-
-    Parameters: h = 0.6, Ωb h² = 0.02, Ωc h² = 0.16,
-                mν = 0.2 eV, w0 = -0.9, wa = -0.7
-    """
-
-    @pytest.fixture
-    def cosmo_params(self):
-        """Set up cosmology parameters matching the computation scripts."""
-        return {
-            'Ωcb0': (0.02 + 0.16) / 0.6**2,  # Total Ωcb0 = 0.5
-            'h': 0.6,
-            'mν': 0.2,
-            'w0': -0.9,
-            'wa': -0.7
-        }
-
-    @pytest.fixture
-    def cosmo(self):
-        """Set up cosmology object."""
-        return w0waCDMCosmology(
-            ln10As=3.0, ns=0.96, h=0.6,
-            omega_b=0.02, omega_c=0.16,
-            m_nu=0.2, w0=-0.9, wa=-0.7
-        )
-
-    def test_Ez_values(self, cosmo_params, cosmo):
-        """Test E(z) values against computed results."""
-        # Expected values from compute_background_python.py
-        test_cases = [
-            (0.0, 1.0000000000),
-            (1.0, 2.1104925107),
-            (2.0, 3.7341452644)
-        ]
-
-        for z, expected in test_cases:
-            computed = cosmo.E_z(z)
-            assert np.isclose(computed, expected, rtol=1e-8), \
-                f"E({z}) = {computed:.10f}, expected {expected:.10f}"
-
-    def test_rz_values(self, cosmo_params, cosmo):
-        """Test r(z) comoving distance values against computed results."""
-        # Expected values from compute_background_python.py (in Mpc)
-        test_cases = [
-            (0.0, 0.0000000000),
-            (1.0, 3477.6724816394),
-            (2.0, 5255.0796273660)
-        ]
-
-        for z, expected in test_cases:
-            computed = cosmo.r_z(z)
-            assert np.isclose(computed, expected, rtol=1e-6), \
-                f"r({z}) = {computed:.10f} Mpc, expected {expected:.10f} Mpc"
-
-    def test_Dz_values(self, cosmo_params, cosmo):
-        """Test D(z) growth factor values against computed results."""
-        # Expected values from compute_background_python.py
-        test_cases = [
-            (0.0, 0.8501165689),
-            (1.0, 0.4767667395),
-            (2.0, 0.3221487681)
-        ]
-
-        for z, expected in test_cases:
-            computed = cosmo.D_z(z)
-            # Use higher tolerance for growth factor due to ODE solver differences
-            assert np.isclose(computed, expected, rtol=1e-5), \
-                f"D({z}) = {computed:.10f}, expected {expected:.10f}"
-
-    def test_fz_values(self, cosmo_params, cosmo):
-        """Test f(z) growth rate values against computed results."""
-        # Expected values from compute_background_python.py
-        test_cases = [
-            (0.0, 0.6825378553),
-            (1.0, 0.9428910118),
-            (2.0, 0.9819803112)
-        ]
-
-        for z, expected in test_cases:
-            computed = cosmo.f_z(z)
-            # Use higher tolerance for growth rate due to ODE solver differences
-            assert np.isclose(computed, expected, rtol=1e-5), \
-                f"f({z}) = {computed:.10f}, expected {expected:.10f}"
-
-    def test_neutrino_background_functions(self):
-        """Test neutrino background function values against computed results."""
-        # Physical constants
-        kB = 8.617342e-5  # Boltzmann constant in eV/K
-        T_nu = 0.71611 * 2.7255  # Neutrino temperature in K
-
-        # Test gety values
-        gety_test_cases = [
-            (0.06, 1.0, 3.567401546958965e+02),  # Present day, standard mass
-            (0.06, 0.5, 1.783700773479483e+02),  # z=1, standard mass
-            (0.06, 0.1, 3.567401546958965e+01),  # z=9, standard mass
-        ]
-
-        for m_nu, a, expected in gety_test_cases:
-            computed = gety(m_nu, a, kB=kB, T_nu=T_nu)
-            assert np.isclose(computed, expected, rtol=1e-10), \
-                f"gety({m_nu}, {a}) = {computed:.15e}, expected {expected:.15e}"
-
-        # Test F values
-        F_test_cases = [
-            (0.1, 5.686292609702345e+00, 1e-10),
-            (1.0, 6.045645184985879e+00, 1e-10),
-            (10.0, 1.912519061523235e+01, 1e-10),
-            (100.0, 1.803022821920456e+02, 1e-3)  # Higher tolerance for large y values
-        ]
-
-        for y, expected, tol in F_test_cases:
-            computed = F(y)
-            assert np.isclose(computed, expected, rtol=tol), \
-                f"F({y}) = {computed:.15e}, expected {expected:.15e}"
-
-        # Test dFdy values
-        dFdy_test_cases = [
-            (0.1, 8.163790068516261e-02),
-            (1.0, 6.702633330933688e-01),
-            (10.0, 1.705643086081297e+00),
-            (100.0, 1.801921478540198e+00)
-        ]
-
-        for y, expected in dFdy_test_cases:
-            computed = dFdy(y)
-            assert np.isclose(computed, expected, rtol=1e-10), \
-                f"dFdy({y}) = {computed:.15e}, expected {expected:.15e}"
-
-
-class TestComputedValuesNewParams:
-    """
-    Test against values computed with new cosmological parameters.
-
-    Parameters: h = 0.6, Ωb h² = 0.02, Ωc h² = 0.16,
-                mν = 0.1 eV, w0 = -1.5, wa = 0.2
-    """
-
-    @pytest.fixture
-    def cosmo_params(self):
-        """Set up cosmology parameters."""
-        return {
-            'Ωcb0': (0.02 + 0.16) / 0.6**2,  # Total Ωcb0 = 0.5
-            'h': 0.6,
-            'mν': 0.1,
-            'w0': -1.5,
-            'wa': 0.2
-        }
-
-    @pytest.fixture
-    def cosmo(self):
-        """Set up cosmology object."""
-        return w0waCDMCosmology(
-            ln10As=3.0, ns=0.96, h=0.6,
-            omega_b=0.02, omega_c=0.16,
-            m_nu=0.1, w0=-1.5, wa=0.2
-        )
-
-    def test_Ez_values(self, cosmo_params, cosmo):
-        """Test E(z) values against computed results."""
-        test_cases = [
-            (0.0, 1.000000000000000e+00),
-            (1.0, 2.054808886511292e+00),
-            (2.0, 3.702702899771416e+00),
-        ]
-
-        for z, expected in test_cases:
-            computed = cosmo.E_z(z)
-            assert np.isclose(computed, expected, rtol=1e-8), \
-                f"E({z}) = {computed:.15e}, expected {expected:.15e}"
-
-    def test_rz_values(self, cosmo_params, cosmo):
-        """Test r(z) comoving distance values against computed results."""
-        test_cases = [
-            (0.0, 0.000000000000000e+00),
-            (1.0, 3.622545680264143e+03),
-            (2.0, 5.428834686056998e+03),
-        ]
-
-        for z, expected in test_cases:
-            computed = cosmo.r_z(z)
-            assert np.isclose(computed, expected, rtol=1e-6), \
-                f"r({z}) = {computed:.15e} Mpc, expected {expected:.15e} Mpc"
-
-    def test_Dz_values(self, cosmo_params, cosmo):
-        """Test D(z) growth factor values against computed results."""
-        test_cases = [
-            (0.0, 8.916311098929269e-01),
-            (1.0, 4.864740058127195e-01),
-            (2.0, 3.264502493603149e-01),
-        ]
-
-        for z, expected in test_cases:
-            computed = cosmo.D_z(z)
-            assert np.isclose(computed, expected, rtol=1e-5), \
-                f"D({z}) = {computed:.15e}, expected {expected:.15e}"
-
-    def test_fz_values(self, cosmo_params, cosmo):
-        """Test f(z) growth rate values against computed results."""
-        test_cases = [
-            (0.0, 6.874741460890912e-01),
-            (1.0, 9.709515147427410e-01),
-            (2.0, 9.913202163273395e-01),
-        ]
-
-        for z, expected in test_cases:
-            computed = cosmo.f_z(z)
-            assert np.isclose(computed, expected, rtol=1e-5), \
-                f"f({z}) = {computed:.15e}, expected {expected:.15e}"
-
-    def test_neutrino_background_functions(self):
-        """Test neutrino background function values against computed results."""
-        # Physical constants
-        kB = 8.617342e-5  # Boltzmann constant in eV/K
-        T_nu = 0.71611 * 2.7255  # Neutrino temperature in K
-
-        # Test gety values
-        gety_test_cases = [
-            (0.100, 1.000, 5.945669244931610e+02),
-            (0.100, 0.500, 2.972834622465805e+02),
-            (0.100, 0.250, 1.486417311232902e+02),
-        ]
-
-        for m_nu, a, expected in gety_test_cases:
-            computed = gety(m_nu, a, kB=kB, T_nu=T_nu)
-            assert np.isclose(computed, expected, rtol=1e-10), \
-                f"gety({m_nu}, {a}) = {computed:.15e}, expected {expected:.15e}"
-
-        # Test F values
-        F_test_cases = [
-            (0.1, 5.686292609702346e+00, 1e-10),
-            (1.0, 6.045645184985880e+00, 1e-10),
-            (10.0, 1.912519061523235e+01, 1e-10),
-            (100.0, 1.804251007630648e+02, 1e-3),  # Higher tolerance for large y
-            (500.0, 9.015660075295995e+02, 1e-3),  # Higher tolerance for large y
-        ]
-
-        for y, expected, tol in F_test_cases:
-            computed = F(y)
-            assert np.isclose(computed, expected, rtol=tol), \
-                f"F({y}) = {computed:.15e}, expected {expected:.15e}"
-
-        # Test dFdy values
-        dFdy_test_cases = [
-            (0.1, 8.163790068516444e-02),
-            (1.0, 6.702633330933686e-01),
-            (10.0, 1.705643086081295e+00),
-            (100.0, 1.801921478540218e+00),
-            (500.0, 1.803038697460714e+00),
-        ]
-
-        for y, expected in dFdy_test_cases:
-            computed = dFdy(y)
-            assert np.isclose(computed, expected, rtol=1e-10), \
-                f"dFdy({y}) = {computed:.15e}, expected {expected:.15e}"
 
 
 class TestJacobianComputation:
@@ -809,7 +341,7 @@ class TestJacobianComputation:
             'h': 0.67,
             'omega_b': 0.02,
             'omega_c': 0.118,
-            'm_nu': 0.06,
+            'm_nu': 0.02,  # per species; three degenerate masses
             'w0': -1.0,
             'wa': 0.0
         }
@@ -823,7 +355,7 @@ class TestJacobianComputation:
             cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
-                m_nu=params[5], w0=params[6], wa=params[7]
+                m_nu=(params[5],) * 3, w0=params[6], wa=params[7]
             )
             return cosmo.r_z(z_test)
 
@@ -867,7 +399,7 @@ class TestJacobianComputation:
             cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
-                m_nu=params[5], w0=params[6], wa=params[7]
+                m_nu=(params[5],) * 3, w0=params[6], wa=params[7]
             )
             return cosmo.D_z(z_test)
 
@@ -911,7 +443,7 @@ class TestJacobianComputation:
             cosmo = w0waCDMCosmology(
                 ln10As=params[0], ns=params[1], h=params[2],
                 omega_b=params[3], omega_c=params[4],
-                m_nu=params[5], w0=params[6], wa=params[7]
+                m_nu=(params[5],) * 3, w0=params[6], wa=params[7]
             )
             return cosmo.r_z(z_array)
 
@@ -954,7 +486,7 @@ class TestJacobianComputation:
                 h=h,
                 omega_b=base_cosmo_params['omega_b'],
                 omega_c=omega_c,
-                m_nu=base_cosmo_params['m_nu'],
+                m_nu=(base_cosmo_params['m_nu'],) * 3,
                 w0=base_cosmo_params['w0'],
                 wa=base_cosmo_params['wa']
             )
@@ -991,7 +523,7 @@ class TestJacobianComputation:
                 h=h,
                 omega_b=base_cosmo_params['omega_b'],
                 omega_c=omega_c,
-                m_nu=base_cosmo_params['m_nu'],
+                m_nu=(base_cosmo_params['m_nu'],) * 3,
                 w0=base_cosmo_params['w0'],
                 wa=base_cosmo_params['wa']
             )
@@ -1011,7 +543,7 @@ class TestTildeFunctions:
             'omega_b': 0.022,
             'omega_c': 0.12,
             'h': 0.7,
-            'm_nu': 0.06,
+            'm_nu': (0.02, 0.02, 0.02),
             'w0': -1.0,
             'wa': 0.0,
             'omega_k': 0.0,
@@ -1122,6 +654,177 @@ class TestTildeFunctions:
         # Check monotonicity (distances should increase with z for reasonable cosmologies)
         assert np.all(np.diff(r_tilde) > 0)
         assert np.all(np.diff(dM_tilde) > 0)
+
+
+class TestGrowthSpeciesPrescriptions:
+    """
+    Test the "cb" vs "m" growth-source prescriptions added to growth_solver /
+    D_z / f_z / D_f_z (and the w0waCDMCosmology wrappers).
+
+    - species="cb" (default): sources growth with Ωm_a, the cold + baryon
+      density only (the pre-existing behaviour; the Effort.jl convention).
+    - species="m": sources growth with Ωm_a_total = Ω_cb(a) + Ω_ν,massive(a),
+      where Ω_ν,massive(a) is built from the package's actual
+      Fermi-Dirac-integral neutrino density ΩνE2(a) (the same function used
+      in E_a/dlogEdloga), *minus* its massless (mν=0) baseline:
+      Ω_ν,massive(a) ∝ ΩνE2(a; mν) - ΩνE2(a; 0). That subtraction is required
+      because ΩνE2(a; mν=0) is *not* zero: with N_eff massless neutrinos it
+      returns the nonzero relativistic neutrino radiation density (set by
+      the neutrino temperature, exactly like the photon term), which is its
+      own separate radiation-like term in E(a)^2 and is not matter at any
+      epoch. Subtracting it isolates the density genuinely attributable to
+      nonzero neutrino mass, so it vanishes exactly at mν=0.
+    """
+
+    @pytest.fixture
+    def varied_cosmologies(self):
+        """Cosmologies spanning w0, wa != (-1, 0) and Ωk0 != 0."""
+        return [
+            dict(Ωcb0=0.30, h=0.67, w0=-1.0, wa=0.0, Ωk0=0.0),
+            dict(Ωcb0=0.31, h=0.68, w0=-0.9, wa=0.2, Ωk0=0.0),
+            dict(Ωcb0=0.28, h=0.70, w0=-1.1, wa=-0.3, Ωk0=0.02),
+            dict(Ωcb0=0.32, h=0.65, w0=-0.8, wa=0.4, Ωk0=-0.015),
+        ]
+
+    def test_species_default_matches_unspecified_call(self):
+        """The species keyword defaults to "cb" and must reproduce the exact
+        pre-existing call signature/behaviour when omitted."""
+        Ωcb0, h = 0.3, 0.67
+        z = jnp.array([0.0, 0.5, 1.0, 2.0])
+
+        assert jnp.array_equal(D_z(z, Ωcb0, h), D_z(z, Ωcb0, h, species="cb"))
+        assert jnp.array_equal(f_z(z, Ωcb0, h), f_z(z, Ωcb0, h, species="cb"))
+
+        D1, f1 = D_f_z(z, Ωcb0, h)
+        D2, f2 = D_f_z(z, Ωcb0, h, species="cb")
+        assert jnp.array_equal(D1, D2)
+        assert jnp.array_equal(f1, f2)
+
+    def test_omega_m_a_total_matches_omega_m_a_at_zero_neutrino_mass(self):
+        """Ωm_a_total's neutrino term is ΩνE2(a; 0) - ΩνE2(a; 0) = 0
+        identically at every scale factor when mν=0, so it must reduce
+        exactly to Ωm_a (cb-only)."""
+        Ωcb0, h = 0.3, 0.67
+        for a in [1.0, 0.5, 0.1, 1.0 / 139.0]:
+            assert np.isclose(
+                Ωm_a_total(a, Ωcb0, h, mν=(0.0, 0.0, 0.0)), Ωm_a(a, Ωcb0, h), atol=1e-12
+            )
+
+    def test_species_m_degenerates_with_cb_at_zero_neutrino_mass(
+        self, varied_cosmologies
+    ):
+        """With Σmν=0 the "m" source term is algebraically identical to the
+        "cb" source term (see class docstring), so D_z/f_z with species="m"
+        must match species="cb" to solver tolerance, across cosmologies
+        including w0/wa != (-1, 0) and Ωk0 != 0."""
+        z = jnp.array([0.0, 0.5, 1.0, 2.0, 5.0])
+
+        for c in varied_cosmologies:
+            kwargs = dict(mν=(0.0, 0.0, 0.0), w0=c["w0"], wa=c["wa"], Ωk0=c["Ωk0"])
+            D_cb = D_z(z, c["Ωcb0"], c["h"], species="cb", **kwargs)
+            D_m = D_z(z, c["Ωcb0"], c["h"], species="m", **kwargs)
+            assert np.allclose(D_cb, D_m, atol=1e-9), c
+
+            f_cb = f_z(z, c["Ωcb0"], c["h"], species="cb", **kwargs)
+            f_m = f_z(z, c["Ωcb0"], c["h"], species="m", **kwargs)
+            assert np.allclose(f_cb, f_m, atol=1e-9), c
+
+    def test_species_m_source_direction_and_magnitude(self):
+        """
+        At fixed Ωcb0/h, nonzero neutrino mass strictly increases the "m"
+        source term relative to "cb" (Ωm_a_total >= Ωm_a, since the
+        mass-induced excess Ω_ν,massive(a) >= 0 always). Integrating the
+        growth ODE with a larger source term accumulates *more* growth at
+        every scale factor: the unnormalized D_m(a) > D_cb(a) for all
+        a > a_min ("more source -> more growth accumulated").
+
+        This extra source acts continuously from a_min upward, so its
+        multiplicative effect on D keeps compounding with each e-fold: the
+        relative boost D_m(a)/D_cb(a) is *largest* at a=1 (today, after the
+        most e-folds of extra source) and smaller at earlier times/higher z.
+        Consequently the *normalized* ratio D(z)/D(z=0) -- which divides by
+        the more strongly boosted present-day value -- ends up *smaller* for
+        species="m" than for species="cb" at every z > 0:
+
+            D_m(z)/D_m(0) < D_cb(z)/D_cb(0)  for z > 0.
+
+        (Verified numerically before writing this test: the unnormalized
+        D_m(z) is larger than D_cb(z) at every z, consistent with "more
+        source -> more accumulated growth"; only the *normalized* ratio
+        flips sign, because the boost compounds most by z=0.)
+        """
+        Ωcb0, h = 0.3, 0.67
+        mν = (0.02, 0.02, 0.02)
+        z = jnp.array([0.5, 1.0, 2.0, 5.0, 10.0])
+
+        D_cb = D_z(z, Ωcb0, h, mν=mν, species="cb")
+        D_m = D_z(z, Ωcb0, h, mν=mν, species="m")
+        D_cb0 = D_z(0.0, Ωcb0, h, mν=mν, species="cb")
+        D_m0 = D_z(0.0, Ωcb0, h, mν=mν, species="m")
+
+        # Unnormalized growth factor is larger for "m" at every z tested:
+        # more source accumulates more growth.
+        assert jnp.all(D_m > D_cb)
+
+        ratio_cb = D_cb / D_cb0
+        ratio_m = D_m / D_m0
+        diff = ratio_m - ratio_cb
+
+        # Nonzero, with the derived sign (negative), at every z tested.
+        assert jnp.all(diff < 0.0)
+
+        # O(f_nu): fractional size relative to the cb ratio, between 1e-4
+        # and 1e-2 over z in [0, 10].
+        frac = jnp.abs(diff) / ratio_cb
+        assert jnp.all(frac > 1e-4)
+        assert jnp.all(frac < 1e-2)
+
+    def test_species_m_jit_and_differentiable(self):
+        """species="m" must be jit-compilable and differentiable w.r.t. mν
+        and h, mirroring TestJAXFeatures.test_jit_compilation/test_gradients
+        and the AD-vs-finite-difference checks in
+        TestBackgroundADFiniteDifferences."""
+        Ωcb0 = 0.3
+
+        @jax.jit
+        def D_species_m(mν_val, h_val):
+            return D_z(1.0, Ωcb0, h_val, mν=(mν_val,) * 3, species="m")
+
+        # Repeated calls of the jitted function agree (and compile).
+        D1 = D_species_m(0.1, 0.67)
+        D2 = D_species_m(0.1, 0.67)
+        assert np.isclose(D1, D2)
+        assert np.isfinite(D1)
+
+        grad_mν = jax.grad(D_species_m, argnums=0)(0.1, 0.67)
+        grad_h = jax.grad(D_species_m, argnums=1)(0.1, 0.67)
+        assert np.isfinite(grad_mν)
+        assert np.isfinite(grad_h)
+
+        # dD/dh matches a central finite difference tightly: h enters
+        # growth_solver's ODE parameters smoothly, and reverse-mode AD
+        # through diffrax's adjoint reproduces it to high precision.
+        eps = 1e-6
+        fd_h = (D_species_m(0.1, 0.67 + eps) - D_species_m(0.1, 0.67 - eps)) / (
+            2 * eps
+        )
+        assert np.isclose(grad_h, fd_h, rtol=1e-3)
+
+        # Scalar mass-gradient accuracy is checked in test_growth_dispatch:
+        # independent Julia ForwardDiff on the identical frozen polynomial
+        # model, plus finite differences at tight solve tolerances. The flux
+        # formulation avoids second derivatives of the scalar Akima table in
+        # the RHS sensitivities. Loose-solve finite differences can instead
+        # differentiate adaptive integration error and are not a ground truth.
+
+        # f_z with species="m" is also differentiable and finite.
+        def f_species_m(mν_val, h_val):
+            return f_z(1.0, Ωcb0, h_val, mν=(mν_val,) * 3, species="m")
+
+        grad_f_mν = jax.grad(f_species_m, argnums=0)(0.1, 0.67)
+        grad_f_h = jax.grad(f_species_m, argnums=1)(0.1, 0.67)
+        assert np.isfinite(grad_f_mν)
+        assert np.isfinite(grad_f_h)
 
 
 if __name__ == "__main__":

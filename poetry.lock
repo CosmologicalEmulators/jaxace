@@ -1423,23 +1423,6 @@ files = [
 pyyaml = "*"
 
 [[package]]
-name = "quadax"
-version = "0.2.13"
-description = "Numerical quadrature with JAX"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "quadax-0.2.13-py3-none-any.whl", hash = "sha256:4ab69b77cc3ecdf64fcb1c5091bcadd280386406eab3609002808084860a3eb0"},
-    {file = "quadax-0.2.13.tar.gz", hash = "sha256:136359729026d42f8566dbdbfa361dab78ac906ffb8363705434fc5d4957354b"},
-]
-
-[package.dependencies]
-equinox = ">=0.11.0,<0.14"
-jax = ">=0.4.36,<0.11"
-numpy = ">=1.20.0,<2.5"
-
-[[package]]
 name = "rich"
 version = "14.2.0"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
@@ -1919,4 +1902,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "1feafc2e4262b897ef925b695cd856322c8cca3298db351cfd5242249f9cce6e"
+content-hash = "fb6513aff20db30430d79790c6f9f512930cae8704e8eaa410ed0a97c095ab61"
