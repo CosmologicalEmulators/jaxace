@@ -1,7 +1,8 @@
 """Three physical neutrino masses with the ACE/CLASS thermal convention.
 
-Only the vector path uses these constants. The historical scalar path is kept
-unchanged. Runtime quadrature is pure JAX; static momentum nodes are built once.
+The analytic background and growth functions take exactly three explicit masses
+(eV); a scalar mass is rejected. Runtime quadrature is pure JAX; static momentum
+nodes are built once.
 """
 import jax.numpy as jnp
 import numpy as np
@@ -25,16 +26,33 @@ _Q = 32*(_nodes+1)
 _W = 32*_weights*_Q**2/(1+np.exp(_Q))
 
 
-def valid_parameters(masses, Neff, prescription):
+MASSLESS = (0.0, 0.0, 0.0)
+
+SCALAR_MASS_MESSAGE = (
+    "A scalar neutrino mass mν is no longer supported by the analytic background "
+    "and growth functions. Pass exactly three physical masses (m1, m2, m3) in eV, "
+    "e.g. mν=(0.02, 0.02, 0.02); the total mass is not split automatically. "
+    "(The total mass Σmν remains the input convention of the neural emulators.)"
+)
+
+
+def check_mass_shape(masses):
+    """Raise ValueError unless ``masses`` has static shape (3,). Trace-safe."""
     masses = jnp.asarray(masses)
+    if masses.ndim == 0:
+        raise ValueError(SCALAR_MASS_MESSAGE)
+    if masses.ndim != 1 or masses.shape[0] != 3:
+        raise ValueError(
+            f"mν must be exactly three masses (m1, m2, m3) in eV; got shape {masses.shape}"
+        )
+    return masses
+
+
+def valid_parameters(masses, Neff, prescription):
+    masses = check_mass_shape(masses)
     if prescription not in ("temperature", "radiation"):
         raise ValueError("neutrino_prescription must be 'temperature' or 'radiation'")
     valid = jnp.isfinite(Neff) & (Neff > 0)
-    if masses.ndim == 0:
-        # Nonstandard Neff has no implicit meaning for the legacy scalar path.
-        return valid & (Neff == NREF)
-    if masses.ndim != 1 or masses.shape[0] != 3:
-        raise ValueError("mν must be a scalar (legacy) or exactly three masses in eV")
     valid = valid & jnp.all(jnp.isfinite(masses) & (masses >= 0))
     if prescription == "radiation":
         valid = valid & (Neff >= 3*N_PER_SPECIES)

@@ -32,7 +32,7 @@ class TestNaNInfPropagation:
         cosmo_nan_h = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=jnp.nan,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         result = cosmo_nan_h.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in h"
@@ -41,7 +41,7 @@ class TestNaNInfPropagation:
         cosmo_nan_omega = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=jnp.nan,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         result = cosmo_nan_omega.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in omega_c"
@@ -50,7 +50,7 @@ class TestNaNInfPropagation:
         cosmo_nan_mnu = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=jnp.nan, w0=-1.0, wa=0.0
+            m_nu=(jnp.nan, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         result = cosmo_nan_mnu.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in neutrino mass"
@@ -58,7 +58,7 @@ class TestNaNInfPropagation:
         cosmo_nan_w0 = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=jnp.nan, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=jnp.nan, wa=0.0
         )
         result = cosmo_nan_w0.E_z(1.0)
         assert jnp.isnan(result), "E_z should propagate NaN in w0"
@@ -67,7 +67,7 @@ class TestNaNInfPropagation:
         cosmo_normal = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         result = cosmo_normal.E_z(jnp.nan)
         assert jnp.isnan(result), "E_z should propagate NaN in redshift"
@@ -77,7 +77,7 @@ class TestNaNInfPropagation:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
 
         # Test with Inf in redshift
@@ -91,7 +91,7 @@ class TestNaNInfPropagation:
         cosmo_inf_omega = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=jnp.inf,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         result = cosmo_inf_omega.E_z(1.0)
         assert jnp.isnan(result), "E_z returns NaN for Inf in omega_c"
@@ -111,7 +111,7 @@ class TestNaNInfPropagation:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
 
         # Test r_z with NaN
@@ -130,7 +130,7 @@ class TestNaNInfPropagation:
         cosmo_nan = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=jnp.nan,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         result = cosmo_nan.r_z(1.0)
         assert jnp.isnan(result), "r_z should propagate NaN in parameters"
@@ -140,7 +140,7 @@ class TestNaNInfPropagation:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
 
         # Test D_z with NaN in redshift
@@ -175,7 +175,7 @@ class TestNaNInfPropagation:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z_array = jnp.array([0.0, 0.5, jnp.nan, 1.5, 2.0])
 
@@ -208,7 +208,7 @@ class TestNaNInfPropagation:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=jnp.nan,
             omega_b=0.02237, omega_c=0.1,
-            m_nu=0.06, w0=-1.0, wa=0.0
+            m_nu=(0.02, 0.02, 0.02), w0=-1.0, wa=0.0
         )
         
         # Extract Ωcb0 - will contain NaN due to h
@@ -234,7 +234,7 @@ class TestEmptyArrays:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z_empty = jnp.array([])
 
@@ -247,7 +247,7 @@ class TestEmptyArrays:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z_empty = jnp.array([])
 
@@ -260,7 +260,7 @@ class TestEmptyArrays:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z_empty = jnp.array([])
 
@@ -273,7 +273,7 @@ class TestEmptyArrays:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z_empty = jnp.array([])
 
@@ -286,7 +286,7 @@ class TestEmptyArrays:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z_empty = jnp.array([])
 
@@ -320,7 +320,7 @@ class TestEmptyArrays:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         # Create empty batch
         z_batch = jnp.array([]).reshape(0, 1)  # Empty batch with shape (0, 1)
@@ -340,7 +340,7 @@ class TestEmptyArrays:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z1 = jnp.array([0.5, 1.0])
         z_empty = jnp.array([])
@@ -379,7 +379,7 @@ class TestMixedPrecision:
         cosmo = w0waCDMCosmology(
             ln10As=jnp.float64(3.0), ns=jnp.float64(0.96), h=jnp.float64(0.67),
             omega_b=jnp.float32(0.02), omega_c=jnp.float32(0.118),
-            m_nu=jnp.float64(0.0), w0=jnp.float64(-1.0), wa=jnp.float64(0.0)
+            m_nu=(jnp.float64(0.0),) * 3, w0=jnp.float64(-1.0), wa=jnp.float64(0.0)
         )
         z_64 = jnp.array(1.0, dtype=jnp.float64)
 
@@ -402,7 +402,7 @@ class TestMixedPrecision:
         cosmo_64 = w0waCDMCosmology(
             ln10As=jnp.float64(3.0), ns=jnp.float64(0.96), h=jnp.float64(0.67),
             omega_b=jnp.float64(0.02), omega_c=jnp.float64(0.118),
-            m_nu=jnp.float64(0.0), w0=jnp.float64(-1.0), wa=jnp.float64(0.0)
+            m_nu=(jnp.float64(0.0),) * 3, w0=jnp.float64(-1.0), wa=jnp.float64(0.0)
         )
 
         # Create arrays with different precisions
@@ -490,7 +490,7 @@ class TestBoundaryConditions:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z = 0.0
 
@@ -507,7 +507,7 @@ class TestBoundaryConditions:
         cosmo = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         z = -0.5  # Future time
 
@@ -526,7 +526,7 @@ class TestBoundaryConditions:
         cosmo_small_omega = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.001, omega_c=0.001,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         result = cosmo_small_omega.E_z(1.0)
         assert jnp.isfinite(result), "Should handle very small omega_c"
@@ -535,7 +535,7 @@ class TestBoundaryConditions:
         cosmo_large_omega = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.25,
-            m_nu=0.0, w0=-1.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-1.0, wa=0.0
         )
         result = cosmo_large_omega.E_z(1.0)
         assert jnp.isfinite(result), "Should handle very large omega_c"
@@ -544,7 +544,7 @@ class TestBoundaryConditions:
         cosmo_extreme_w0 = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=-2.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=-2.0, wa=0.0
         )
         result = cosmo_extreme_w0.E_z(1.0)
         assert jnp.isfinite(result), "Should handle w0 < -1"
@@ -552,7 +552,7 @@ class TestBoundaryConditions:
         cosmo_w0_zero = w0waCDMCosmology(
             ln10As=3.0, ns=0.96, h=0.67,
             omega_b=0.02, omega_c=0.118,
-            m_nu=0.0, w0=0.0, wa=0.0
+            m_nu=(0.0, 0.0, 0.0), w0=0.0, wa=0.0
         )
         result = cosmo_w0_zero.E_z(1.0)
         assert jnp.isfinite(result), "Should handle w0 = 0"

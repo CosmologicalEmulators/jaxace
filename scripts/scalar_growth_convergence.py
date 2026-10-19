@@ -1,3 +1,4 @@
+# HISTORICAL: this tool targets the retired scalar-mass mode and cannot run on the current API.
 """Report CI-stack sensitivities against the frozen original-state oracle.
 
 Run after tests/generate_original_growth_reference.py. Prints Markdown; redirect

@@ -1,3 +1,4 @@
+# HISTORICAL: this tool targets the retired scalar-mass mode and cannot run on the current API.
 # Independent Julia reference for the frozen JAX scalar interpolation model.
 # Run with an environment containing OrdinaryDiffEqTsit5 and ForwardDiff,
 # e.g. the existing ACE benchmark project. Never called by the test suite.

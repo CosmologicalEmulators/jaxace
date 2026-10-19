@@ -19,9 +19,7 @@ if not hasattr(jax.core, "get_aval") and hasattr(jax, "typeof"):
     jax.core.get_aval = jax.typeof
 
 import diffrax
-from .utils import prepare_akima_spline, evaluate_akima_spline
 from . import _neutrinos
-import quadax
 
 # Allow user to configure precision via environment variable
 if os.environ.get("JAXACE_ENABLE_X64", "true").lower() == "true":
@@ -219,11 +217,16 @@ class w0waCDMCosmology:
     omega_b: float
     omega_c: float
     omega_k: float = 0.0
-    m_nu: Union[float, jnp.ndarray, tuple] = 0.0
+    m_nu: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS
     w0: float = -1.0
     wa: float = 0.0
     Neff: float = 3.044
     neutrino_prescription: str = "temperature"
+
+    def __post_init__(self):
+        # Static-shape check only (works eagerly and while tracing); numeric
+        # validity of the masses/Neff is masked to NaN by the physics functions.
+        _neutrinos.check_mass_shape(self.m_nu)
 
     def E_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless Hubble parameter E(a) = H(a)/H0."""
@@ -399,212 +402,28 @@ def drhoDE_da(a, w0, wa):
     return 3.0 * (-(1.0 + w0 + wa) / a + wa) * rhoDE_a(a, w0, wa)
 
 
-@jax.jit
-def gety(
-    m_nu: Union[float, jnp.ndarray],
-    a: Union[float, jnp.ndarray],
-    kB: float = 8.617342e-5,
-    T_nu: float = 0.71611 * 2.7255,
-) -> Union[float, jnp.ndarray]:
-    """
-    Compute dimensionless neutrino parameter y = m_nu * a / (kB * T_nu)
-    Matches Effort.jl's _get_y function exactly.
-    """
-    return m_nu * a / (kB * T_nu)
-
-
-def F(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    def singleF(y_val):
-        def integrand(x):
-            return x**2 * jnp.sqrt(x**2 + y_val**2) / (jnp.exp(x) + 1.0)
-
-        result, _ = quadax.quadgk(
-            integrand,
-            jnp.array([0.0, jnp.inf], dtype=jnp.result_type(y_val, jnp.float64)),
-            epsabs=1e-15,
-            epsrel=1e-12,
-            order=61,
-        )
-        return result
-
-    # Handle both scalar and array inputs
-    if jnp.isscalar(y) or y.ndim == 0:
-        return singleF(y)
-    else:
-        return jax.vmap(singleF)(y)
-
-
-def dFdy(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    def singledFdy(y_val):
-        def integrand(x):
-            sqrt_term = jnp.sqrt(x**2 + y_val**2)
-            return x**2 * y_val / (sqrt_term * (jnp.exp(x) + 1.0))
-
-        result, _ = quadax.quadgk(
-            integrand,
-            jnp.array([0.0, jnp.inf], dtype=jnp.result_type(y_val, jnp.float64)),
-            epsabs=1e-15,
-            epsrel=1e-12,
-            order=61,
-        )
-        return result
-
-    # Handle both scalar and array inputs
-    if jnp.isscalar(y) or y.ndim == 0:
-        return singledFdy(y)
-    else:
-        return jax.vmap(singledFdy)(y)
-
-
-# Module-level interpolants - initialized once and reused
-_F_interpolator = None
-_dFdy_interpolator = None
-_interpolants_initialized = False
-
-
-def initialize_interpolants():
-    global _F_interpolator, _dFdy_interpolator, _interpolants_initialized
-
-    if _interpolants_initialized:
-        return True
-
-    try:
-        # Implement Effort.jl's dual-grid approach
-        # Grid parameters following Effort.jl specifications
-        min_y = 0.001  # Minimum y value
-        max_y = 1000.0  # Maximum y value for extended range
-
-        # F_interpolant grid: 100 points (min_y to 100) + 1,000 points (100.1 to max_y)
-        # Full Effort.jl specification
-        F_y_low = jnp.logspace(jnp.log10(min_y), jnp.log10(100.0), 100)
-        F_y_high = jnp.logspace(jnp.log10(100.1), jnp.log10(max_y), 1000)
-        F_y_grid = jnp.concatenate([F_y_low, F_y_high])
-
-        # dFdy_interpolant grid: 10,000 points (min_y to 10) + 10,000 points (10.1 to max_y)
-        # Full Effort.jl specification
-        dFdy_y_low = jnp.logspace(jnp.log10(min_y), jnp.log10(10.0), 10000)
-        dFdy_y_high = jnp.logspace(jnp.log10(10.1), jnp.log10(max_y), 10000)
-        dFdy_y_grid = jnp.concatenate([dFdy_y_low, dFdy_y_high])
-
-        # Compute F values for F grid using JAX vectorization
-        F_values = F(F_y_grid)  # F function should handle arrays
-
-        # Compute dFdy values for dFdy grid using JAX vectorization
-        dFdy_values = dFdy(dFdy_y_grid)  # dFdy function should handle arrays
-
-        # Validate computed values
-        if not jnp.all(jnp.isfinite(F_values)):
-            raise ValueError("F values contain non-finite entries")
-        if not jnp.all(jnp.isfinite(dFdy_values)):
-            raise ValueError("dFdy values contain non-finite entries")
-        if not jnp.all(F_values > 0):
-            raise ValueError("F values must be positive")
-        if not jnp.all(dFdy_values >= 0):
-            raise ValueError("dFdy values must be non-negative")
-
-        # Create separate Akima interpolators with their respective optimized grids
-        _F_interpolator = prepare_akima_spline(F_values, F_y_grid)
-        _dFdy_interpolator = prepare_akima_spline(dFdy_values, dFdy_y_grid)
-
-        _interpolants_initialized = True
-        return True
-
-    except Exception as e:
-        import warnings
-        warnings.warn(f"Failed to initialize interpolants: {e}")
-        return False
-
-
-@jax.jit
-def F_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    global _F_interpolator
-
-    if _F_interpolator is None:
-        raise RuntimeError(
-            "F interpolant not initialized. Call initialize_interpolants() first."
-        )
-
-    # Input validation (must be JAX-traceable)
-    y = jnp.asarray(y)
-
-    # Interpolate
-    result = evaluate_akima_spline(_F_interpolator, y)
-
-    return result
-
-
-@jax.jit
-def dFdy_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    global _dFdy_interpolator
-
-    if _dFdy_interpolator is None:
-        raise RuntimeError(
-            "dFdy interpolant not initialized. Call initialize_interpolants() first."
-        )
-
-    # Input validation (must be JAX-traceable)
-    y = jnp.asarray(y)
-
-    # Interpolate
-    result = evaluate_akima_spline(_dFdy_interpolator, y)
-
-    return result
-
-
 @partial(jax.jit, static_argnames=("neutrino_prescription",))
 def ΩνE2(
     a: Union[float, jnp.ndarray],
     Ωγ0: Union[float, jnp.ndarray],
-    m_nu: Union[float, jnp.ndarray],
+    m_nu: Union[tuple, jnp.ndarray],
     N_eff: Union[float, jnp.ndarray],
     neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
-    Neutrino energy density parameter. The formula below describes the legacy
-    scalar path. Exactly three explicit masses use the CLASS-anchor thermal
-    model, including its massless remainder; see the README's Neff conventions.
-
-    $$\\Omega_\\nu(a) \\cdot E^2(a) = \\frac{15}{\\pi^4} \\Gamma_\\nu^4 \\frac{\\Omega_{\\gamma,0}}{a^4} \\sum_i F(y_i)$$
-
-    where:
-
-    - $\\Gamma_\\nu = (4/11)^{1/3} \\cdot (N_{\\mathrm{eff}}/3)^{1/4}$
-    - $y_i = m_{\\nu,i} a / (k_{\\mathrm{B}} T_\\nu)$ is the dimensionless neutrino parameter
-    - $F(y)$ is the Fermi-Dirac integral ratio
-
-    Returns:
-        Neutrino energy density parameter times E²(a).
+    Neutrino energy density parameter Ων(a) E²(a) for exactly three explicit
+    masses (eV): three Fermi-Dirac species with the CLASS-anchor thermal model
+    plus its massless remainder; see the README's Neff conventions. A scalar
+    ``m_nu`` raises ``ValueError``.
     """
-    if jnp.asarray(m_nu).ndim != 0:
-        return _neutrinos.density(a, Ωγ0, m_nu, N_eff, neutrino_prescription)
-
-    # Physics constants for the unchanged legacy scalar path.
-    kB = 8.617342e-5  # Boltzmann constant in eV/K
-    T_nu = 0.71611 * 2.7255  # Neutrino temperature in K (matches Effort.jl)
-
-    # Gamma factor (exact match with Effort.jl)
-    Gamma_nu = jnp.power(4.0 / 11.0, 1.0 / 3.0) * jnp.power(N_eff / 3.0, 1.0 / 4.0)
-
-    y = jnp.asarray(m_nu) * a / (kB * T_nu)
-    sum_interpolant = F_interpolant(y)
-
-    # Exact Effort.jl formula: 15/π^4 * Γν^4 * Ωγ0/a^4 * sum_interpolant
-    result = (
-        (15.0 / jnp.pi**4)
-        * jnp.power(Gamma_nu, 4.0)
-        * Ωγ0
-        * jnp.power(a, -4.0)
-        * sum_interpolant
-    )
-
-    return result
+    return _neutrinos.density(a, Ωγ0, m_nu, N_eff, neutrino_prescription)
 
 
 @partial(jax.jit, static_argnames=("neutrino_prescription",))
 def dΩνE2da(
     a: Union[float, jnp.ndarray],
     Ωγ0: Union[float, jnp.ndarray],
-    m_nu: Union[float, jnp.ndarray],
+    m_nu: Union[tuple, jnp.ndarray],
     N_eff: Union[float, jnp.ndarray],
     neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
@@ -621,17 +440,8 @@ def dΩνE2da(
         return grad_fn(a)
 
 
-# Initialize interpolants on module import
-try:
-    _interpolants_initialized = initialize_interpolants()
-except Exception as e:
-    import warnings
-    warnings.warn(f"Could not initialize interpolants during module import: {e}")
-    _interpolants_initialized = False
-
-
 def _photon_density(h, masses):
-    return (2.469e-5 if jnp.asarray(masses).ndim == 0 else _neutrinos.OMEGA_GAMMA_H2) / h**2
+    return _neutrinos.OMEGA_GAMMA_H2 / h**2
 
 
 @partial(jax.jit, static_argnames=("neutrino_prescription",))
@@ -639,7 +449,7 @@ def E_a(
     a: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -733,7 +543,7 @@ def E_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -760,7 +570,7 @@ def dlogEdloga(
     a: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -822,7 +632,7 @@ def Ωm_a(
     a: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -852,7 +662,7 @@ def Ωm_a_total(
     a: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -944,7 +754,7 @@ def r̃_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -996,7 +806,7 @@ def d̃M_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -1013,7 +823,7 @@ def d̃M_z(
         z: Redshift (scalar or array)
         Ωcb0: Present-day CDM+baryon density parameter
         h: Dimensionless Hubble parameter (H0 = 100h km/s/Mpc)
-        mν: Neutrino mass in eV
+        mν: Three neutrino masses (m1, m2, m3) in eV
         w0: Dark energy equation of state parameter
         wa: Dark energy equation of state derivative
         Ωk0: Curvature density parameter
@@ -1034,7 +844,7 @@ def d̃A_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -1051,7 +861,7 @@ def d̃A_z(
         z: Redshift (scalar or array)
         Ωcb0: Present-day CDM+baryon density parameter
         h: Dimensionless Hubble parameter (H0 = 100h km/s/Mpc)
-        mν: Neutrino mass in eV
+        mν: Three neutrino masses (m1, m2, m3) in eV
         w0: Dark energy equation of state parameter
         wa: Dark energy equation of state derivative
         Ωk0: Curvature density parameter
@@ -1184,7 +994,7 @@ def r_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -1216,7 +1026,7 @@ def dM_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -1254,7 +1064,7 @@ def dA_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -1305,7 +1115,7 @@ def _growth_rhs(log_a, u, params, source_fn, neutrino_prescription="temperature"
 
 
 @partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
-def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb", Neff=3.044, neutrino_prescription="temperature"):
+def growth_ode_system(log_a, u, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb", Neff=3.044, neutrino_prescription="temperature"):
     """Compatibility entry point; the species string is resolved at trace time."""
     # Sanitize before NaN background coefficients can multiply the shared ODE
     # state: masking that product afterward would poison its reverse gradient.
@@ -1349,7 +1159,7 @@ def _growth_flux_rhs(log_a, u, params, source_fn, neutrino_prescription):
 
 
 def growth_solver(
-    a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False, species="cb",
+    a_span, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False, species="cb",
     Neff=3.044, neutrino_prescription="temperature", reltol=1e-6, abstol=1e-8,
 ):
     """
@@ -1475,7 +1285,7 @@ def growth_solver(
 
 @partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
 def D_z(
-    z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
+    z, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
     Neff=3.044, neutrino_prescription="temperature", reltol=1e-6, abstol=1e-8,
 ) -> Union[float, jnp.ndarray]:
     """
@@ -1544,7 +1354,7 @@ def D_z(
 
 @partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
 def f_z(
-    z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
+    z, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
     Neff=3.044, neutrino_prescription="temperature", reltol=1e-6, abstol=1e-8,
 ) -> Union[float, jnp.ndarray]:
     """
@@ -1632,7 +1442,7 @@ def f_z(
 
 
 @partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
-def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
+def D_f_z(z, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
           Neff=3.044, neutrino_prescription="temperature", reltol=1e-6, abstol=1e-8):
     """
     Linear growth factor and growth rate (D(z), f(z)).
@@ -1717,7 +1527,7 @@ def ρc_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -1737,12 +1547,13 @@ def Ωtot_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
 ) -> Union[float, jnp.ndarray]:
     # For flat universe: Ωtot = 1.0 exactly by construction
     # Return array of ones with same shape as input z
+    _neutrinos.check_mass_shape(mν)
     z_array = jnp.asarray(z)
     return jnp.ones_like(z_array)
 
@@ -1752,7 +1563,7 @@ def dL_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
@@ -1769,7 +1580,7 @@ def dL_z(
         z: Redshift
         Ωcb0: Present-day matter density parameter (CDM + baryons)
         h: Dimensionless Hubble parameter (H0 = 100h km/s/Mpc)
-        mν: Sum of neutrino masses in eV
+        mν: Three neutrino masses (m1, m2, m3) in eV
         w0: Dark energy equation of state parameter
         wa: Dark energy equation of state evolution parameter
         Ωk0: Curvature density parameter

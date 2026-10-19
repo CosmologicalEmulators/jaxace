@@ -242,7 +242,6 @@ def test_live_neff_mass_gradients(policy,species):
 def test_invalid_domains_are_not_clamped_into_valid_models():
     for n in (0.,-1.,np.nan,np.inf):
         assert np.isnan(bg.E_z(1.,OCB,H,mν=jnp.zeros(3),Neff=n))
-    assert np.isnan(bg.E_z(1.,OCB,H,mν=.06,Neff=5.))
     assert np.isnan(bg.r_z(0.,OCB,H,mν=jnp.zeros(3),Neff=-1.))
     assert np.isnan(bg.E_z(1.,OCB,H,mν=jnp.zeros(3),Neff=2.,neutrino_prescription="radiation"))
     for m in ([0.,0.,-.1],[0.,0.,np.nan]):

@@ -1,3 +1,5 @@
+> **Historical:** measured for the retired scalar-mass mode; not API evidence for the current three-mass functions.
+
 # Scalar growth sensitivity convergence
 
 Original D/Dprime NumPy/SciPy DOP853 oracle, restarted at every Akima knot; complex-step mass derivatives.

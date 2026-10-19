@@ -126,7 +126,7 @@ def test_background_implementation():
         "a_z", "rhoDE_a", "rhoDE_z", "drhoDE_da",
         
         # Neutrino functions
-        "gety", "F", "dFdy",
+        "ΩνE2", "dΩνE2da",
         
         # Hubble parameter
         "E_a", "E_z", "dlogEdloga", "Ωm_a",

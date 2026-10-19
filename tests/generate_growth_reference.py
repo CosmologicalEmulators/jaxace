@@ -1,3 +1,4 @@
+# HISTORICAL: this tool targets the retired scalar-mass mode and cannot run on the current API.
 """Freeze scalar growth before refactoring (Gerrit branch 4a5871a).
 
 Run once from the repository root. Deliberately refuses to overwrite the fixture.

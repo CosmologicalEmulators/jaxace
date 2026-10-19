@@ -1,3 +1,4 @@
+# HISTORICAL: this tool targets the retired scalar-mass mode and cannot run on the current API.
 """Independent original-(D,Dprime) oracle: NumPy/SciPy only, no JAX/flux.
 
 Restart DOP853 at every frozen Akima knot crossing. Each segment uses its
