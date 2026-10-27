@@ -147,7 +147,9 @@ moderate grids reused enough times to amortize construction.
 AbstractCosmologicalEmulators.jl. Knot placement is derived from the source
 sites and is not configurable. Extrapolation clamps to the nearest endpoint
 by default; `extrapolation="throw"` and `extrapolation="zero"` are explicit
-alternatives. Dynamic `"throw"` checks are unavailable inside `jax.jit`.
+alternatives. Dynamic `"throw"` checks are unavailable whenever sites or queries
+are traced, including `jax.grad` and `jax.jvp` without `jax.jit`. Use `"clamp"`
+or `"zero"` for live geometry; a host-validated fixed throw plan can be compiled.
 
 `CubicBSplinePlan` stores live collocation bands, reusable LU factors and a
 four-entry query stencil: `O(n_sites + n_query)` retained geometry. Applying it
@@ -199,9 +201,12 @@ The endpoint convention is intentional. The frozen merged-Julia/ForwardDiff
 references exposed an upper-endpoint branch discrepancy caused by ordering a
 Dual value against a plain boundary. Those raw results are preserved alongside
 independent analytic interior-derivative references in `tests/data/bspline_api`;
-the JAX API does not reproduce that outside-zero branch at equality. These
-boundary derivatives are convention-dependent, not two-sided derivatives of a
-smooth extension.
+the JAX API does not reproduce that outside-zero branch at equality. In that
+frozen Julia version, the issue can change the Dual primal value under `:zero`
+or reject an in-domain query under `:throw`; it is not merely a different
+derivative convention. The fixtures describe that pinned version, not later
+Julia fixes. The selected interior boundary derivatives are convention-dependent,
+not two-sided derivatives of a smooth extension.
 
 ## Chebyshev
 

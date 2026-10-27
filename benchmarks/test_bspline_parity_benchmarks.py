@@ -36,7 +36,8 @@ CASES = {
 }
 OPERATIONS = (
     "coefficients", "gradient_values", "gradient_sites", "interpolation",
-    "interpolation_sites_gradient", "plan_construction", "plan_application", "plan_gradient",
+    "interpolation_sites_gradient", "plan_construction", "plan_construction_eager",
+    "plan_application", "plan_gradient",
 )
 TRIALS = (("dense",0),("banded_dense",0),("compact",0),
           ("compact",1),("banded_dense",1),("dense",1))
@@ -95,7 +96,7 @@ def compiled_cases(implementations):
                 f,args = interpolation,(u,t,q)
             elif operation == "interpolation_sites_gradient":
                 f,args = jax.grad(lambda y,x,z,interpolation=interpolation: jnp.mean(interpolation(x,y,z)**2)),(t,u,q)
-            elif operation == "plan_construction":
+            elif operation in ("plan_construction", "plan_construction_eager"):
                 f,args = module.CubicBSplinePlan,(t,q)
             else:
                 plan = jax.block_until_ready(module.CubicBSplinePlan(t,q))
@@ -103,9 +104,11 @@ def compiled_cases(implementations):
                     f,args = (lambda p,x:p(x)),(plan,u)
                 else:
                     f,args = jax.grad(lambda x,p:jnp.mean(p(x)**2)),(u,plan)
-            compiled = jax.jit(f)
+            # Eager preparation includes validation and device-to-host checks.
+            # Warm its internal kernels, but do not wrap away the host work.
+            compiled = f if operation == "plan_construction_eager" else jax.jit(f)
             result = jax.block_until_ready(compiled(*args))
-            comparison = jax.block_until_ready(result(u)) if operation == "plan_construction" else result
+            comparison = jax.block_until_ready(result(u)) if operation.startswith("plan_construction") else result
             functions[label] = compiled,args,np.asarray(comparison)
         reference = functions["dense"][2]
         for label in ("banded_dense","compact"):
@@ -121,7 +124,7 @@ def compiled_cases(implementations):
     (case,operation,implementation,repeat)
     for case in CASES for operation in OPERATIONS
     # Same geometry: no need to duplicate construction just because M differs.
-    if not (case == "production_batch" and operation == "plan_construction")
+    if not (case == "production_batch" and operation.startswith("plan_construction"))
     for implementation,repeat in TRIALS
 ])
 def test_parity_runtime(benchmark, implementations, compiled_cases, case, operation, implementation, repeat):
@@ -140,7 +143,8 @@ def test_parity_runtime(benchmark, implementations, compiled_cases, case, operat
     paths += [BASELINE / "utils.py", BASELINE / "_bspline_banded.py"]
     benchmark.extra_info.update({
         "case":case, "operation":operation, "implementation":implementation, "repeat":repeat,
-        "N":n,"Q":q,"M":None if operation=="plan_construction" else m,
+        "N":n,"Q":q,"M":None if operation.startswith("plan_construction") else m,
+        "execution_mode":"eager" if operation=="plan_construction_eager" else "jit",
         "dtype":"float64","jax_version":jax.__version__,"device":str(jax.devices()[0]),
         "cpu_affinity":sorted(os.sched_getaffinity(0)),"before_c":before,"after_c":after,
         "dynamic_geometry":operation not in ("plan_application","plan_gradient"),

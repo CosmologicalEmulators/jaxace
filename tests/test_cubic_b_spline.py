@@ -195,7 +195,7 @@ def test_banded_construction_with_small_query_grid():
 def test_clamp_boundary_tangents_include_moving_bounds():
     from jaxace._bspline import _cubic_b_spline_query
     jacobian = jax.jit(jax.jacrev(lambda x: _cubic_b_spline_query(
-        jnp.array([x[1], x[2]]), x[0], "clamp")[0]))
+        jnp.repeat(x[1:], 4), x[0], "clamp")[0]))
     for query, expected in ((-.1, [0.,1.,0.]), (0., [1.,0.,0.]),
                             (.5, [1.,0.,0.]), (1., [1.,0.,0.]),
                             (1.1, [0.,0.,1.])):

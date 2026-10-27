@@ -21,9 +21,10 @@ for row in data["benchmarks"]:
 
 cases = ("tiny","small_matrix","production_vector","production_batch","long_queries","large_geometry")
 operations = ("coefficients","gradient_values","gradient_sites","interpolation",
-              "interpolation_sites_gradient","plan_construction","plan_application","plan_gradient")
+              "interpolation_sites_gradient","plan_construction","plan_construction_eager",
+              "plan_application","plan_gradient")
 expected = {(c,o) for c in cases for o in operations
-            if not (c=="production_batch" and o=="plan_construction")}
+            if not (c=="production_batch" and o.startswith("plan_construction"))}
 assert set(groups)==expected, ("incomplete matrix",expected-set(groups),set(groups)-expected)
 trials = {(name,i) for name in ("dense","banded_dense","compact") for i in (0,1)}
 failed = False

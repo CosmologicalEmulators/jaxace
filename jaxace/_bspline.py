@@ -5,7 +5,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from ._bspline_banded import local_basis, collocation_bands, factor_bands, solve_factored
+from ._bspline_banded import local_basis, collocation_bands, factor_bands, solve_factored, _geometry_arrays
 
 
 def _validate_knots(knots):
@@ -171,7 +171,8 @@ def _cubic_b_spline_query(t, query, policy):
     _validate_extrapolation(policy)
     q = jnp.asarray(query)
     _queries(q)  # Validate rank and eager finiteness without changing scalar rank.
-    lo, hi = t[0], t[-1]
+    # Use the declared fundamental domain, including its raw-knot cotangents.
+    lo, hi = t[3], t[-4]
     inside = (q >= lo) & (q <= hi)
     if policy == "throw":
         if isinstance(q, jax.core.Tracer) or isinstance(t, jax.core.Tracer):
@@ -187,7 +188,7 @@ def _cubic_b_spline_query(t, query, policy):
 
 def _basis_rows(basis, query, policy):
     q = _queries(query)
-    t = knot_vector(basis)
+    t, q = _geometry_arrays(knot_vector(basis), q)
     bounded, inside = _cubic_b_spline_query(t, q, policy)
     indices, weights = local_basis(t, bounded)
     if policy == "zero":

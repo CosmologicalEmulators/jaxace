@@ -7,26 +7,54 @@ import jax
 import jax.numpy as jnp
 
 
+def _geometry_arrays(knots, query):
+    knots, query = jnp.asarray(knots), jnp.asarray(query)
+    common = jnp.result_type(knots, query)
+    if (jnp.issubdtype(knots.dtype, jnp.integer)
+            and jnp.issubdtype(query.dtype, jnp.integer)
+            and jnp.issubdtype(common, jnp.integer)):
+        limits = jnp.iinfo(common)
+        if any(jnp.iinfo(d).min < limits.min or jnp.iinfo(d).max > limits.max
+               for d in (knots.dtype, query.dtype)):
+            # With x64 disabled JAX promotes int32/uint32 to int32, wrapping
+            # unsigned values. Retain the previous floating-geometry behavior
+            # when no common integer dtype can represent both input types.
+            dtype = jnp.result_type(knots, query, 1.0)
+            return knots.astype(dtype), query.astype(dtype)
+    return knots, query
+
+
+def _coordinate_difference(a, b, dtype):
+    common = jnp.result_type(a, b)
+    if jnp.issubdtype(common, jnp.integer):
+        # A signed subtraction may overflow; casting absolute coordinates first
+        # instead destroys small intervals at large offsets. Unsigned modular
+        # subtraction gives the exact magnitude for this common integer type.
+        a, b = a.astype(common), b.astype(common)
+        unsigned = jnp.dtype(f"uint{common.itemsize * 8}")
+        ua, ub = a.astype(unsigned), b.astype(unsigned)
+        return jnp.where(a >= b, (ua - ub).astype(dtype), -(ub - ua).astype(dtype))
+    return a.astype(dtype) - b.astype(dtype)
+
+
 def local_basis(knots, query):
     """Four active indices/weights, with the interior polynomial at endpoints."""
-    # Match the dense basis: promote before geometry arithmetic, not after
-    # integer differences or sums have already overflowed.
     dtype = jnp.result_type(knots, query, 1.0)
-    knots, query = jnp.asarray(knots, dtype=dtype), jnp.asarray(query, dtype=dtype)
+    knots, query = _geometry_arrays(knots, query)
     n = knots.shape[0] - 4
     span = jnp.clip(jnp.searchsorted(knots, query, side="right") - 1, 3, n - 1)
-    left1 = query - knots[span]
-    right1 = knots[span + 1] - query
+    left1 = _coordinate_difference(query, knots[span], dtype)
+    right1 = _coordinate_difference(knots[span + 1], query, dtype)
     temp = 1 / (right1 + left1)
     n10, n11 = right1 * temp, left1 * temp
-    left2 = query - knots[span - 1]
-    right2 = knots[span + 2] - query
+    left2 = _coordinate_difference(query, knots[span - 1], dtype)
+    right2 = _coordinate_difference(knots[span + 2], query, dtype)
     temp = n10 / (right1 + left2)
     n20, saved = right1 * temp, left2 * temp
     temp = n11 / (right2 + left1)
     n21, n22 = saved + right2 * temp, left1 * temp
-    left3 = query - knots[span - 2]
-    right3 = knots[span + 3] - query
+    left3 = _coordinate_difference(query, knots[span - 2], dtype)
+    right3 = _coordinate_difference(knots[span + 3], query, dtype)
     temp = n20 / (right1 + left3)
     n30, saved = right1 * temp, left3 * temp
     temp = n21 / (right2 + left2)
