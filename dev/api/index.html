@@ -4998,7 +4998,9 @@ moderate grids reused enough times to amortize construction.</p>
 AbstractCosmologicalEmulators.jl. Knot placement is derived from the source
 sites and is not configurable. Extrapolation clamps to the nearest endpoint
 by default; <code>extrapolation="throw"</code> and <code>extrapolation="zero"</code> are explicit
-alternatives. Dynamic <code>"throw"</code> checks are unavailable inside <code>jax.jit</code>.</p>
+alternatives. Dynamic <code>"throw"</code> checks are unavailable whenever sites or queries
+are traced, including <code>jax.grad</code> and <code>jax.jvp</code> without <code>jax.jit</code>. Use <code>"clamp"</code>
+or <code>"zero"</code> for live geometry; a host-validated fixed throw plan can be compiled.</p>
 <p><code>CubicBSplinePlan</code> stores live collocation bands, reusable LU factors and a
 four-entry query stencil: <code>O(n_sites + n_query)</code> retained geometry. Applying it
 costs <code>O((n_sites + n_query) * n_series)</code>. Forward and reverse solves reuse the
@@ -5285,9 +5287,12 @@ meaningful differentiable inputs.</p>
 references exposed an upper-endpoint branch discrepancy caused by ordering a
 Dual value against a plain boundary. Those raw results are preserved alongside
 independent analytic interior-derivative references in <code>tests/data/bspline_api</code>;
-the JAX API does not reproduce that outside-zero branch at equality. These
-boundary derivatives are convention-dependent, not two-sided derivatives of a
-smooth extension.</p>
+the JAX API does not reproduce that outside-zero branch at equality. In that
+frozen Julia version, the issue can change the Dual primal value under <code>:zero</code>
+or reject an in-domain query under <code>:throw</code>; it is not merely a different
+derivative convention. The fixtures describe that pinned version, not later
+Julia fixes. The selected interior boundary derivatives are convention-dependent,
+not two-sided derivatives of a smooth extension.</p>
 <h2 id="chebyshev">Chebyshev<a class="headerlink" href="#chebyshev" title="Permanent link">&para;</a></h2>
 
 
