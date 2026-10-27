@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -33,10 +33,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1580,6 +1580,144 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;prepare_cubic_b_spline_plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" prepare_cubic_b_spline_plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#public-b-spline-basis-and-coefficient-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public B-spline basis and coefficient API
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.CubicBSplineBasis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;CubicBSplineBasis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.knot_vector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;knot_vector
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.internal_knots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;internal_knots
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.nbasis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;nbasis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.bspline_domain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;bspline_domain
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.basis_support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;basis_support
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.basis_row" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;basis_row
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.basis_stencil" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;basis_stencil
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.basis_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;basis_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.bspline_basis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;bspline_basis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.bspline_coefficients" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;bspline_coefficients
       
     </span>
   </a>
@@ -3972,11 +4110,20 @@ At either endpoint, query derivatives use the interior polynomial convention;
 <code>clamp</code> and <code>zero</code> have zero query derivatives strictly outside the interval.
 This is an explicit choice at the extension's boundary kink, not a claim of
 two-sided differentiability there.</p>
-<p>Construction uses a dense collocation solve (cubic time in the number of
-sites). Fixed-grid plans have a 64 MiB stored-operator limit; all B-spline
-paths additionally check a conservative 512 MiB dense-workspace estimate.
-These are allocation safeguards, not bounds on total compiler, AD or process
-memory. Large source grids require a different algorithm, not just fewer queries.</p>
+<p>Coefficient construction uses four-entry local basis rows, a seven-row banded
+collocation factorization, and batched forward/transpose substitutions, following
+the Julia algorithms. Implicit solve derivatives preserve both value and site
+activity. For N sites and M right-hand sides, factorization costs O(N) and solving
+costs O(NM), with fixed bandwidth. These are scaling statements, not hardware
+speedup guarantees.</p>
+<p>Ordinary B-spline evaluation and prepared plans use local four-entry query
+stencils, not dense query-basis matrices. Compact construction/application no
+longer inherits a quadratic workspace limit. Explicit <code>plan.operator</code> access
+still has a 64 MiB limit; explicit <code>basis_matrix</code> output has a 512 MiB limit.
+These are materialization guards, not bounds on compiler, AD or process memory.
+Eager factorization rejects pivots below Julia's ten-epsilon threshold in the
+geometry dtype. Compiled code cannot raise the same data-dependent exception;
+valid nonsingular geometry remains a precondition under transformations.</p>
 
 
 <div class="doc doc-object doc-function">
@@ -4248,7 +4395,7 @@ this is a matrix of shape <code>(len(t_new), n_cols)</code>.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Not-a-knot cubic B-spline interpolation for vector or matrix values.</p>
+        <p>Not-a-knot interpolation of vector or column-batched matrix values.</p>
 
 
     </div>
@@ -4494,19 +4641,17 @@ This structure acts as a valid JAX PyTree for JIT and grad.</p>
   </span>
 
 <a href="#jaxace.CubicBSpline" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CubicBSpline</span><span class="p">(</span><span class="n">u</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">extrapolation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'clamp'</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CubicBSpline</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">'clamp'</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
 
 
-        <p>Prepared not-a-knot cubic B-spline with fixed values and sites.</p>
-<p>Sites must be finite and strictly increasing (checked eagerly; a
-precondition for traced sites). Endpoint query derivatives use the interior
-polynomial. Clamped/zero extensions have zero query derivatives strictly
-outside the interval; this explicitly selects a convention at their kinks.
-Dense construction/evaluation has a 512 MiB workspace-estimate limit.</p>
+        <p>Prepared not-a-knot spline with local O(Q) query geometry.</p>
+<p>Matrix values represent independent columns. Query derivatives use the
+interior polynomial at endpoint equality. Geometry is validated eagerly;
+dynamic <code>throw</code> is unsupported under JAX transformations.</p>
 
 
 
@@ -4545,12 +4690,12 @@ Dense construction/evaluation has a 512 MiB workspace-estimate limit.</p>
 
 
 <a href="#jaxace.prepare_cubic_b_spline" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare_cubic_b_spline</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">'clamp'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CubicBSpline</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare_cubic_b_spline</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">'clamp'</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Prepare a :class:<code>CubicBSpline</code> for changing query grids.</p>
+        <p>Prepare coefficients for fixed values/sites and changing queries.</p>
 
 
     </div>
@@ -4565,12 +4710,12 @@ Dense construction/evaluation has a 512 MiB workspace-estimate limit.</p>
 
 
 <a href="#jaxace.evaluate_cubic_b_spline" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">evaluate_cubic_b_spline</span><span class="p">(</span><span class="n">spline</span><span class="p">:</span> <span class="n">CubicBSpline</span><span class="p">,</span> <span class="n">t_new</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">evaluate_cubic_b_spline</span><span class="p">(</span><span class="n">spline</span><span class="p">,</span> <span class="n">t_new</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Evaluate a prepared :class:<code>CubicBSpline</code> at <code>t_new</code>.</p>
+        <p>Evaluate a prepared spline at scalar or vector query coordinates.</p>
 
 
     </div>
@@ -4784,18 +4929,17 @@ amortize construction.</p>
   </span>
 
 <a href="#jaxace.CubicBSplinePlan" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CubicBSplinePlan</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">t_new</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">extrapolation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'clamp'</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CubicBSplinePlan</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_new</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">'clamp'</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
 
 
-        <p>Dense fixed-grid B-spline plan for changing vector or matrix values.</p>
-<p>Requires finite strictly increasing sites and a one-dimensional query grid.
-The stored operator is limited to 64 MiB; dense construction also has the
-same 512 MiB workspace-estimate limit as CubicBSpline. Neither bound includes
-all compiler/AD/process memory. Construction uses a dense cubic-time solve.</p>
+        <p>Compact fixed-grid plan: O(N+Q) geometry and reusable band factors.</p>
+<p><code>plan(u)</code> uses a band solve and four local entries per query. The computed
+<code>operator</code> property explicitly materializes a dense Q×N operator (64 MiB
+limit); it is neither cached nor used by ordinary plan application.</p>
 
 
 
@@ -4834,12 +4978,12 @@ all compiler/AD/process memory. Construction uses a dense cubic-time solve.</p>
 
 
 <a href="#jaxace.prepare_cubic_b_spline_plan" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare_cubic_b_spline_plan</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_new</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">'clamp'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CubicBSplinePlan</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare_cubic_b_spline_plan</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_new</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">'clamp'</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Prepare a dense :class:<code>CubicBSplinePlan</code> for fixed grids.</p>
+        <p>Prepare a compact fixed-grid plan for changing values.</p>
 
 
     </div>
@@ -4855,9 +4999,295 @@ AbstractCosmologicalEmulators.jl. Knot placement is derived from the source
 sites and is not configurable. Extrapolation clamps to the nearest endpoint
 by default; <code>extrapolation="throw"</code> and <code>extrapolation="zero"</code> are explicit
 alternatives. Dynamic <code>"throw"</code> checks are unavailable inside <code>jax.jit</code>.</p>
-<p><code>CubicBSplinePlan</code> stores the complete dense <code>(n_query, n_sites)</code> interpolation
-operator. This makes plan execution and reverse-mode differentiation a matrix
-multiplication and its transpose.</p>
+<p><code>CubicBSplinePlan</code> stores live collocation bands, reusable LU factors and a
+four-entry query stencil: <code>O(n_sites + n_query)</code> retained geometry. Applying it
+costs <code>O((n_sites + n_query) * n_series)</code>. Forward and reverse solves reuse the
+factorization; geometry derivatives remain live through the implicit solve.
+Factor precision follows the source geometry, even if a later RHS has a higher
+precision. Output dtype alone is not a guarantee of higher geometry accuracy.</p>
+<p><code>plan.operator</code> is now an <strong>explicit computed property</strong>, not a stored field.
+It materializes the dense <code>(n_query, n_sites)</code> interpolation operator on each
+access, subject to the 64 MiB guard. Callers wanting a dense repeated multiply
+can materialize it once themselves. Ordinary <code>plan(u)</code> does not access it.
+Internal PyTree layout has changed; rebuild plans and compiled functions rather
+than relying on cross-version serialized internal layouts.</p>
+<h3 id="public-b-spline-basis-and-coefficient-api">Public B-spline basis and coefficient API<a class="headerlink" href="#public-b-spline-basis-and-coefficient-api" title="Permanent link">&para;</a></h3>
+<p><code>CubicBSplineBasis</code> accepts a full knot vector, or a domain and optional internal
+knots. Endpoints have multiplicity four; internal multiplicity is at most three.
+These low-level custom bases do not change the fixed not-a-knot policy of the
+high-level interpolators. Basis/support indices are <strong>zero-based</strong> in Python.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="jaxace.CubicBSplineBasis" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">jaxace.CubicBSplineBasis</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#jaxace.CubicBSplineBasis" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CubicBSplineBasis</span><span class="p">(</span><span class="n">knots</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">internal_knots</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">knot_vector</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Degree-three basis with explicit knots; indices are zero-based.</p>
+<p>Supply either a full knot vector (positional or <code>knot_vector=</code>), or
+<code>domain=(lo, hi)</code> and optional <code>internal_knots</code>. Under transformations,
+finite ordered knots with the documented multiplicities are preconditions.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.knot_vector" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.knot_vector</span>
+
+
+<a href="#jaxace.knot_vector" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">knot_vector</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Return the complete stored knot vector, including repeated endpoints.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.internal_knots" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.internal_knots</span>
+
+
+<a href="#jaxace.internal_knots" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">internal_knots</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Return interior knots with their multiplicities.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.nbasis" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.nbasis</span>
+
+
+<a href="#jaxace.nbasis" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">nbasis</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Number of cubic basis functions: knot count minus four.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.bspline_domain" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.bspline_domain</span>
+
+
+<a href="#jaxace.bspline_domain" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bspline_domain</span><span class="p">(</span><span class="n">basis</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Return the fundamental domain's two endpoints.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.basis_support" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.basis_support</span>
+
+
+<a href="#jaxace.basis_support" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">basis_support</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Support of basis function <code>index</code> (zero-based).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.basis_row" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.basis_row</span>
+
+
+<a href="#jaxace.basis_row" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">basis_row</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">query</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Four local indices/weights, zero outside support; scalar query only.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.basis_stencil" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.basis_stencil</span>
+
+
+<a href="#jaxace.basis_stencil" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">basis_stencil</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">'throw'</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Local four-entry query rows; default domain checking is eager-only.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.basis_matrix" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.basis_matrix</span>
+
+
+<a href="#jaxace.basis_matrix" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">basis_matrix</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">storage</span><span class="o">=</span><span class="s1">'dense'</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Explicit dense basis matrix; ordinary interpolation need not allocate it.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.bspline_basis" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.bspline_basis</span>
+
+
+<a href="#jaxace.bspline_basis" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bspline_basis</span><span class="p">(</span><span class="n">spline_or_plan</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Return the basis used by a prepared spline or plan.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.bspline_coefficients" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.bspline_coefficients</span>
+
+
+<a href="#jaxace.bspline_coefficients" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bspline_coefficients</span><span class="p">(</span><span class="n">spline_or_plan</span><span class="p">,</span> <span class="n">u</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Get spline coefficients or solve with a plan's existing factorization.</p>
+
+
+    </div>
+
+</div><p><code>basis_row</code> returns four indices and weights and is zero outside support.
+<code>basis_matrix</code> explicitly materializes those rows. <code>basis_stencil</code> defaults to
+<code>extrapolation="throw"</code>, unlike the high-level constructors' <code>"clamp"</code> default.
+Dynamic <code>"throw"</code> is unsupported under JAX transformations; use <code>"clamp"</code> or
+<code>"zero"</code> for live geometry. Host-validated fixed throw plans can be compiled.
+Nonfinite query coordinates are rejected eagerly in every policy.</p>
+<p><code>bspline_coefficients(spline)</code> returns stored coefficients;
+<code>bspline_coefficients(plan, u)</code> solves with the existing factors.
+<code>bspline_basis(spline_or_plan)</code> exposes the basis and preserves derivatives
+through constructor composition. Raw LU leaves are structural, not independently
+meaningful differentiable inputs.</p>
+<p>The endpoint convention is intentional. The frozen merged-Julia/ForwardDiff
+references exposed an upper-endpoint branch discrepancy caused by ordering a
+Dual value against a plain boundary. Those raw results are preserved alongside
+independent analytic interior-derivative references in <code>tests/data/bspline_api</code>;
+the JAX API does not reproduce that outside-zero branch at equality. These
+boundary derivatives are convention-dependent, not two-sided derivatives of a
+smooth extension.</p>
 <h2 id="chebyshev">Chebyshev<a class="headerlink" href="#chebyshev" title="Permanent link">&para;</a></h2>
 
 
@@ -5451,10 +5881,10 @@ mapped to <code>[-1, 1]</code> from <code>[x_min, x_max]</code>.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.top", "navigation.footer", "toc.follow", "toc.integrate", "search.suggest", "search.highlight", "content.tabs.link", "content.code.copy", "content.code.annotate", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.top", "navigation.footer", "toc.follow", "toc.integrate", "search.suggest", "search.highlight", "content.tabs.link", "content.code.copy", "content.code.annotate", "header.autohide"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../javascripts/mathjax.js"></script>
       
