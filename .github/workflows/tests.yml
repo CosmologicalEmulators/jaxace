@@ -52,7 +52,15 @@ jobs:
 
       - name: Run tests
         run: |
-          poetry run pytest tests/ -v --tb=short --cov=jaxace --cov-report=term-missing --cov-report=xml --cov-report=html
+          poetry run pytest tests/ -v --tb=short --cov=jaxace --cov-report=term-missing --cov-report=xml --cov-report=html --benchmark-json=benchmark-results.json
+
+      - name: Save synchronized benchmark diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: benchmark-results.json
+          retention-days: 7
 
       - name: Display coverage report
         if: always()
