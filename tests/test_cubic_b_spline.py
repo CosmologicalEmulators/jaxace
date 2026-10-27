@@ -121,7 +121,7 @@ def test_plan_rejects_oversized_dense_operator():
     t = jnp.linspace(0.0, 1.0, 512)
     query = jnp.linspace(0.0, 1.0, 16385)
     with pytest.raises(ValueError, match="64 MiB"):
-        CubicBSplinePlan(t, query)
+        CubicBSplinePlan(t, query).operator
 
 
 def test_production_shape_matches_saved_julia_reference():
@@ -181,16 +181,19 @@ def test_invalid_sites_rejected_eagerly(sites):
         CubicBSplinePlan(t, jnp.array([.1]))
 
 
-def test_dense_construction_budget_with_small_query_grid():
+def test_banded_construction_with_small_query_grid():
     t = jnp.linspace(0., 1., 4096)
-    with pytest.raises(ValueError, match="construction"):
-        CubicBSplinePlan(t, jnp.array([.5]))
-    with pytest.raises(ValueError, match="construction"):
-        CubicBSpline(jnp.ones_like(t), t)
+    # Neither construction nor evaluation needs a quadratic basis/operator.
+    ones = jnp.ones_like(t)
+    spline = CubicBSpline(ones, t)
+    np.testing.assert_allclose(spline.coefficients, 1., rtol=1e-12, atol=1e-12)
+    plan = CubicBSplinePlan(t, jnp.array([.5]))
+    np.testing.assert_allclose(plan(ones), 1., rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(spline(jnp.linspace(0., 1., 4096)), 1., rtol=1e-12, atol=1e-12)
 
 
 def test_clamp_boundary_tangents_include_moving_bounds():
-    from jaxace.utils import _cubic_b_spline_query
+    from jaxace._bspline import _cubic_b_spline_query
     jacobian = jax.jit(jax.jacrev(lambda x: _cubic_b_spline_query(
         jnp.array([x[1], x[2]]), x[0], "clamp")[0]))
     for query, expected in ((-.1, [0.,1.,0.]), (0., [1.,0.,0.]),

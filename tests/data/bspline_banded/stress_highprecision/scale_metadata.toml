@@ -1,0 +1,4 @@
+generator_sha256 = "e6f4d8d12b4fdd25cc9cb3504e30898a186b2a36bf22ab1601ef9ab977501d29"
+julia_version = "1.12.6"
+original_reference_metadata_sha256 = "f7cd3a9e3faa863c67eb309d66ecd538ebf2df4a2826463078081c0d249a3a75"
+precision_bits = 256

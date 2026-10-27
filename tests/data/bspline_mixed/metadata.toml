@@ -1,0 +1,24 @@
+ace_commit = "c5f9ca06d1cd00a6b224ea505bb36f612477004e"
+forwarddiff_version = "1.4.6"
+generator_sha256 = "6c433562bfc1753d5749a8cfce725fe1434a5c106a89ce3a1a99cfc6d8e7123b"
+julia_version = "1.12.6"
+
+[cases.t32_u32_q32]
+coefficient_dtype = "Float32"
+factor_dtype = "Float32"
+
+[cases.t32_u64_q64]
+coefficient_dtype = "Float64"
+factor_dtype = "Float32"
+
+[cases.t64_u32_q32]
+coefficient_dtype = "Float64"
+factor_dtype = "Float64"
+
+[cases.t64_u64_q64]
+coefficient_dtype = "Float64"
+factor_dtype = "Float64"
+
+[source_sha256]
+"src/cubic_b_spline.jl" = "824b1f806270ac87b4702f68f6f7f8f91f4ab0e2f07dc67e3c81727da25a55c5"
+"src/threads.jl" = "e0b5aeca150adaad398bc934d5e4dc3c6aae8ee9f1fde87b5947a6d5b005d3d3"
