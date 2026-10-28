@@ -167,22 +167,6 @@ def _get_nan_mask(*args):
     return nan_mask
 
 
-def _propagate_nan_result(has_nan, result, reference_input):
-    """
-    Propagate NaN if needed using JAX-compatible operations.
-
-    Args:
-        has_nan: Boolean indicating if NaN should be propagated
-        result: The computed result
-        reference_input: An input to get the shape from
-
-    Returns:
-        Result or NaN with appropriate shape
-    """
-    nan_value = jnp.full_like(reference_input, jnp.nan, dtype=result.dtype)
-    return jnp.where(has_nan, nan_value, result)
-
-
 def _handle_infinite_params(value, param_name="parameter"):
     """
     Handle infinite parameter values gracefully.
@@ -530,7 +514,7 @@ def E_a(
     # Calculate individual density components at scale factor a
 
     # 1. Radiation (photons) component: Ωγ/a⁴
-    Ωγ_a = Ωγ0 / jnp.power(a, 4.0)
+    Ωγ_a = Ωγ0 / a**4
 
     # 2. Matter (cold dark matter + baryons) component: Ωcb/a³
     Ωm_a = Ωcb0 / jnp.power(a, 3.0)
@@ -753,27 +737,18 @@ def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100, Neff=3.044, n
     def integrand(z_prime):
         return 1.0 / E_z(z_prime, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
-    # Use JAX-compatible conditional
-    def integrate_nonzero(_):
-        # Get GL nodes and weights
-        nodes, weights = _get_gl_points(n_points)
+    # Get GL nodes and weights
+    nodes, weights = _get_gl_points(n_points)
 
-        # Map from [-1, 1] to [0, z_val]
-        z_nodes, z_weights = map_to_interval(nodes, weights, 0.0, z_val)
+    # Map from [-1, 1] to [0, z_val]; at z_val = 0 the weights vanish, so the
+    # value is exactly zero while the derivative with respect to z_val stays 1/E(0).
+    z_nodes, z_weights = map_to_interval(nodes, weights, 0.0, z_val)
 
-        # Compute integrand at all nodes
-        integrand_vals = jax.vmap(integrand)(z_nodes)
+    # Compute integrand at all nodes
+    integrand_vals = jax.vmap(integrand)(z_nodes)
 
-        # Compute weighted sum
-        return jnp.sum(integrand_vals * z_weights)
-
-    result = jax.lax.cond(
-        jnp.abs(z_val) < 1e-12,  # z essentially zero
-        lambda _: 0.0,  # Return zero for z=0
-        integrate_nonzero,  # Integrate for z > 0
-        operand=None,
-    )
-    return result
+    # Compute weighted sum
+    return jnp.sum(integrand_vals * z_weights)
 
 
 @partial(jax.jit, static_argnames=("neutrino_prescription",))

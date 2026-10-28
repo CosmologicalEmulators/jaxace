@@ -201,19 +201,11 @@ class GenericEmulator(AbstractTrainedEmulator):
 
     def _maximin(self, input_data: jnp.ndarray) -> jnp.ndarray:
         """Normalize input data using min-max scaling to [0, 1]."""
-        if input_data.ndim == 1:
-            return (input_data - self._in_minmax_jax[:, 0]) / (self._in_minmax_jax[:, 1] - self._in_minmax_jax[:, 0])
-        else:
-            # Batch case: (n_samples, n_features)
-            return (input_data - self._in_minmax_jax[:, 0]) / (self._in_minmax_jax[:, 1] - self._in_minmax_jax[:, 0])
+        return (input_data - self._in_minmax_jax[:, 0]) / (self._in_minmax_jax[:, 1] - self._in_minmax_jax[:, 0])
 
     def _inv_maximin(self, output_data: jnp.ndarray) -> jnp.ndarray:
         """Denormalize output data from [0, 1] to original scale."""
-        if output_data.ndim == 1:
-            return output_data * (self._out_minmax_jax[:, 1] - self._out_minmax_jax[:, 0]) + self._out_minmax_jax[:, 0]
-        else:
-            # Batch case
-            return output_data * (self._out_minmax_jax[:, 1] - self._out_minmax_jax[:, 0]) + self._out_minmax_jax[:, 0]
+        return output_data * (self._out_minmax_jax[:, 1] - self._out_minmax_jax[:, 0]) + self._out_minmax_jax[:, 0]
 
     def _run_pipeline_single(self, input_data: jnp.ndarray) -> jnp.ndarray:
         """Internal method: normalize -> run NN -> denormalize (single sample)."""
