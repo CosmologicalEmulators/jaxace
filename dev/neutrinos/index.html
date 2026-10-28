@@ -1,0 +1,1233 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="JAX cosmological emulators with automatic JIT compilation">
+      
+      
+        <meta name="author" content="CosmologicalEmulators">
+      
+      
+        <link rel="canonical" href="https://cosmologicalemulators.github.io/jaxace/dev/neutrinos/">
+      
+      
+        <link rel="prev" href="../examples/">
+      
+      
+        <link rel="next" href="../api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Neutrino thermal prescriptions - jaxace</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config",""),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#neutrino-thermal-prescriptions" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="jaxace" class="md-header__button md-logo" aria-label="jaxace" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            jaxace
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Neutrino thermal prescriptions
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/CosmologicalEmulators/jaxace" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CosmologicalEmulators/jaxace
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href=".." class="md-tabs__link">
+          
+  
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Neutrino thermal prescriptions
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../migration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Migration notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../scalar_growth_convergence/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Scalar gradient convergence
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="jaxace" class="md-nav__button md-logo" aria-label="jaxace" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    jaxace
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/CosmologicalEmulators/jaxace" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CosmologicalEmulators/jaxace
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Neutrino thermal prescriptions
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Neutrino thermal prescriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#energy-density-and-the-meaning-of-neff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Energy density and the meaning of Neff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-reference-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common reference convention
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#temperature-rescaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temperature rescaling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fixed-temperatures-variable-massless-radiation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed temperatures, variable massless radiation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#expansion-rate-and-closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expansion rate and closure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace-compared-with-matched-class-calculations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        jaxace compared with matched CLASS calculations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="jaxace compared with matched CLASS calculations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#matching-class-rather-than-comparing-unmatched-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Matching CLASS, rather than comparing unmatched defaults
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar_growth_convergence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar gradient convergence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="neutrino-thermal-prescriptions">Neutrino thermal prescriptions<a class="headerlink" href="#neutrino-thermal-prescriptions" title="Permanent link">&para;</a></h1>
+<p>The analytic background treats <strong>three explicit physical neutrino masses</strong> with
+zero-chemical-potential Fermi–Dirac distributions, plus a massless radiation
+remainder. Changing <code>Neff</code> is not enough to specify how that massive-neutrino
+sector changes: jaxace provides two distinct thermal prescriptions.</p>
+<p>This page describes the analytic model, <strong>not</strong> the frozen neural-emulator
+training labels. Neural emulators still take total neutrino mass with the
+splitting used in their training data. See <a href="../api/">Cosmology API</a>
+for the callable API and the separate growth approximations.</p>
+<p>For example, compare expansion at the same physical parameters:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">"jax_enable_x64"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jaxace</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">])</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">common</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">ln10As</span><span class="o">=</span><span class="mf">3.044</span><span class="p">,</span> <span class="n">ns</span><span class="o">=</span><span class="mf">0.965</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">0.67</span><span class="p">,</span> <span class="n">omega_b</span><span class="o">=</span><span class="mf">0.0224</span><span class="p">,</span> <span class="n">omega_c</span><span class="o">=</span><span class="mf">0.12</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>              <span class="n">m_nu</span><span class="o">=</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">),</span> <span class="n">Neff</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">temperature</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">w0waCDMCosmology</span><span class="p">(</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="o">**</span><span class="n">common</span><span class="p">,</span> <span class="n">neutrino_prescription</span><span class="o">=</span><span class="s2">"temperature"</span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">radiation</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">w0waCDMCosmology</span><span class="p">(</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="o">**</span><span class="n">common</span><span class="p">,</span> <span class="n">neutrino_prescription</span><span class="o">=</span><span class="s2">"radiation"</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">E_temperature</span> <span class="o">=</span> <span class="n">temperature</span><span class="o">.</span><span class="n">E_z</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">E_radiation</span> <span class="o">=</span> <span class="n">radiation</span><span class="o">.</span><span class="n">E_z</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">assert</span> <span class="n">jnp</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">E_temperature</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="k">assert</span> <span class="n">jnp</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">E_radiation</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="nb">print</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">z</span><span class="p">,</span> <span class="n">E_temperature</span><span class="p">,</span> <span class="n">E_radiation</span><span class="p">)))</span>
+</span></code></pre></div>
+<h2 id="energy-density-and-the-meaning-of-neff">Energy density and the meaning of Neff<a class="headerlink" href="#energy-density-and-the-meaning-of-neff" title="Permanent link">&para;</a></h2>
+<p>Let <span class="arithmatex">\(a=1/(1+z)\)</span>, with photon temperature
+<span class="arithmatex">\(T_\gamma(a)=T_{\gamma,0}/a\)</span> and <span class="arithmatex">\(T_{\gamma,0}=2.7255\,\mathrm{K}\)</span>.
+All three species share the temperature ratio <span class="arithmatex">\(r=T_\nu/T_\gamma\)</span> within each
+prescription; their masses may differ. Here <span class="arithmatex">\(m_i\)</span> denotes the rest energy in
+eV (<span class="arithmatex">\(c=1\)</span>), and <span class="arithmatex">\(k_{\mathrm{B}}\)</span> is expressed in eV/K. Define</p>
+<div class="arithmatex">\[
+F(y)=\int_0^\infty \frac{q^2\sqrt{q^2+y^2}}{e^q+1}\,\mathrm{d}q,
+\qquad
+y_i(a)=\frac{m_i a}{k_{\mathrm{B}}rT_{\gamma,0}},
+\qquad F(0)=\frac{7\pi^4}{120}.
+\]</div>
+<p>With unit degeneracy per species in CLASS's <code>deg_ncdm</code> convention, including
+the usual neutrino/antineutrino pair, the total neutrino-sector density is</p>
+<div class="arithmatex">\[
+\frac{\rho_\nu(a)}{\rho_\gamma(a)}
+=\frac{15r^4}{\pi^4}\sum_{i=1}^{3} F\!\left(y_i(a)\right)
++\frac{7}{8}r_{\mathrm{inst}}^4 N_{\mathrm{ur}},
+\qquad r_{\mathrm{inst}}=\left(\frac{4}{11}\right)^{1/3}.
+\]</div>
+<p>Here <span class="arithmatex">\(N_{\mathrm{ur}}\)</span> is the effective count of the <strong>massless remainder</strong>,
+not the total <code>Neff</code>. It can be fractional. Throughout this page and the figure,
+<span class="arithmatex">\(\rho_\nu\)</span> includes both the three Fermi–Dirac species and that remainder,
+but <strong>not photons</strong>.</p>
+<p><span class="arithmatex">\(N_{\mathrm{eff}}\)</span> specifies the density in the relativistic limit:</p>
+<div class="arithmatex">\[
+\left.\frac{\rho_\nu}{\rho_\gamma}\right|_{y_i\to0}
+=\frac{7}{8}r_{\mathrm{inst}}^4 N_{\mathrm{eff}},
+\qquad
+N_{\mathrm{eff}}=3\left(\frac{r}{r_{\mathrm{inst}}}\right)^4+N_{\mathrm{ur}}.
+\]</div>
+<p>It is <strong>not</strong> a formula for the late-time energy density once neutrinos become
+nonrelativistic. The mass-dependent integral must still be evaluated. jaxace
+tabulates the integral at import and uses lookup interpolation, extended by a
+moment series at large arguments, at runtime. It does not perform fresh momentum
+quadrature at every background call.</p>
+<h2 id="common-reference-convention">Common reference convention<a class="headerlink" href="#common-reference-convention" title="Permanent link">&para;</a></h2>
+<p>Both prescriptions share the reference</p>
+<div class="arithmatex">\[
+N_{\mathrm{eff,ref}}=3.044,\qquad r_{\mathrm{ref}}=0.71611,
+\qquad
+N_{\mathrm{ur,ref}}
+=3.044-3\left(\frac{0.71611}{r_{\mathrm{inst}}}\right)^4
+\simeq 0.00439512.
+\]</div>
+<p>The temperatures use the CLASS anchor, and the remainder makes the total
+relativistic density correspond to exactly 3.044. This is an effective thermal
+model, not an evolution of neutrino decoupling or a nonthermal distribution.
+The photon temperature and individual physical masses are held fixed when
+<code>Neff</code> changes.</p>
+<h2 id="temperature-rescaling">Temperature rescaling<a class="headerlink" href="#temperature-rescaling" title="Permanent link">&para;</a></h2>
+<p>The default <code>neutrino_prescription="temperature"</code> sets</p>
+<div class="arithmatex">\[
+s=\frac{N_{\mathrm{eff}}}{N_{\mathrm{eff,ref}}},\qquad
+r=r_{\mathrm{ref}}s^{1/4},\qquad
+N_{\mathrm{ur}}=N_{\mathrm{ur,ref}}s.
+\]</div>
+<p>Both terms in the relativistic density therefore scale by <span class="arithmatex">\(s\)</span>. The supported
+input domain requires finite <span class="arithmatex">\(N_{\mathrm{eff}}&gt;0\)</span>. Increasing it heats the
+three species; decreasing it cools them. In particular,</p>
+<div class="arithmatex">\[
+n_i(a)\propto r^3a^{-3},\qquad
+\frac{n_i}{n_{i,\mathrm{ref}}}=s^{3/4},\qquad
+\rho_{\nu,i}\simeq m_i n_i\quad\text{when }y_i\gg1.
+\]</div>
+<p>Thus varying <code>Neff</code> also changes the late-time massive-neutrino density at fixed
+masses, and shifts when each species becomes nonrelativistic. At
+<span class="arithmatex">\(N_{\mathrm{eff}}=4\)</span>, temperatures increase by about 7.07% and massive-species
+number densities by about 22.73% relative to the reference.</p>
+<h2 id="fixed-temperatures-variable-massless-radiation">Fixed temperatures, variable massless radiation<a class="headerlink" href="#fixed-temperatures-variable-massless-radiation" title="Permanent link">&para;</a></h2>
+<p>With <code>neutrino_prescription="radiation"</code>, the three species keep their reference
+temperatures and only the massless remainder changes:</p>
+<div class="arithmatex">\[
+r=r_{\mathrm{ref}},\qquad
+N_{\mathrm{ur}}=N_{\mathrm{eff}}
+-3\left(\frac{r_{\mathrm{ref}}}{r_{\mathrm{inst}}}\right)^4.
+\]</div>
+<p>Their number densities and nonrelativistic transitions are unchanged. The
+additional massless density redshifts as <span class="arithmatex">\(a^{-4}\)</span>. Nonnegative massless density
+requires</p>
+<div class="arithmatex">\[
+N_{\mathrm{eff}}\ge
+3\left(\frac{r_{\mathrm{ref}}}{r_{\mathrm{inst}}}\right)^4
+\simeq 3.03960488.
+\]</div>
+<p>For example, <code>Neff=2</code> cannot represent this prescription. jaxace returns NaN
+for invalid numerical domains, including under JIT, rather than silently switching
+to temperature rescaling. Incorrect mass shapes and unknown static prescription
+names raise <code>ValueError</code>.</p>
+<p>Both prescriptions coincide at <span class="arithmatex">\(N_{\mathrm{eff}}=3.044\)</span>. At other allowed
+values they have the same relativistic-limit energy density but generally
+different massive-neutrino backgrounds. If all three masses are exactly zero,
+their total neutrino-sector density remains identical at every scale factor
+for the same <code>Neff</code>.</p>
+<h2 id="expansion-rate-and-closure">Expansion rate and closure<a class="headerlink" href="#expansion-rate-and-closure" title="Permanent link">&para;</a></h2>
+<p>Neutrinos enter the background through their full energy density:</p>
+<div class="arithmatex">\[
+E^2(a)=\frac{H^2(a)}{H_0^2}
+=\Omega_{\mathrm{cb},0}a^{-3}+\Omega_{\gamma,0}a^{-4}
++\frac{\rho_\nu(a)}{\rho_{\mathrm{crit},0}}
++\Omega_{\mathrm{k},0}a^{-2}
++\Omega_{\mathrm{DE},0}f_{\mathrm{DE}}(a),
+\]</div>
+<div class="arithmatex">\[
+f_{\mathrm{DE}}(a)=a^{-3(1+w_0+w_a)}e^{3w_a(a-1)},\qquad
+\Omega_{\mathrm{DE},0}=1-\Omega_{\mathrm{cb},0}-\Omega_{\gamma,0}
+-\frac{\rho_\nu(1)}{\rho_{\mathrm{crit},0}}-\Omega_{\mathrm{k},0}.
+\]</div>
+<p><span class="arithmatex">\(\Omega_{\mathrm{cb},0}=\Omega_{\mathrm{c},0}+\Omega_{\mathrm{b},0}\)</span> excludes
+neutrinos. At fixed <span class="arithmatex">\(H_0\)</span>, changing the neutrino sector changes the dark-energy
+density required by closure. Consequently all curves have the same <span class="arithmatex">\(H(0)=H_0\)</span>;
+the comparison does not also hold <span class="arithmatex">\(\Omega_{\mathrm{DE},0}\)</span> fixed.</p>
+<h2 id="jaxace-compared-with-matched-class-calculations">jaxace compared with matched CLASS calculations<a class="headerlink" href="#jaxace-compared-with-matched-class-calculations" title="Permanent link">&para;</a></h2>
+<p><img alt="jaxace neutrino density and expansion for two thermal prescriptions, with matched CLASS references" src="https://github.com/user-attachments/assets/1205530e-39ac-499a-a060-2afb6f946f4c" /></p>
+<p><a href="https://github.com/user-attachments/assets/e256d558-4223-4d18-9e2e-f56a8c5ee9dd">Vector SVG</a>
+· <a href="https://github.com/CosmologicalEmulators/jaxace/issues/58">Image storage and caption</a></p>
+<p>The solid curves are <strong>jaxace only</strong>; circles are CLASS v3.3.4. Blue denotes
+temperature rescaling, orange denotes the fixed-temperature radiation
+prescription. The upper panels show percentage changes relative to a common
+<strong>CLASS</strong> reference at <span class="arithmatex">\(N_{\mathrm{eff}}=3.044\)</span>, with the same masses,
+<span class="arithmatex">\(H_0\)</span>, <span class="arithmatex">\(\omega_{\mathrm{b}}\)</span> and <span class="arithmatex">\(\omega_{\mathrm{c}}\)</span>. The lower panels
+show jaxace/CLASS fractional residuals, multiplied by the factors printed on the
+axes. Those tiny residuals are numerical differences, not the physical
+difference between the two prescriptions.</p>
+<p>For this example, <span class="arithmatex">\(m_\nu=(0.01,0.02,0.03)\,\mathrm{eV}\)</span>,
+<span class="arithmatex">\(N_{\mathrm{eff}}=4\)</span>, <span class="arithmatex">\(h=0.67\)</span>, <span class="arithmatex">\(\omega_{\mathrm{b}}=0.0224\)</span>,
+<span class="arithmatex">\(\omega_{\mathrm{c}}=0.12\)</span>, <span class="arithmatex">\(\Omega_{\mathrm{k},0}=0\)</span> and <span class="arithmatex">\(w=-1\)</span>.
+The illustrative mass split is not an imposed oscillation hierarchy. The
+maximum absolute fractional residuals on the plotted grid are below
+<span class="arithmatex">\(3\times10^{-8}\)</span> for density and <span class="arithmatex">\(2\times10^{-9}\)</span> for expansion.
+These are <strong>this configuration's</strong> diagnostics, not a bound over all parameters
+or a validation of scale-dependent perturbation growth.</p>
+<h3 id="matching-class-rather-than-comparing-unmatched-defaults">Matching CLASS, rather than comparing unmatched defaults<a class="headerlink" href="#matching-class-rather-than-comparing-unmatched-defaults" title="Permanent link">&para;</a></h3>
+<p>For each prescription CLASS is configured with the same <code>m_ncdm</code>, <code>T_ncdm</code>,
+<code>deg_ncdm=1</code> per massive species and <code>N_ur</code> specified above. Its <code>T_ncdm</code> input
+is the <strong>ratio to the photon temperature</strong>, not a temperature in kelvin.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">CLASS input at <span class="arithmatex">\(N_{\mathrm{eff}}=4\)</span></th>
+<th style="text-align: left;">Temperature rescaling</th>
+<th style="text-align: left;">Fixed-temperature radiation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>N_ncdm</code></td>
+<td style="text-align: left;">3</td>
+<td style="text-align: left;">3</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>m_ncdm</code> [eV]</td>
+<td style="text-align: left;"><code>0.01,0.02,0.03</code></td>
+<td style="text-align: left;"><code>0.01,0.02,0.03</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>T_ncdm</code> (each species)</td>
+<td style="text-align: left;"><code>0.766714319146159</code></td>
+<td style="text-align: left;"><code>0.71611</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>N_ur</code></td>
+<td style="text-align: left;"><code>0.00577545013072</code></td>
+<td style="text-align: left;"><code>0.96039511754948</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both calculations use <code>T_cmb=2.7255</code>, <code>YHe=0.245</code>,
+<code>tol_ncdm_bg=1e-12</code>, <code>tol_background_integration=1e-12</code> and
+<code>background_integration_stepsize=0.01</code>. Only CLASS's background module is needed.
+The 321 plotted samples per prescription are selected from its native background
+rows over <span class="arithmatex">\(0\le z\lesssim10^5\)</span>. Density residuals compare directly to those
+rows; only the common reference in the upper panels is interpolated in
+<span class="arithmatex">\(\ln a\)</span> and <span class="arithmatex">\(\ln\rho_\nu\)</span>/<span class="arithmatex">\(\ln H\)</span>.</p>
+<p>When matching a case containing an exactly zero mass, transfer that species
+to CLASS's <code>N_ur</code> with contribution <span class="arithmatex">\((r/r_{\mathrm{inst}})^4\)</span> instead of
+passing a zero <code>m_ncdm</code>; keep the same total relativistic density. The figure
+uses three positive masses, so that conversion is not needed here.</p>
+<p>The image records jaxace source <code>b4d4508</code>. Broader numerical references and their
+CLASS generation settings are maintained under
+<code>tests/data/neutrino_neff/</code>; <code>tests/test_neutrino_neff.py</code> exercises the saved CLASS
+references. The source CLASS generator is maintained in the ACE repository at
+<code>test/fixtures/neutrino_neff/generate_class_reference.py</code>.
+The PNG/SVG are hosted in the repository's <code>images</code> issue, not stored in Git.</p>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../examples/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Examples">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Examples
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../api/" class="md-footer__link md-footer__link--next" aria-label="Next: Core">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Core
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024 CosmologicalEmulators
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/CosmologicalEmulators/jaxace" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.top", "navigation.footer", "toc.follow", "toc.integrate", "search.suggest", "search.highlight", "content.tabs.link", "content.code.copy", "content.code.annotate", "header.autohide"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+        <script src="../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
