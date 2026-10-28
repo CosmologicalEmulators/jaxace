@@ -132,6 +132,7 @@ nav:
   - Home:
       - Overview: index.md
   - Examples: examples.md
+  - Neutrino thermal prescriptions: neutrinos.md
   - API Reference:
       - Core: api.md
   - Migration notes: migration.md

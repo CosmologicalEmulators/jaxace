@@ -2,6 +2,10 @@
 
 JAX/Flax implementation of cosmological emulators with automatic JIT compilation.
 
+For the analytic neutrino model, its two $N_{\mathrm{eff}}$ prescriptions and
+the jaxace-only comparison against CLASS, see
+[Neutrino thermal prescriptions](neutrinos.md).
+
 !!! info "Key Features"
     - ⚡ **Automatic JIT compilation** for optimal performance
     - 🔢 **Full JAX integration** with grad, vmap, and jit

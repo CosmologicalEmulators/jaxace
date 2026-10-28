@@ -4,6 +4,10 @@
 
 ### Three individual masses: conventions and quick start
 
+For the energy-density equations, the meaning of $N_{\mathrm{eff}}$, and the
+two thermal prescriptions compared with matched CLASS calculations, see
+[Neutrino thermal prescriptions](neutrinos.md).
+
 These are **analytic** background/growth calculations. Existing neural emulators
 still take total mass Σmν and retain the splitting used in their training data.
 
