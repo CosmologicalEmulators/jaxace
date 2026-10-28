@@ -50,6 +50,15 @@ jobs:
       - name: Install project
         run: poetry install --no-interaction
 
+      - name: Cache reference fixtures
+        uses: actions/cache@v6
+        with:
+          path: ~/.fetch_artifacts/57b2eb88f55763a47273e26b1b88c3c539539c8a
+          key: reference-fixtures-${{ runner.os }}-${{ hashFiles('tests/Artifacts.toml') }}
+
+      - name: Download and verify reference fixtures
+        run: poetry run python tests/download_fixtures.py
+
       - name: Run tests
         run: |
           poetry run pytest tests/ -v --tb=short --cov=jaxace --cov-report=term-missing --cov-report=xml --cov-report=html --benchmark-json=benchmark-results.json
@@ -163,7 +172,16 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
 
-      - name: Run core tests only
+      - name: Cache reference fixtures
+        uses: actions/cache@v6
+        with:
+          path: ~/.fetch_artifacts/57b2eb88f55763a47273e26b1b88c3c539539c8a
+          key: reference-fixtures-${{ runner.os }}-${{ hashFiles('tests/Artifacts.toml') }}
+
+      - name: Download and verify reference fixtures
+        run: poetry run python tests/download_fixtures.py
+
+      - name: Run minimal test suite
         run: |
           poetry run pytest tests/test_core_functionality.py tests/test_simple.py -v --tb=short
 

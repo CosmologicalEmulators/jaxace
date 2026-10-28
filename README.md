@@ -224,6 +224,29 @@ three-argument form.
 - Massive neutrinos and dark energy support
 - Full JAX integration (grad, vmap, jit)
 
+## Test reference data
+
+The numerical text fixtures are stored in the versioned
+[Zenodo archive (10.5281/zenodo.23718377)](https://doi.org/10.5281/zenodo.23718377).
+Generators, tests and provenance metadata remain in this repository; the archive
+also preserves their complete source snapshots. `tests/Artifacts.toml` pins the
+download URL, archive SHA256 and artifact tree hash. `tests/fixtures.sha256`
+lists the individual files restored into ignored paths under `tests/`.
+
+Ordinary `pytest` runs restore missing fixtures before test collection. CI does
+the same explicitly and caches the artifact. To prepare standalone comparison
+scripts or an offline test run, run once while online:
+
+```bash
+python tests/download_fixtures.py
+```
+
+The first missing-fixture download requires network access; later runs reuse
+verified local files or the cached artifact. Download or checksum failures fail
+the tests, never skip them. Modified local fixtures are rejected, not overwritten.
+No archived package source is copied over the checkout. To update references,
+publish a new archive version and update the pin and per-file manifest together.
+
 ## Contributors
 
 - Gerrit Farren
