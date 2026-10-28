@@ -927,8 +927,8 @@
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">ln10As</span><span class="o">=</span><span class="mf">3.044</span><span class="p">,</span>      <span class="c1"># ln(10^10 A_s)</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">ns</span><span class="o">=</span><span class="mf">0.9649</span><span class="p">,</span>         <span class="c1"># Scalar spectral index</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">h</span><span class="o">=</span><span class="mf">0.6736</span><span class="p">,</span>          <span class="c1"># Hubble parameter</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">omega_b</span><span class="o">=</span><span class="mf">0.02237</span><span class="p">,</span>   <span class="c1"># Baryon density</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">omega_c</span><span class="o">=</span><span class="mf">0.1200</span><span class="p">,</span>    <span class="c1"># CDM density</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">omega_b</span><span class="o">=</span><span class="mf">0.02237</span><span class="p">,</span>   <span class="c1"># physical baryon density Ω_b h²</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">omega_c</span><span class="o">=</span><span class="mf">0.1200</span><span class="p">,</span>    <span class="c1"># physical CDM density Ω_c h²</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">m_nu</span><span class="o">=</span><span class="p">(</span><span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">),</span>  <span class="c1"># three physical neutrino masses in eV</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">w0</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span>           <span class="c1"># Dark energy equation of state</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">wa</span><span class="o">=</span><span class="mf">0.0</span>             <span class="c1"># Dark energy evolution parameter</span>
@@ -955,6 +955,10 @@
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># We can also get both at once for efficiency</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">D_both</span><span class="p">,</span> <span class="n">f_both</span> <span class="o">=</span> <span class="n">cosmo</span><span class="o">.</span><span class="n">D_f_z</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
 </span></code></pre></div>
+<p>These growth factors retain D(aᵢ)=aᵢ at aᵢ=1/139, not D(0)=1. The default
+source is cold+baryon matter with smooth neutrinos. Use explicit tighter
+<code>reltol</code>/<code>abstol</code> and check convergence when differentiating small mass effects;
+neither source option is a full scale-dependent perturbation calculation.</p>
 <h3 id="visualizing-the-results">Visualizing the Results<a class="headerlink" href="#visualizing-the-results" title="Permanent link">&para;</a></h3>
 <p>Now let's create plots to visualize these cosmological quantities:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Create a figure with subplots</span>

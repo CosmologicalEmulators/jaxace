@@ -652,6 +652,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Cosmology">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#three-individual-masses-conventions-and-quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three individual masses: conventions and quick start
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -997,6 +1014,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;r_z
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jaxace.dM_z" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;dM_z
       
     </span>
   </a>
@@ -1909,6 +1937,87 @@
 
 <h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
 <h2 id="cosmology">Cosmology<a class="headerlink" href="#cosmology" title="Permanent link">&para;</a></h2>
+<h3 id="three-individual-masses-conventions-and-quick-start">Three individual masses: conventions and quick start<a class="headerlink" href="#three-individual-masses-conventions-and-quick-start" title="Permanent link">&para;</a></h3>
+<p>These are <strong>analytic</strong> background/growth calculations. Existing neural emulators
+still take total mass Σmν and retain the splitting used in their training data.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jaxace</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">cosmo</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">w0waCDMCosmology</span><span class="p">(</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">ln10As</span><span class="o">=</span><span class="mf">3.044</span><span class="p">,</span> <span class="n">ns</span><span class="o">=</span><span class="mf">0.965</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">0.67</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">omega_b</span><span class="o">=</span><span class="mf">0.0224</span><span class="p">,</span> <span class="n">omega_c</span><span class="o">=</span><span class="mf">0.12</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">m_nu</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0086</span><span class="p">,</span> <span class="mf">0.0502</span><span class="p">),</span>  <span class="c1"># individual physical masses in eV</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">Neff</span><span class="o">=</span><span class="mf">3.044</span><span class="p">,</span> <span class="n">neutrino_prescription</span><span class="o">=</span><span class="s2">"temperature"</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">])</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">E</span> <span class="o">=</span> <span class="n">cosmo</span><span class="o">.</span><span class="n">E_z</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">chi</span> <span class="o">=</span> <span class="n">cosmo</span><span class="o">.</span><span class="n">r_z</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">D</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">cosmo</span><span class="o">.</span><span class="n">D_f_z</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">species</span><span class="o">=</span><span class="s2">"cb"</span><span class="p">,</span> <span class="n">reltol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">abstol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">)</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>API</th>
+<th>Units / convention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Expansion</td>
+<td><code>E_z</code>, <code>E_a</code></td>
+<td>H/H₀</td>
+</tr>
+<tr>
+<td>Radial / transverse comoving distance</td>
+<td><code>r_z</code>, <code>dM_z</code></td>
+<td>Mpc, not Mpc/h</td>
+</tr>
+<tr>
+<td>Angular-diameter / luminosity distance</td>
+<td><code>dA_z</code>, <code>dL_z</code></td>
+<td>Mpc</td>
+</tr>
+<tr>
+<td>Growth factor</td>
+<td><code>D_z</code></td>
+<td>D(aᵢ)=aᵢ at aᵢ=1/139, <strong>not</strong> D(0)=1</td>
+</tr>
+<tr>
+<td>Growth rate</td>
+<td><code>f_z</code></td>
+<td>d ln D / d ln a</td>
+</tr>
+<tr>
+<td>Both growth quantities</td>
+<td><code>D_f_z</code></td>
+<td><code>(D, f)</code> from one solve</td>
+</tr>
+</tbody>
+</table>
+<p>The constructor fields <code>omega_b</code>, <code>omega_c</code>, <code>omega_k</code> mean physical densities
+ω_b=Ω_b h², ω_c=Ω_c h², ω_k=Ω_k h². Standalone functions instead take
+Ω_cb=Ω_b+Ω_c (excluding neutrinos), and spell the mass keyword <strong><code>mν</code></strong>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">E_direct</span> <span class="o">=</span> <span class="n">jaxace</span><span class="o">.</span><span class="n">E_z</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="p">(</span><span class="mf">0.0224</span> <span class="o">+</span> <span class="mf">0.12</span><span class="p">)</span><span class="o">/</span><span class="mf">0.67</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="mf">0.67</span><span class="p">,</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                     <span class="n">mν</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0086</span><span class="p">,</span> <span class="mf">0.0502</span><span class="p">),</span> <span class="n">Neff</span><span class="o">=</span><span class="mf">3.044</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Exactly three masses are required; the default is <code>(0, 0, 0)</code>. Scalar totals
+are rejected, and no mass hierarchy is inferred. Masses and Neff can be
+differentiated; the prescription and growth species are static choices.</p>
+<p>The dimensionless Fermi–Dirac integral is tabulated once at import. Runtime
+expansion, distances and growth use lookup interpolation, with a moment-series
+extension for very large arguments, <strong>not repeated momentum quadrature</strong>.
+Distance integration still uses its existing 100-point redshift quadrature.</p>
+<ul>
+<li><code>neutrino_prescription="temperature"</code> scales neutrino temperatures with Neff;
+  <code>"radiation"</code> keeps temperatures fixed and requires Neff ≳ 3.0396.</li>
+<li><code>species="cb"</code> is cold+baryon growth with smooth neutrinos. <code>"m"</code> adds a
+  mass-induced neutrino source approximation, not full scale-dependent growth.</li>
+<li>Growth queries require <code>1/139 &lt;= a=1/(1+z) &lt;= 1.01</code>. Invalid numerical domains
+  return NaN, also under JIT; wrong shapes/static choices raise ValueError.</li>
+<li>Scalar inputs produce scalar outputs; use one-dimensional redshift arrays
+  for batched growth. Tighten ODE tolerances and check convergence for derivatives.</li>
+</ul>
 
 
 <div class="doc doc-object doc-class">
@@ -1930,6 +2039,28 @@
     <div class="doc doc-contents first">
 
 
+
+        <p>Parameters for analytic expansion, distances and approximate growth.</p>
+<p><code>h</code> is H0/(100 km/s/Mpc). <code>omega_b</code>, <code>omega_c</code> and <code>omega_k</code>
+are physical densities Ω_b h², Ω_c h² and Ω_k h², not density fractions.
+<code>ln10As</code> and <code>ns</code> are stored but do not enter the background equations.</p>
+<p><code>m_nu</code> contains exactly three individual, finite, nonnegative masses in
+eV, with zeros allowed. Its default is three massless species. No total-mass
+splitting or oscillation constraints are imposed. Trained neural emulators
+are separate and still take total mass with their training-time splitting.</p>
+<p><code>Neff</code> defaults to 3.044. <code>neutrino_prescription="temperature"</code> scales
+the three temperatures by (Neff/3.044)**0.25 from Tnu/Tgamma=0.71611, and
+scales the reference massless remainder by Neff/3.044. <code>"radiation"</code>
+fixes the temperatures and varies only massless radiation (Neff &gt;= 3.0396
+approximately). Masses and the photon temperature, 2.7255 K, stay fixed.</p>
+<p>Methods accept scalar redshifts or redshift arrays. Distances are in Mpc,
+E is H/H0, and growth is not normalized to D(0)=1. Prefer <code>D_f_z</code> when
+both growth factor and rate are needed. Neither growth source is a full
+scale-dependent neutrino perturbation calculation.</p>
+<p>Wrong mass shapes and unknown static prescriptions raise ValueError;
+invalid numerical domains produce NaN on evaluation, including under JIT.
+The constructor keyword is <code>m_nu</code>; standalone functions use <code>mν</code> and
+take Ωcb0=(omega_b+omega_c)/h**2 rather than physical densities.</p>
 
 
 
@@ -2335,7 +2466,7 @@ See :func:<code>growth_solver</code> for its limitations.</p>
 <ul>
 <li><span class="arithmatex">\(\Omega_{\gamma,0}\)</span> is the photon density parameter today</li>
 <li><span class="arithmatex">\(\Omega_{\mathrm{cb},0}\)</span> is the cold dark matter + baryon density parameter today</li>
-<li><span class="arithmatex">\(\Omega_{\Lambda,0}\)</span> is the dark energy density parameter today (from flatness constraint)</li>
+<li><span class="arithmatex">\(\Omega_{\Lambda,0}\)</span> is the dark energy density parameter today (from Friedmann closure, including curvature)</li>
 <li><span class="arithmatex">\(\rho_{\mathrm{DE}}(a)\)</span> is the normalized dark energy density</li>
 <li><span class="arithmatex">\(\Omega_{\nu}(a)\)</span> is the massive neutrino contribution</li>
 <li><span class="arithmatex">\(\Omega_{k,0}\)</span> is the curvature density parameter today</li>
@@ -2614,7 +2745,8 @@ Queries outside 1/139 &lt;= a &lt;= 1.01 return NaN.</p>
 
         <p>Line-of-sight comoving distance r(z) in Mpc.</p>
 <p>This is the conformal distance scaled to physical units.
-Independent of curvature (curvature only affects transverse distances).</p>
+Curvature affects this distance through E(z). The additional geometric
+curvature mapping is applied by dM_z to obtain transverse distance.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -2633,6 +2765,52 @@ Independent of curvature (curvature only affects transverse distances).</p>
             <td>
               <div class="doc-md-description">
                 <p>Line-of-sight comoving distance in Mpc</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="jaxace.dM_z" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">jaxace.dM_z</span>
+
+
+<a href="#jaxace.dM_z" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">dM_z</span><span class="p">(</span><span class="n">z</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">],</span> <span class="n">Ωcb0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">],</span> <span class="n">h</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">],</span> <span class="n">mν</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">tuple</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="n">_neutrinos</span><span class="o">.</span><span class="n">MASSLESS</span><span class="p">,</span> <span class="n">w0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">wa</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">Ωk0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">Neff</span><span class="o">=</span><span class="mf">3.044</span><span class="p">,</span> <span class="n">neutrino_prescription</span><span class="o">=</span><span class="s1">'temperature'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Transverse comoving distance dM(z) in Mpc.</p>
+<p>For flat universe (Ωk=0): dM(z) = r(z) (comoving distance)
+For curved universe: dM(z) = c/H₀ × S(Ωk, r̃(z)) / h</p>
+<p>where S is the curvature correction function.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="typing.Union" href="https://docs.python.org/3/library/typing.html#typing.Union">Union</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a>, <a class="autorefs autorefs-external" title="jax.numpy.ndarray" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.html#jax.numpy.ndarray">ndarray</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Transverse comoving distance in Mpc</p>
               </div>
             </td>
           </tr>
