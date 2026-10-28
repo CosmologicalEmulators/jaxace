@@ -2,6 +2,63 @@
 
 ## Cosmology
 
+### Three individual masses: conventions and quick start
+
+These are **analytic** background/growth calculations. Existing neural emulators
+still take total mass Σmν and retain the splitting used in their training data.
+
+```python
+import jax.numpy as jnp
+import jaxace
+
+cosmo = jaxace.w0waCDMCosmology(
+    ln10As=3.044, ns=0.965, h=0.67,
+    omega_b=0.0224, omega_c=0.12,
+    m_nu=(0.0, 0.0086, 0.0502),  # individual physical masses in eV
+    Neff=3.044, neutrino_prescription="temperature",
+)
+z = jnp.array([0.0, 1.0, 3.0])
+E = cosmo.E_z(z)
+chi = cosmo.r_z(z)
+D, f = cosmo.D_f_z(z, species="cb", reltol=1e-10, abstol=1e-12)
+```
+
+| Quantity | API | Units / convention |
+|---|---|---|
+| Expansion | `E_z`, `E_a` | H/H₀ |
+| Radial / transverse comoving distance | `r_z`, `dM_z` | Mpc, not Mpc/h |
+| Angular-diameter / luminosity distance | `dA_z`, `dL_z` | Mpc |
+| Growth factor | `D_z` | D(aᵢ)=aᵢ at aᵢ=1/139, **not** D(0)=1 |
+| Growth rate | `f_z` | d ln D / d ln a |
+| Both growth quantities | `D_f_z` | `(D, f)` from one solve |
+
+The constructor fields `omega_b`, `omega_c`, `omega_k` mean physical densities
+ω_b=Ω_b h², ω_c=Ω_c h², ω_k=Ω_k h². Standalone functions instead take
+Ω_cb=Ω_b+Ω_c (excluding neutrinos), and spell the mass keyword **`mν`**:
+
+```python
+E_direct = jaxace.E_z(z, (0.0224 + 0.12)/0.67**2, 0.67,
+                     mν=(0.0, 0.0086, 0.0502), Neff=3.044)
+```
+
+Exactly three masses are required; the default is `(0, 0, 0)`. Scalar totals
+are rejected, and no mass hierarchy is inferred. Masses and Neff can be
+differentiated; the prescription and growth species are static choices.
+
+The dimensionless Fermi–Dirac integral is tabulated once at import. Runtime
+expansion, distances and growth use lookup interpolation, with a moment-series
+extension for very large arguments, **not repeated momentum quadrature**.
+Distance integration still uses its existing 100-point redshift quadrature.
+
+- `neutrino_prescription="temperature"` scales neutrino temperatures with Neff;
+  `"radiation"` keeps temperatures fixed and requires Neff ≳ 3.0396.
+- `species="cb"` is cold+baryon growth with smooth neutrinos. `"m"` adds a
+  mass-induced neutrino source approximation, not full scale-dependent growth.
+- Growth queries require `1/139 <= a=1/(1+z) <= 1.01`. Invalid numerical domains
+  return NaN, also under JIT; wrong shapes/static choices raise ValueError.
+- Scalar inputs produce scalar outputs; use one-dimensional redshift arrays
+  for batched growth. Tighten ODE tolerances and check convergence for derivatives.
+
 ::: jaxace.w0waCDMCosmology
     options:
       show_source: false
@@ -27,6 +84,7 @@
 ### Distance Functions
 
 ::: jaxace.r_z
+::: jaxace.dM_z
 ::: jaxace.dA_z
 ::: jaxace.dL_z
 

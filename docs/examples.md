@@ -19,8 +19,8 @@ cosmo = jaxace.w0waCDMCosmology(
     ln10As=3.044,      # ln(10^10 A_s)
     ns=0.9649,         # Scalar spectral index
     h=0.6736,          # Hubble parameter
-    omega_b=0.02237,   # Baryon density
-    omega_c=0.1200,    # CDM density
+    omega_b=0.02237,   # physical baryon density Ω_b h²
+    omega_c=0.1200,    # physical CDM density Ω_c h²
     m_nu=(0.02, 0.02, 0.02),  # three physical neutrino masses in eV
     w0=-1.0,           # Dark energy equation of state
     wa=0.0             # Dark energy evolution parameter
@@ -55,6 +55,11 @@ f = cosmo.f_z(z)
 # We can also get both at once for efficiency
 D_both, f_both = cosmo.D_f_z(z)
 ```
+
+These growth factors retain D(aᵢ)=aᵢ at aᵢ=1/139, not D(0)=1. The default
+source is cold+baryon matter with smooth neutrinos. Use explicit tighter
+`reltol`/`abstol` and check convergence when differentiating small mass effects;
+neither source option is a full scale-dependent perturbation calculation.
 
 ### Visualizing the Results
 

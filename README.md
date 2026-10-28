@@ -15,6 +15,12 @@ pip install -e .
 
 ## Usage
 
+For the analytic API, `omega_b` and `omega_c` mean physical densities
+ω_b=Ω_b h² and ω_c=Ω_c h². `m_nu` specifies three individual masses in eV;
+this does not add independent-mass inputs to trained emulators. See the
+[API guide](docs/api.md#three-individual-masses-conventions-and-quick-start)
+for function meanings, units, Neff prescriptions and growth normalization.
+
 ```python
 import jaxace
 import jax.numpy as jnp
@@ -125,6 +131,51 @@ its RHS. Both modes retain `D(a_i)=a_i` at `a_i=1/139`, not `D(0)=1`.
 Historical solver defaults are `reltol=1e-6`, `abstol=1e-8`; use tighter settings
 and check convergence for small growth derivatives.
 
+### Growth equations
+
+Both prescriptions solve the same equation with a different gravitational source.
+Let $x=\ln a$, use primes for derivatives with respect to $x$, and define
+$E(a)=H(a)/H_0$:
+
+$$
+D'' + \left(2+\frac{d\ln E}{d\ln a}\right)D'
+-\frac{3}{2}\Omega_{\mathrm{src}}(a)D=0,
+\qquad f(a)=\frac{D'}{D}.
+$$
+
+**Cold+baryon growth: `species="cb"` (Julia: `CBGrowth()`).**
+Only cold dark matter and baryons source the growth:
+
+$$
+\Omega_{\mathrm{src}}(a)=\Omega_{cb}(a)
+=\frac{\Omega_{cb,0}a^{-3}}{E^2(a)},
+\qquad \Omega_{cb,0}=\Omega_{c,0}+\Omega_{b,0}.
+$$
+
+**Approximate matter growth: `species="m"` (Julia: `MatterGrowthApprox()`).**
+Add the neutrino density induced by nonzero masses:
+
+$$
+\Delta\rho_\nu(a)=
+\rho_\nu(a;m_1,m_2,m_3)-\rho_\nu(a;0,0,0),
+$$
+
+$$
+\Omega_{\mathrm{src}}(a)=
+\frac{\Omega_{cb,0}a^{-3}+\Delta\rho_\nu(a)/\rho_{\mathrm{crit},0}}
+{E^2(a)},
+\qquad \rho_{\mathrm{crit},0}=\frac{3H_0^2}{8\pi G}.
+$$
+
+The two densities in the subtraction use the **same temperature, Neff and
+number of species**, including the same massless-radiation remainder. This is
+not $\rho_\nu-3p_\nu$ and does not evolve neutrino perturbations.
+In both prescriptions, $E(a)$ includes the full neutrino background, even when
+neutrinos are absent from the growth source. Neither prescription supplies
+scale-dependent massive-neutrino growth.
+
+Both use $D(a_i)=D'(a_i)=a_i$ at $a_i=1/139$; they do **not** normalize $D(1)=1$.
+
 Growth is evaluated only on its integration domain, `1/139 <= a <= 1.01`
 (`1/1.01 - 1 <= z <= 138`). Unsupported queries return NaN, including in
 arrays, rather than silently extrapolating or freezing the solution.
@@ -145,8 +196,9 @@ placeholder before any reciprocal, square root or distance transformation,
 so masking invalid batch entries does not poison valid shared-parameter gradients.
 
 Saved CLASS and Julia primal/gradient references are in
-`tests/data/neutrino_neff/`. The vector kernel uses 128-point fixed
-Fermi–Dirac momentum quadrature.
+`tests/data/neutrino_neff/`. The Fermi–Dirac lookup table is constructed once
+using 128-point momentum quadrature. Runtime evaluations use interpolation
+(with a large-argument moment expansion), not repeated momentum integration.
 The CLASS growth fixture tests its background ODE, not its perturbation growth.
 
 ## Postprocessing API
@@ -171,3 +223,7 @@ three-argument form.
 - Neural network emulators with auto-JIT
 - Massive neutrinos and dark energy support
 - Full JAX integration (grad, vmap, jit)
+
+## Contributors
+
+- Gerrit Farren

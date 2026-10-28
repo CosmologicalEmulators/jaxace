@@ -211,6 +211,34 @@ def _handle_infinite_params(value, param_name="parameter"):
 
 @dataclass
 class w0waCDMCosmology:
+    """Parameters for analytic expansion, distances and approximate growth.
+
+    ``h`` is H0/(100 km/s/Mpc). ``omega_b``, ``omega_c`` and ``omega_k``
+    are physical densities Ω_b h², Ω_c h² and Ω_k h², not density fractions.
+    ``ln10As`` and ``ns`` are stored but do not enter the background equations.
+
+    ``m_nu`` contains exactly three individual, finite, nonnegative masses in
+    eV, with zeros allowed. Its default is three massless species. No total-mass
+    splitting or oscillation constraints are imposed. Trained neural emulators
+    are separate and still take total mass with their training-time splitting.
+
+    ``Neff`` defaults to 3.044. ``neutrino_prescription="temperature"`` scales
+    the three temperatures by (Neff/3.044)**0.25 from Tnu/Tgamma=0.71611, and
+    scales the reference massless remainder by Neff/3.044. ``"radiation"``
+    fixes the temperatures and varies only massless radiation (Neff >= 3.0396
+    approximately). Masses and the photon temperature, 2.7255 K, stay fixed.
+
+    Methods accept scalar redshifts or redshift arrays. Distances are in Mpc,
+    E is H/H0, and growth is not normalized to D(0)=1. Prefer ``D_f_z`` when
+    both growth factor and rate are needed. Neither growth source is a full
+    scale-dependent neutrino perturbation calculation.
+
+    Wrong mass shapes and unknown static prescriptions raise ValueError;
+    invalid numerical domains produce NaN on evaluation, including under JIT.
+    The constructor keyword is ``m_nu``; standalone functions use ``mν`` and
+    take Ωcb0=(omega_b+omega_c)/h**2 rather than physical densities.
+    """
+
     ln10As: float
     ns: float
     h: float
@@ -467,7 +495,7 @@ def E_a(
 
     - $\\Omega_{\\gamma,0}$ is the photon density parameter today
     - $\\Omega_{\\mathrm{cb},0}$ is the cold dark matter + baryon density parameter today
-    - $\\Omega_{\\Lambda,0}$ is the dark energy density parameter today (from flatness constraint)
+    - $\\Omega_{\\Lambda,0}$ is the dark energy density parameter today (from Friedmann closure, including curvature)
     - $\\rho_{\\mathrm{DE}}(a)$ is the normalized dark energy density
     - $\\Omega_{\\nu}(a)$ is the massive neutrino contribution
     - $\\Omega_{k,0}$ is the curvature density parameter today
@@ -710,10 +738,9 @@ def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100, Neff=3.044, n
     Compute dimensionless comoving distance for a single redshift value
     using Gauss-Legendre quadrature.
 
-    Gauss-Legendre quadrature provides excellent precision with very few points.
-    With 9 points, achieves ~1e-4 to 1e-5 relative precision, which is sufficient
-    for most cosmological applications while being significantly faster than
-    adaptive quadrature methods.
+    The public distance functions use 100 Gauss-Legendre nodes per redshift.
+    This helper permits a different node count for convergence checks; accuracy
+    depends on the cosmology and redshift range.
 
     Parameters:
     -----------
@@ -770,9 +797,9 @@ def r̃_z(
 
     where E(z) is the normalized Hubble parameter.
 
-    The integral is computed using 100-point Gauss-Legendre quadrature, which provides
-    excellent precision (~1e-4 to 1e-5 relative error) while being fully compatible
-    with JAX transformations (jit, grad, vmap).
+    The integral uses 100-point Gauss-Legendre quadrature and is compatible
+    with JAX transformations (jit, grad, vmap). Accuracy depends on the
+    cosmology and redshift range; no universal error bound is implied.
 
     Returns:
         Conformal distance. Propagates NaN values and handles invalid parameters gracefully.
@@ -1005,7 +1032,8 @@ def r_z(
     Line-of-sight comoving distance r(z) in Mpc.
 
     This is the conformal distance scaled to physical units.
-    Independent of curvature (curvature only affects transverse distances).
+    Curvature affects this distance through E(z). The additional geometric
+    curvature mapping is applied by dM_z to obtain transverse distance.
 
     Returns:
         Line-of-sight comoving distance in Mpc
