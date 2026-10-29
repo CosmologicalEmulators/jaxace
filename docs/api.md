@@ -130,7 +130,7 @@ Distance integration still uses its existing 100-point redshift quadrature.
         - __call__
 
 !!! note "Postprocessing signature"
-    Custom postprocessing functions should use the ACE.jl-compatible signature
+    Custom postprocessing functions should use the AbstractCosmologicalEmulators.jl-compatible signature
     `postprocessing(input_params, output, emulator)`. Legacy four-argument
     functions with `auxiliary_params` are accepted for backward compatibility
     but are not the canonical 0.6.0 API.

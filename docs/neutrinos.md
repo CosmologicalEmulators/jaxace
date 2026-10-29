@@ -105,8 +105,8 @@ r=r_{\mathrm{ref}}s^{1/4},\qquad
 N_{\mathrm{ur}}=N_{\mathrm{ur,ref}}s.
 $$
 
-Both terms in the relativistic density therefore scale by $s$. The supported
-input domain requires finite $N_{\mathrm{eff}}>0$. Increasing it heats the
+Both terms in the relativistic density therefore scale by $s$. Input
+validation requires finite $N_{\mathrm{eff}}>0$. Increasing it heats the
 three species; decreasing it cools them. In particular,
 
 $$
@@ -119,6 +119,11 @@ Thus varying `Neff` also changes the late-time massive-neutrino density at fixed
 masses, and shifts when each species becomes nonrelativistic. At
 $N_{\mathrm{eff}}=4$, temperatures increase by about 7.07% and massive-species
 number densities by about 22.73% relative to the reference.
+
+Input acceptance is not an accuracy guarantee over all masses, temperatures
+and scale factors. The saved CLASS tests sample $N_{\mathrm{eff}}=2,3.044,5$
+for this prescription; the figure adds a case at 4. Neither those tests nor
+the positivity check certify arbitrary extreme inputs.
 
 ## Fixed temperatures, variable massless radiation
 
@@ -229,6 +234,15 @@ uses three positive masses, so that conversion is not needed here.
 The image records jaxace source `b4d4508`. Broader numerical references and their
 CLASS generation settings are maintained under
 `tests/data/neutrino_neff/`; `tests/test_neutrino_neff.py` exercises the saved CLASS
-references. The source CLASS generator is maintained in the ACE repository at
+references. The source CLASS generator is maintained in the AbstractCosmologicalEmulators.jl repository at
 `test/fixtures/neutrino_neff/generate_class_reference.py`.
 The PNG/SVG are hosted in the repository's `images` issue, not stored in Git.
+
+### Reproduce this figure
+
+The shared [figure sources and instructions](https://github.com/CosmologicalEmulators/AbstractCosmologicalEmulators.jl/tree/develop/docs/figures/neutrinos)
+include the actual CLASS generator, both implementation evaluators, the plotting
+script, provenance and all six frozen text arrays. Select `jaxace` when plotting
+to reproduce this page's figure. Replot from the saved arrays without CLASS or
+Julia, or regenerate the CLASS and jaxace arrays with `reference.py`.
+The Julia evaluator is needed only for the Julia figure.
