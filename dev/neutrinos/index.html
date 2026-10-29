@@ -683,6 +683,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#reproduce-this-figure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproduce this figure
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -971,8 +982,8 @@ s=\frac{N_{\mathrm{eff}}}{N_{\mathrm{eff,ref}}},\qquad
 r=r_{\mathrm{ref}}s^{1/4},\qquad
 N_{\mathrm{ur}}=N_{\mathrm{ur,ref}}s.
 \]</div>
-<p>Both terms in the relativistic density therefore scale by <span class="arithmatex">\(s\)</span>. The supported
-input domain requires finite <span class="arithmatex">\(N_{\mathrm{eff}}&gt;0\)</span>. Increasing it heats the
+<p>Both terms in the relativistic density therefore scale by <span class="arithmatex">\(s\)</span>. Input
+validation requires finite <span class="arithmatex">\(N_{\mathrm{eff}}&gt;0\)</span>. Increasing it heats the
 three species; decreasing it cools them. In particular,</p>
 <div class="arithmatex">\[
 n_i(a)\propto r^3a^{-3},\qquad
@@ -983,6 +994,10 @@ n_i(a)\propto r^3a^{-3},\qquad
 masses, and shifts when each species becomes nonrelativistic. At
 <span class="arithmatex">\(N_{\mathrm{eff}}=4\)</span>, temperatures increase by about 7.07% and massive-species
 number densities by about 22.73% relative to the reference.</p>
+<p>Input acceptance is not an accuracy guarantee over all masses, temperatures
+and scale factors. The saved CLASS tests sample <span class="arithmatex">\(N_{\mathrm{eff}}=2,3.044,5\)</span>
+for this prescription; the figure adds a case at 4. Neither those tests nor
+the positivity check certify arbitrary extreme inputs.</p>
 <h2 id="fixed-temperatures-variable-massless-radiation">Fixed temperatures, variable massless radiation<a class="headerlink" href="#fixed-temperatures-variable-massless-radiation" title="Permanent link">&para;</a></h2>
 <p>With <code>neutrino_prescription="radiation"</code>, the three species keep their reference
 temperatures and only the massless remainder changes:</p>
@@ -1095,9 +1110,16 @@ uses three positive masses, so that conversion is not needed here.</p>
 <p>The image records jaxace source <code>b4d4508</code>. Broader numerical references and their
 CLASS generation settings are maintained under
 <code>tests/data/neutrino_neff/</code>; <code>tests/test_neutrino_neff.py</code> exercises the saved CLASS
-references. The source CLASS generator is maintained in the ACE repository at
+references. The source CLASS generator is maintained in the AbstractCosmologicalEmulators.jl repository at
 <code>test/fixtures/neutrino_neff/generate_class_reference.py</code>.
 The PNG/SVG are hosted in the repository's <code>images</code> issue, not stored in Git.</p>
+<h3 id="reproduce-this-figure">Reproduce this figure<a class="headerlink" href="#reproduce-this-figure" title="Permanent link">&para;</a></h3>
+<p>The shared <a href="https://github.com/CosmologicalEmulators/AbstractCosmologicalEmulators.jl/tree/develop/docs/figures/neutrinos">figure sources and instructions</a>
+include the actual CLASS generator, both implementation evaluators, the plotting
+script, provenance and all six frozen text arrays. Select <code>jaxace</code> when plotting
+to reproduce this page's figure. Replot from the saved arrays without CLASS or
+Julia, or regenerate the CLASS and jaxace arrays with <code>reference.py</code>.
+The Julia evaluator is needed only for the Julia figure.</p>
 
 
 
@@ -1223,8 +1245,6 @@ The PNG/SVG are hosted in the repository's <code>images</code> issue, not stored
       <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../javascripts/mathjax.js"></script>
-      
-        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       
         <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       

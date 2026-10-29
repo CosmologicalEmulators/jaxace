@@ -4142,7 +4142,7 @@ in Artifacts.toml. Subsequent uses will load from the local cache
 
 </div><div class="admonition note">
 <p class="admonition-title">Postprocessing signature</p>
-<p>Custom postprocessing functions should use the ACE.jl-compatible signature
+<p>Custom postprocessing functions should use the AbstractCosmologicalEmulators.jl-compatible signature
 <code>postprocessing(input_params, output, emulator)</code>. Legacy four-argument
 functions with <code>auxiliary_params</code> are accepted for backward compatibility
 but are not the canonical 0.6.0 API.</p>
@@ -6119,8 +6119,6 @@ mapped to <code>[-1, 1]</code> from <code>[x_min, x_max]</code>.</p>
       <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../javascripts/mathjax.js"></script>
-      
-        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       
         <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
