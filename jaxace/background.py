@@ -6,6 +6,7 @@
 import os
 import sys
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Optional, Union
 
@@ -18,8 +19,7 @@ if not hasattr(jax.core, "get_aval") and hasattr(jax, "typeof"):
     jax.core.get_aval = jax.typeof
 
 import diffrax
-from .utils import prepare_akima_spline, evaluate_akima_spline
-import quadax
+from . import _neutrinos
 
 # Allow user to configure precision via environment variable
 if os.environ.get("JAXACE_ENABLE_X64", "true").lower() == "true":
@@ -36,6 +36,7 @@ __all__ = [
     "E_z",
     "dlogEdloga",
     "Ωm_a",
+    "Ωm_a_total",
     "D_z",
     "f_z",
     "D_f_z",
@@ -166,22 +167,6 @@ def _get_nan_mask(*args):
     return nan_mask
 
 
-def _propagate_nan_result(has_nan, result, reference_input):
-    """
-    Propagate NaN if needed using JAX-compatible operations.
-
-    Args:
-        has_nan: Boolean indicating if NaN should be propagated
-        result: The computed result
-        reference_input: An input to get the shape from
-
-    Returns:
-        Result or NaN with appropriate shape
-    """
-    nan_value = jnp.full_like(reference_input, jnp.nan, dtype=result.dtype)
-    return jnp.where(has_nan, nan_value, result)
-
-
 def _handle_infinite_params(value, param_name="parameter"):
     """
     Handle infinite parameter values gracefully.
@@ -210,99 +195,170 @@ def _handle_infinite_params(value, param_name="parameter"):
 
 @dataclass
 class w0waCDMCosmology:
+    """Parameters for analytic expansion, distances and approximate growth.
+
+    ``h`` is H0/(100 km/s/Mpc). ``omega_b``, ``omega_c`` and ``omega_k``
+    are physical densities Ω_b h², Ω_c h² and Ω_k h², not density fractions.
+    ``ln10As`` and ``ns`` are stored but do not enter the background equations.
+
+    ``m_nu`` contains exactly three individual, finite, nonnegative masses in
+    eV, with zeros allowed. Its default is three massless species. No total-mass
+    splitting or oscillation constraints are imposed. Trained neural emulators
+    are separate and still take total mass with their training-time splitting.
+
+    ``Neff`` defaults to 3.044. ``neutrino_prescription="temperature"`` scales
+    the three temperatures by (Neff/3.044)**0.25 from Tnu/Tgamma=0.71611, and
+    scales the reference massless remainder by Neff/3.044. ``"radiation"``
+    fixes the temperatures and varies only massless radiation (Neff >= 3.0396
+    approximately). Masses and the photon temperature, 2.7255 K, stay fixed.
+
+    Methods accept scalar redshifts or redshift arrays. Distances are in Mpc,
+    E is H/H0, and growth is not normalized to D(0)=1. Prefer ``D_f_z`` when
+    both growth factor and rate are needed. Neither growth source is a full
+    scale-dependent neutrino perturbation calculation.
+
+    Wrong mass shapes and unknown static prescriptions raise ValueError;
+    invalid numerical domains produce NaN on evaluation, including under JIT.
+    The constructor keyword is ``m_nu``; standalone functions use ``mν`` and
+    take Ωcb0=(omega_b+omega_c)/h**2 rather than physical densities.
+    """
+
     ln10As: float
     ns: float
     h: float
     omega_b: float
     omega_c: float
     omega_k: float = 0.0
-    m_nu: float = 0.0
+    m_nu: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS
     w0: float = -1.0
     wa: float = 0.0
+    Neff: float = 3.044
+    neutrino_prescription: str = "temperature"
+
+    def __post_init__(self):
+        # Static-shape check only (works eagerly and while tracing); numeric
+        # validity of the masses/Neff is masked to NaN by the physics functions.
+        _neutrinos.check_mass_shape(self.m_nu)
 
     def E_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless Hubble parameter E(a) = H(a)/H0."""
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return E_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return E_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def E_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless Hubble parameter E(z) = H(z)/H0."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return E_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return E_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def Ωm_a(self, a: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Matter density parameter Ωₘ(a) at scale factor a."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return Ωm_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return Ωm_a(a, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def r̃_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless comoving distance r̃(z)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return r̃_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return r̃_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def d̃M_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless transverse comoving distance d̃M(z)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return d̃M_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return d̃M_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def d̃A_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Dimensionless angular diameter distance d̃A(z)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return d̃A_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return d̃A_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def r_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Line-of-sight comoving distance in Mpc."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return r_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return r_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def dM_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Transverse comoving distance in Mpc (affected by curvature)."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return dM_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return dM_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def dA_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Angular diameter distance in Mpc."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return dA_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return dA_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
-    def D_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-        """Linear growth factor D(z)."""
+    def D_z(
+        self, z: Union[float, jnp.ndarray], species: str = "cb", *, reltol=1e-6, abstol=1e-8
+    ) -> Union[float, jnp.ndarray]:
+        """
+        Linear growth factor D(z).
+
+        ``species``: ``"cb"`` (default, cold + baryon source, Effort.jl
+        convention) or ``"m"`` (mass-induced neutrino source approximation).
+        Neither is full scale-dependent perturbation growth. See :func:`growth_solver`.
+        """
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return D_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return D_z(
+            z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0,
+            species=species,
+            Neff=self.Neff, neutrino_prescription=self.neutrino_prescription, reltol=reltol, abstol=abstol,
+        )
 
-    def f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-        """Growth rate f(z) = d log D / d log a."""
+    def f_z(
+        self, z: Union[float, jnp.ndarray], species: str = "cb", *, reltol=1e-6, abstol=1e-8
+    ) -> Union[float, jnp.ndarray]:
+        """
+        Growth rate f(z) = d log D / d log a.
+
+        ``species``: ``"cb"`` (default, cold + baryon source, Effort.jl
+        convention) or ``"m"`` (mass-induced neutrino source approximation).
+        See :func:`growth_solver` for its limitations.
+        """
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return f_z(
+            z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0,
+            species=species,
+            Neff=self.Neff, neutrino_prescription=self.neutrino_prescription, reltol=reltol, abstol=abstol,
+        )
 
-    def D_f_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-        """Linear growth factor and growth rate (D(z), f(z))."""
+    def D_f_z(
+        self, z: Union[float, jnp.ndarray], species: str = "cb", *, reltol=1e-6, abstol=1e-8
+    ) -> Union[float, jnp.ndarray]:
+        """
+        Linear growth factor and growth rate (D(z), f(z)).
+
+        ``species``: ``"cb"`` (default, cold + baryon source, Effort.jl
+        convention) or ``"m"`` (mass-induced neutrino source approximation).
+        See :func:`growth_solver` for its limitations.
+        """
         Ωcb0 = (self.omega_b + self.omega_c) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return D_f_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return D_f_z(
+            z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0,
+            species=species,
+            Neff=self.Neff, neutrino_prescription=self.neutrino_prescription, reltol=reltol, abstol=abstol,
+        )
 
     def ρc_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Critical density at redshift z in M☉/Mpc³."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return ρc_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return ρc_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def dL_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Luminosity distance at redshift z in Mpc."""
         Ωcb0 = (self.omega_c + self.omega_b) / self.h**2
         Ωk0 = self.omega_k / self.h**2
-        return dL_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0)
+        return dL_z(z, Ωcb0, self.h, mν=self.m_nu, w0=self.w0, wa=self.wa, Ωk0=Ωk0, Neff=self.Neff, neutrino_prescription=self.neutrino_prescription)
 
     def Ωtot_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Total density parameter at redshift z (always 1.0 for flat universe)."""
@@ -358,251 +414,59 @@ def drhoDE_da(a, w0, wa):
     return 3.0 * (-(1.0 + w0 + wa) / a + wa) * rhoDE_a(a, w0, wa)
 
 
-@jax.jit
-def gety(
-    m_nu: Union[float, jnp.ndarray],
-    a: Union[float, jnp.ndarray],
-    kB: float = 8.617342e-5,
-    T_nu: float = 0.71611 * 2.7255,
-) -> Union[float, jnp.ndarray]:
-    """
-    Compute dimensionless neutrino parameter y = m_nu * a / (kB * T_nu)
-    Matches Effort.jl's _get_y function exactly.
-    """
-    return m_nu * a / (kB * T_nu)
-
-
-def F(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    def singleF(y_val):
-        def integrand(x):
-            return x**2 * jnp.sqrt(x**2 + y_val**2) / (jnp.exp(x) + 1.0)
-
-        result, _ = quadax.quadgk(
-            integrand,
-            jnp.array([0.0, jnp.inf], dtype=jnp.result_type(y_val, jnp.float64)),
-            epsabs=1e-15,
-            epsrel=1e-12,
-            order=61,
-        )
-        return result
-
-    # Handle both scalar and array inputs
-    if jnp.isscalar(y) or y.ndim == 0:
-        return singleF(y)
-    else:
-        return jax.vmap(singleF)(y)
-
-
-def dFdy(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    def singledFdy(y_val):
-        def integrand(x):
-            sqrt_term = jnp.sqrt(x**2 + y_val**2)
-            return x**2 * y_val / (sqrt_term * (jnp.exp(x) + 1.0))
-
-        result, _ = quadax.quadgk(
-            integrand,
-            jnp.array([0.0, jnp.inf], dtype=jnp.result_type(y_val, jnp.float64)),
-            epsabs=1e-15,
-            epsrel=1e-12,
-            order=61,
-        )
-        return result
-
-    # Handle both scalar and array inputs
-    if jnp.isscalar(y) or y.ndim == 0:
-        return singledFdy(y)
-    else:
-        return jax.vmap(singledFdy)(y)
-
-
-# Module-level interpolants - initialized once and reused
-_F_interpolator = None
-_dFdy_interpolator = None
-_interpolants_initialized = False
-
-
-def initialize_interpolants():
-    global _F_interpolator, _dFdy_interpolator, _interpolants_initialized
-
-    if _interpolants_initialized:
-        return True
-
-    try:
-        # Implement Effort.jl's dual-grid approach
-        # Grid parameters following Effort.jl specifications
-        min_y = 0.001  # Minimum y value
-        max_y = 1000.0  # Maximum y value for extended range
-
-        # F_interpolant grid: 100 points (min_y to 100) + 1,000 points (100.1 to max_y)
-        # Full Effort.jl specification
-        F_y_low = jnp.logspace(jnp.log10(min_y), jnp.log10(100.0), 100)
-        F_y_high = jnp.logspace(jnp.log10(100.1), jnp.log10(max_y), 1000)
-        F_y_grid = jnp.concatenate([F_y_low, F_y_high])
-
-        # dFdy_interpolant grid: 10,000 points (min_y to 10) + 10,000 points (10.1 to max_y)
-        # Full Effort.jl specification
-        dFdy_y_low = jnp.logspace(jnp.log10(min_y), jnp.log10(10.0), 10000)
-        dFdy_y_high = jnp.logspace(jnp.log10(10.1), jnp.log10(max_y), 10000)
-        dFdy_y_grid = jnp.concatenate([dFdy_y_low, dFdy_y_high])
-
-        # Compute F values for F grid using JAX vectorization
-        F_values = F(F_y_grid)  # F function should handle arrays
-
-        # Compute dFdy values for dFdy grid using JAX vectorization
-        dFdy_values = dFdy(dFdy_y_grid)  # dFdy function should handle arrays
-
-        # Validate computed values
-        if not jnp.all(jnp.isfinite(F_values)):
-            raise ValueError("F values contain non-finite entries")
-        if not jnp.all(jnp.isfinite(dFdy_values)):
-            raise ValueError("dFdy values contain non-finite entries")
-        if not jnp.all(F_values > 0):
-            raise ValueError("F values must be positive")
-        if not jnp.all(dFdy_values >= 0):
-            raise ValueError("dFdy values must be non-negative")
-
-        # Create separate Akima interpolators with their respective optimized grids
-        _F_interpolator = prepare_akima_spline(F_values, F_y_grid)
-        _dFdy_interpolator = prepare_akima_spline(dFdy_values, dFdy_y_grid)
-
-        _interpolants_initialized = True
-        return True
-
-    except Exception as e:
-        import warnings
-        warnings.warn(f"Failed to initialize interpolants: {e}")
-        return False
-
-
-@jax.jit
-def F_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    global _F_interpolator
-
-    if _F_interpolator is None:
-        raise RuntimeError(
-            "F interpolant not initialized. Call initialize_interpolants() first."
-        )
-
-    # Input validation (must be JAX-traceable)
-    y = jnp.asarray(y)
-
-    # Interpolate
-    result = evaluate_akima_spline(_F_interpolator, y)
-
-    return result
-
-
-@jax.jit
-def dFdy_interpolant(y: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
-    global _dFdy_interpolator
-
-    if _dFdy_interpolator is None:
-        raise RuntimeError(
-            "dFdy interpolant not initialized. Call initialize_interpolants() first."
-        )
-
-    # Input validation (must be JAX-traceable)
-    y = jnp.asarray(y)
-
-    # Interpolate
-    result = evaluate_akima_spline(_dFdy_interpolator, y)
-
-    return result
-
-
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def ΩνE2(
     a: Union[float, jnp.ndarray],
     Ωγ0: Union[float, jnp.ndarray],
-    m_nu: Union[float, jnp.ndarray],
+    m_nu: Union[tuple, jnp.ndarray],
     N_eff: Union[float, jnp.ndarray],
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
-    Neutrino energy density parameter following Effort.jl exactly.
-
-    $$\\Omega_\\nu(a) \\cdot E^2(a) = \\frac{15}{\\pi^4} \\Gamma_\\nu^4 \\frac{\\Omega_{\\gamma,0}}{a^4} \\sum_i F(y_i)$$
-
-    where:
-
-    - $\\Gamma_\\nu = (4/11)^{1/3} \\cdot (N_{\\mathrm{eff}}/3)^{1/4}$
-    - $y_i = m_{\\nu,i} a / (k_{\\mathrm{B}} T_\\nu)$ is the dimensionless neutrino parameter
-    - $F(y)$ is the Fermi-Dirac integral ratio
-
-    Returns:
-        Neutrino energy density parameter times E²(a).
+    Neutrino energy density parameter Ων(a) E²(a) for exactly three explicit
+    masses (eV): three Fermi-Dirac species with the CLASS-anchor thermal model
+    plus its massless remainder; see the README's Neff conventions. A scalar
+    ``m_nu`` raises ``ValueError``.
     """
-    # Physics constants (exact match with Effort.jl)
-    kB = 8.617342e-5  # Boltzmann constant in eV/K
-    T_nu = 0.71611 * 2.7255  # Neutrino temperature in K (matches Effort.jl)
-
-    # Gamma factor (exact match with Effort.jl)
-    Gamma_nu = jnp.power(4.0 / 11.0, 1.0 / 3.0) * jnp.power(N_eff / 3.0, 1.0 / 4.0)
-
-    # Handle both single mass and array of masses
-    m_nu_array = jnp.asarray(m_nu)
-    if m_nu_array.ndim == 0:
-        # Single mass case
-        y = m_nu_array * a / (kB * T_nu)
-        sum_interpolant = F_interpolant(y)
-    else:
-        # Multiple masses case (sum over species)
-        def compute_F_for_mass(mass):
-            y = mass * a / (kB * T_nu)
-            return F_interpolant(y)
-
-        F_values = jax.vmap(compute_F_for_mass)(m_nu_array)
-        sum_interpolant = jnp.sum(F_values)
-
-    # Exact Effort.jl formula: 15/π^4 * Γν^4 * Ωγ0/a^4 * sum_interpolant
-    result = (
-        (15.0 / jnp.pi**4)
-        * jnp.power(Gamma_nu, 4.0)
-        * Ωγ0
-        * jnp.power(a, -4.0)
-        * sum_interpolant
-    )
-
-    return result
+    return _neutrinos.density(a, Ωγ0, m_nu, N_eff, neutrino_prescription)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def dΩνE2da(
     a: Union[float, jnp.ndarray],
     Ωγ0: Union[float, jnp.ndarray],
-    m_nu: Union[float, jnp.ndarray],
+    m_nu: Union[tuple, jnp.ndarray],
     N_eff: Union[float, jnp.ndarray],
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     # Use JAX autodiff for guaranteed consistency
     def energydensity_for_diff(a_val):
-        return ΩνE2(a_val, Ωγ0, m_nu, N_eff)
+        return ΩνE2(a_val, Ωγ0, m_nu, N_eff, neutrino_prescription)
 
     # Handle both scalar and array inputs
     if jnp.isscalar(a) or a.ndim == 0:
         return jax.grad(energydensity_for_diff)(a)
     else:
         # For array inputs, use vmap to vectorize the gradient
-        grad_fn = jax.vmap(jax.grad(lambda a_val: ΩνE2(a_val, Ωγ0, m_nu, N_eff)))
+        grad_fn = jax.vmap(jax.grad(energydensity_for_diff))
         return grad_fn(a)
 
 
-# Initialize interpolants on module import
-try:
-    _interpolants_initialized = initialize_interpolants()
-except Exception as e:
-    import warnings
-    warnings.warn(f"Could not initialize interpolants during module import: {e}")
-    _interpolants_initialized = False
+def _photon_density(h, masses):
+    return _neutrinos.OMEGA_GAMMA_H2 / h**2
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def E_a(
     a: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Dimensionless Hubble parameter E(a) = H(a)/H0.
@@ -615,7 +479,7 @@ def E_a(
 
     - $\\Omega_{\\gamma,0}$ is the photon density parameter today
     - $\\Omega_{\\mathrm{cb},0}$ is the cold dark matter + baryon density parameter today
-    - $\\Omega_{\\Lambda,0}$ is the dark energy density parameter today (from flatness constraint)
+    - $\\Omega_{\\Lambda,0}$ is the dark energy density parameter today (from Friedmann closure, including curvature)
     - $\\rho_{\\mathrm{DE}}(a)$ is the normalized dark energy density
     - $\\Omega_{\\nu}(a)$ is the massive neutrino contribution
     - $\\Omega_{k,0}$ is the curvature density parameter today
@@ -630,18 +494,19 @@ def E_a(
     # Check for NaN inputs
     # For arrays, handle element-wise
     if a_array.ndim > 0:
-        nan_mask = _get_nan_mask(a, Ωcb0, h, mν, w0, wa, Ωk0)
+        nan_mask = _get_nan_mask(a, Ωcb0, h, w0, wa, Ωk0)
     else:
         # For scalars, check all inputs
         has_nan = _check_nan_inputs(a, Ωcb0, h, mν, w0, wa, Ωk0)
         nan_mask = None
 
-    # Physics constants
-    Ωγ0 = 2.469e-5 / (h**2)  # Photon density parameter
-    N_eff = 3.044  # Effective number of neutrino species
+    # Compute with a finite placeholder model; only the public result is NaN.
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    Ωγ0 = _photon_density(h, mν)
+    N_eff = Neff
 
     # Calculate neutrino density at present day for universe constraint
-    Ων0 = ΩνE2(1.0, Ωγ0, mν, N_eff)
+    Ων0 = ΩνE2(1.0, Ωγ0, mν, N_eff, neutrino_prescription)
 
     # Dark energy density parameter (closure constraint: Ωγ + Ωcb + Ων + ΩΛ + Ωk = 1)
     ΩΛ0 = 1.0 - (Ωγ0 + Ωcb0 + Ων0 + Ωk0)
@@ -649,7 +514,7 @@ def E_a(
     # Calculate individual density components at scale factor a
 
     # 1. Radiation (photons) component: Ωγ/a⁴
-    Ωγ_a = Ωγ0 / jnp.power(a, 4.0)
+    Ωγ_a = Ωγ0 / a**4
 
     # 2. Matter (cold dark matter + baryons) component: Ωcb/a³
     Ωm_a = Ωcb0 / jnp.power(a, 3.0)
@@ -659,7 +524,7 @@ def E_a(
     ΩΛ_a = ΩΛ0 * ρDE_a
 
     # 4. Neutrino component: ΩνE2(a)
-    Ων_a = ΩνE2(a, Ωγ0, mν, N_eff)
+    Ων_a = ΩνE2(a, Ωγ0, mν, N_eff, neutrino_prescription)
 
     # 5. Curvature component: Ωk/a²
     Ωk_a = Ωk0 / jnp.power(a, 2.0)
@@ -672,6 +537,7 @@ def E_a(
 
     # Handle a=0 (z=inf) case: E(0) = inf (radiation/matter dominate)
     result = jnp.where(a_array == 0.0, jnp.inf, result)
+    result = jnp.where(valid_neutrinos, result, jnp.nan)
 
     # Propagate NaN appropriately
     if a_array.ndim > 0 and nan_mask is not None:
@@ -684,15 +550,17 @@ def E_a(
         return result
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def E_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Dimensionless Hubble parameter E(z) = H(z)/H0.
@@ -706,18 +574,20 @@ def E_z(
     a = a_z(z)
 
     # Return E(a) using existing function (which already has validation)
-    return E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    return E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def dlogEdloga(
     a: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Logarithmic derivative of the Hubble parameter.
@@ -730,18 +600,18 @@ def dlogEdloga(
         Logarithmic derivative d(ln E)/d(ln a).
     """
 
-    # Physics constants
-    Ωγ0 = 2.469e-5 / (h**2)  # Photon density parameter
-    N_eff = 3.044  # Effective number of neutrino species
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    Ωγ0 = _photon_density(h, mν)
+    N_eff = Neff
 
     # Calculate neutrino density at present day for universe constraint
-    Ων0 = ΩνE2(1.0, Ωγ0, mν, N_eff)
+    Ων0 = ΩνE2(1.0, Ωγ0, mν, N_eff, neutrino_prescription)
 
     # Dark energy density parameter (closure constraint: Ωγ + Ωcb + Ων + ΩΛ + Ωk = 1)
     ΩΛ0 = 1.0 - (Ωγ0 + Ωcb0 + Ων0 + Ωk0)
 
     # Get E(a) for normalization
-    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Compute derivatives of density components
     # d/da(Ωγ0/a⁴) = -4*Ωγ0/a⁵
@@ -754,7 +624,7 @@ def dlogEdloga(
     dΩΛ_da = ΩΛ0 * drhoDE_da(a, w0, wa)
 
     # d/da(ΩνE2(a))
-    dΩν_da = dΩνE2da(a, Ωγ0, mν, N_eff)
+    dΩν_da = dΩνE2da(a, Ωγ0, mν, N_eff, neutrino_prescription)
 
     # d/da(Ωk0/a²) = -2*Ωk0/a³
     dΩk_da = -2.0 * Ωk0 / jnp.power(a, 3.0)
@@ -766,18 +636,20 @@ def dlogEdloga(
     dE_da = 0.5 / E_a_val * dE2_da
 
     # d(log E)/d(log a) = (a/E) * dE/da
-    return (a / E_a_val) * dE_da
+    return jnp.where(valid_neutrinos, (a / E_a_val) * dE_da, jnp.nan)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def Ωm_a(
     a: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Matter density parameter Ωₘ(a) at scale factor a.
@@ -790,21 +662,69 @@ def Ωm_a(
         Matter density parameter Ωₘ(a).
     """
     # Get E(a)
-    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Formula: Ωm(a) = Ωcb0 × a^(-3) / E(a)²
-    return Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0)
+    return jnp.where(valid_neutrinos, Ωcb0 * jnp.power(a, -3.0) / jnp.power(E_a_val, 2.0), jnp.nan)
 
 
-def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100):
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
+def Ωm_a_total(
+    a: Union[float, jnp.ndarray],
+    Ωcb0: Union[float, jnp.ndarray],
+    h: Union[float, jnp.ndarray],
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
+    w0: Union[float, jnp.ndarray] = -1.0,
+    wa: Union[float, jnp.ndarray] = 0.0,
+    Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
+) -> Union[float, jnp.ndarray]:
+    """
+    Scale-independent matter-growth-source proxy (historical Ωm_a_total API).
+
+    $$\\Omega_{\\mathrm{m}}(a) = \\frac{\\Omega_{\\mathrm{cb},0} a^{-3}
+    + \\left[\\Omega_{\\nu}(a; m_\\nu) - \\Omega_{\\nu}(a; 0)\\right] E(a)^2}{E(a)^2}$$
+
+    Unlike :func:`Ωm_a` (cold dark matter + baryons only), this adds the
+    massive-minus-massless neutrino energy density, using the same
+    Fermi-Dirac-integral-based :func:`ΩνE2` as :func:`E_a`/:func:`dlogEdloga`.
+
+    The massless reference is nonzero radiation and is already included once
+    in :func:`E_a`. Subtracting it makes this additional source identically
+    zero whenever every input mass is zero (so
+    ``species="m"`` degenerates exactly to ``species="cb"``, as it must
+    by definition). In the non-relativistic limit the leading term scales
+    like matter. This background-density prescription is not ``rho_nu-3*p_nu``
+    and does not describe scale-dependent neutrino clustering. The reference
+    uses the same Neff and temperatures with every input mass set to zero.
+
+    Returns:
+        Growth-source density proxy including the mass-induced contribution,
+        not a general pressureless-matter density or perturbation prediction.
+    """
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    Ωγ0 = _photon_density(h, mν)
+    N_eff = Neff
+
+    E_a_val = E_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
+    # Subtract the massless reference for every supplied species, not just one.
+    Ων_massive_a = ΩνE2(a, Ωγ0, mν, N_eff, neutrino_prescription) - ΩνE2(
+        a, Ωγ0, jnp.zeros_like(jnp.asarray(mν)), N_eff, neutrino_prescription
+    )
+
+    return jnp.where(valid_neutrinos, (Ωcb0 * jnp.power(a, -3.0) + Ων_massive_a) / jnp.power(E_a_val, 2.0), jnp.nan)
+
+
+def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100, Neff=3.044, neutrino_prescription="temperature"):
     """
     Compute dimensionless comoving distance for a single redshift value
     using Gauss-Legendre quadrature.
 
-    Gauss-Legendre quadrature provides excellent precision with very few points.
-    With 9 points, achieves ~1e-4 to 1e-5 relative precision, which is sufficient
-    for most cosmological applications while being significantly faster than
-    adaptive quadrature methods.
+    The public distance functions use 100 Gauss-Legendre nodes per redshift.
+    This helper permits a different node count for convergence checks; accuracy
+    depends on the cosmology and redshift range.
 
     Parameters:
     -----------
@@ -815,40 +735,33 @@ def r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=100):
     """
 
     def integrand(z_prime):
-        return 1.0 / E_z(z_prime, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+        return 1.0 / E_z(z_prime, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
-    # Use JAX-compatible conditional
-    def integrate_nonzero(_):
-        # Get GL nodes and weights
-        nodes, weights = _get_gl_points(n_points)
+    # Get GL nodes and weights
+    nodes, weights = _get_gl_points(n_points)
 
-        # Map from [-1, 1] to [0, z_val]
-        z_nodes, z_weights = map_to_interval(nodes, weights, 0.0, z_val)
+    # Map from [-1, 1] to [0, z_val]; at z_val = 0 the weights vanish, so the
+    # value is exactly zero while the derivative with respect to z_val stays 1/E(0).
+    z_nodes, z_weights = map_to_interval(nodes, weights, 0.0, z_val)
 
-        # Compute integrand at all nodes
-        integrand_vals = jax.vmap(integrand)(z_nodes)
+    # Compute integrand at all nodes
+    integrand_vals = jax.vmap(integrand)(z_nodes)
 
-        # Compute weighted sum
-        return jnp.sum(integrand_vals * z_weights)
-
-    result = jax.lax.cond(
-        jnp.abs(z_val) < 1e-12,  # z essentially zero
-        lambda _: 0.0,  # Return zero for z=0
-        integrate_nonzero,  # Integrate for z > 0
-        operand=None,
-    )
-    return result
+    # Compute weighted sum
+    return jnp.sum(integrand_vals * z_weights)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def r̃_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Dimensionless comoving distance r̃(z).
@@ -859,45 +772,48 @@ def r̃_z(
 
     where E(z) is the normalized Hubble parameter.
 
-    The integral is computed using 100-point Gauss-Legendre quadrature, which provides
-    excellent precision (~1e-4 to 1e-5 relative error) while being fully compatible
-    with JAX transformations (jit, grad, vmap).
+    The integral uses 100-point Gauss-Legendre quadrature and is compatible
+    with JAX transformations (jit, grad, vmap). Accuracy depends on the
+    cosmology and redshift range; no universal error bound is implied.
 
     Returns:
         Conformal distance. Propagates NaN values and handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
-    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0, Neff) | ~_neutrinos.valid_parameters(mν, Neff, neutrino_prescription)
 
     # Convert to array for consistent handling
     z_array = jnp.asarray(z)
 
+    _, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
     # Use 100 GL points for all computations (may be made configurable later)
     n_points = 100
 
     # Handle both scalar and array inputs uniformly
     if z_array.ndim == 0:
         # Scalar input
-        result = r̃_z_single(z_array, Ωcb0, h, mν, w0, wa, Ωk0, n_points=n_points)
+        result = r̃_z_single(z_array, Ωcb0, h, mν, w0, wa, Ωk0, n_points=n_points, Neff=Neff, neutrino_prescription=neutrino_prescription)
     else:
         # Array input - use vmap
         result = jax.vmap(
-            lambda z_val: r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=n_points)
+            lambda z_val: r̃_z_single(z_val, Ωcb0, h, mν, w0, wa, Ωk0, n_points=n_points, Neff=Neff, neutrino_prescription=neutrino_prescription)
         )(z_array)
 
     # Propagate NaN if needed
     return jnp.where(has_nan, jnp.full_like(result, jnp.nan), result)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def d̃M_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Dimensionless transverse comoving distance d̃M(z).
@@ -909,7 +825,7 @@ def d̃M_z(
         z: Redshift (scalar or array)
         Ωcb0: Present-day CDM+baryon density parameter
         h: Dimensionless Hubble parameter (H0 = 100h km/s/Mpc)
-        mν: Neutrino mass in eV
+        mν: Three neutrino masses (m1, m2, m3) in eV
         w0: Dark energy equation of state parameter
         wa: Dark energy equation of state derivative
         Ωk0: Curvature density parameter
@@ -918,21 +834,24 @@ def d̃M_z(
         Dimensionless transverse comoving distance
     """
     # Get dimensionless comoving distance
-    r̃ = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    r̃ = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply curvature correction
-    return S_of_K(Ωk0, r̃)
+    return jnp.where(valid_neutrinos, S_of_K(Ωk0, r̃), jnp.nan)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def d̃A_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Dimensionless angular diameter distance d̃A(z).
@@ -944,7 +863,7 @@ def d̃A_z(
         z: Redshift (scalar or array)
         Ωcb0: Present-day CDM+baryon density parameter
         h: Dimensionless Hubble parameter (H0 = 100h km/s/Mpc)
-        mν: Neutrino mass in eV
+        mν: Three neutrino masses (m1, m2, m3) in eV
         w0: Dark energy equation of state parameter
         wa: Dark energy equation of state derivative
         Ωk0: Curvature density parameter
@@ -953,10 +872,11 @@ def d̃A_z(
         Dimensionless angular diameter distance
     """
     # Get dimensionless transverse comoving distance
-    d̃M = d̃M_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    d̃M = d̃M_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply (1+z) factor for angular diameter distance
-    return d̃M / (1.0 + z)
+    return jnp.where(valid_neutrinos, d̃M / (1.0 + z), jnp.nan)
 
 
 @jax.custom_jvp
@@ -1071,21 +991,24 @@ def S_of_K_jvp(primals, tangents):
     return y, y_dot
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def r_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Line-of-sight comoving distance r(z) in Mpc.
 
     This is the conformal distance scaled to physical units.
-    Independent of curvature (curvature only affects transverse distances).
+    Curvature affects this distance through E(z). The additional geometric
+    curvature mapping is applied by dM_z to obtain transverse distance.
 
     Returns:
         Line-of-sight comoving distance in Mpc
@@ -1094,21 +1017,24 @@ def r_z(
     c_over_H0 = 2997.92458  # c/H₀ in Mpc when h=1 (speed of light / 100 km/s/Mpc)
 
     # Get conformal distance
-    r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Scale to physical units
-    return c_over_H0 * r_tilde / h
+    return jnp.where(valid_neutrinos, c_over_H0 * r_tilde / h, jnp.nan)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def dM_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Transverse comoving distance dM(z) in Mpc.
@@ -1125,25 +1051,28 @@ def dM_z(
     c_over_H0 = 2997.92458  # c/H₀ in Mpc when h=1 (speed of light / 100 km/s/Mpc)
 
     # Get conformal distance
-    r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    r_tilde = r̃_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply curvature correction
     # For flat universe (Ωk0 = 0), S_of_K returns r_tilde
     r_tilde_curved = S_of_K(Ωk0, r_tilde)
 
     # Scale to physical units
-    return c_over_H0 * r_tilde_curved / h
+    return jnp.where(valid_neutrinos, c_over_H0 * r_tilde_curved / h, jnp.nan)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def dA_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Angular diameter distance dA(z) in Mpc.
@@ -1155,42 +1084,123 @@ def dA_z(
         Angular diameter distance in Mpc
     """
     # Get transverse comoving distance
-    dM = dM_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    dM = dM_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply (1+z) factor
-    return dM / (1.0 + z)
+    return jnp.where(valid_neutrinos, dM / (1.0 + z), jnp.nan)
 
 
-@jax.jit
-def growth_ode_system(log_a, u, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
+_GROWTH_SOURCES = {"cb": Ωm_a, "m": Ωm_a_total}
+
+
+def _growth_source(species):
+    """Resolve the static model choice before constructing the ODE term."""
+    try:
+        return _GROWTH_SOURCES[species]
+    except KeyError:
+        raise ValueError(
+            f"Unknown growth species prescription {species!r}; expected 'cb' or 'm'."
+        ) from None
+
+
+@partial(jax.jit, static_argnames=("source_fn", "neutrino_prescription"))
+def _growth_rhs(log_a, u, params, source_fn, neutrino_prescription="temperature"):
+    """Numerical RHS specialized on a stable module-level source callable."""
     a = jnp.exp(log_a)
     D, dD_dloga = u
-
-    # Get cosmological functions at this scale factor
-    dlogE_dloga = dlogEdloga(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
-    Omega_m_a = Ωm_a(a, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
-
-    # ODE system following Effort.jl exactly:
-    # du[1] = dD/d(log a)
-    # du[2] = -(2 + dlogE/dloga) * dD/d(log a) + 1.5 * Ωm_a * D
-    du = jnp.array([dD_dloga, -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_m_a * D])
-
+    dlogE_dloga = dlogEdloga(a, *params, neutrino_prescription=neutrino_prescription)
+    Omega_source_a = source_fn(a, *params, neutrino_prescription=neutrino_prescription)
+    du = jnp.array(
+        [dD_dloga, -(2.0 + dlogE_dloga) * dD_dloga + 1.5 * Omega_source_a * D]
+    )
     return du
 
 
-def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False):
+@partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
+def growth_ode_system(log_a, u, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb", Neff=3.044, neutrino_prescription="temperature"):
+    """Compatibility entry point; the species string is resolved at trace time."""
+    # Sanitize before NaN background coefficients can multiply the shared ODE
+    # state: masking that product afterward would poison its reverse gradient.
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    du = _growth_rhs(
+        log_a, u, (Ωcb0, h, mν, w0, wa, Ωk0, Neff), _growth_source(species), neutrino_prescription
+    )
+    return jnp.where(valid_neutrinos, du, jnp.nan)
+
+
+def _cb_growth_density(a, params, neutrino_prescription):
+    return params[0]/a**3
+
+
+def _matter_growth_density(a, params, neutrino_prescription):
+    ocb, h, masses, _, _, _, neff = params
+    omega_gamma = _photon_density(h, masses)
+    excess = (ΩνE2(a, omega_gamma, masses, neff, neutrino_prescription)
+              - ΩνE2(a, omega_gamma, jnp.zeros_like(jnp.asarray(masses)), neff, neutrino_prescription))
+    return ocb/a**3 + excess
+
+
+_GROWTH_DENSITIES = {"cb": _cb_growth_density, "m": _matter_growth_density}
+
+
+@partial(jax.jit, static_argnames=("source_fn", "neutrino_prescription"))
+def _growth_flux_rhs(log_a, u, params, source_fn, neutrino_prescription):
+    """Equivalent state (D, Q), Q=a² E D′.
+
+    Avoids differentiating an interpolated E in the RHS. In particular the
+    scalar Akima model is C1: its second derivatives jump at knots, making
+    sensitivities of the original D′ equation much harder to integrate.
+    The public growth_ode_system retains its historical (D, D′) contract.
+    """
+    a = jnp.exp(log_a)
+    e = E_a(a, *params, neutrino_prescription=neutrino_prescription)
+    density = source_fn(a, params, neutrino_prescription)
+    # Cancel E/E² analytically rather than differentiating two composed public
+    # density fractions. The source numerator has no extra expansion factor.
+    return jnp.array([u[1]/(a*a*e), 1.5*a*a/e*density*u[0]])
+
+
+def growth_solver(
+    a_span, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, return_both=False, species="cb",
+    Neff=3.044, neutrino_prescription="temperature", reltol=1e-6, abstol=1e-8,
+):
     """
     Solve the growth factor ODE.
 
     The linear growth factor D(a) satisfies the differential equation:
 
-    $$\\frac{\\mathrm{d}^2 D}{\\mathrm{d}(\\ln a)^2} + \\left(2 + \\frac{\\mathrm{d} \\ln E}{\\mathrm{d} \\ln a}\\right) \\frac{\\mathrm{d} D}{\\mathrm{d} \\ln a} - \\frac{3}{2} \\Omega_{\\mathrm{m}}(a) D = 0$$
+    $$\\frac{\\mathrm{d}^2 D}{\\mathrm{d}(\\ln a)^2} + \\left(2 + \\frac{\\mathrm{d} \\ln E}{\\mathrm{d} \\ln a}\\right) \\frac{\\mathrm{d} D}{\\mathrm{d} \\ln a} - \\frac{3}{2} \\Omega_{\\mathrm{source}}(a) D = 0$$
 
-    with initial conditions D(a_i) = a_i and $\\mathrm{d}D/\\mathrm{d}(\\ln a)|_{a_i} = 1$ for matter domination.
+    with initial conditions D(a_i) = a_i and $\\mathrm{d}D/\\mathrm{d}(\\ln a)|_{a_i} = a_i$ for matter domination.
+
+    The initial conditions set the amplitude normalization. The solution is
+    not subsequently rescaled to unity at the present day; this convention
+    matches Effort.jl and the power-spectrum artifacts that consume it.
+
+    ``species`` selects the source term $\\Omega_{\\mathrm{source}}(a)$:
+
+    - ``"cb"`` (default): $\\Omega_{\\mathrm{source}}(a) = \\Omega_{\\mathrm{cb}}(a)$
+      (:func:`Ωm_a`), the cold dark matter + baryon density only. This is the
+      Effort.jl convention and is the correct source for the growth of the
+      cold+baryon field, e.g. for galaxy redshift-space distortions where
+      only cb clusters on small scales.
+    - ``"m"``: adds the mass-induced background density
+      ``rho_nu(masses) - rho_nu(zeros_like(masses))`` (:func:`Ωm_a_total`).
+      This is a scale-independent source approximation, not a Boltzmann
+      prediction of total-matter growth. It is not ``rho_nu - 3*p_nu`` and
+      does not model scale-dependent neutrino clustering or free-streaming.
+
+    Strictly, neither prescription is exact once neutrinos free-stream:
+    a free-streaming species does not obey the same second-order growth
+    equation as a pressureless fluid, so both source terms carry residuals
+    of order $f_\\nu = \\Omega_\\nu / \\Omega_m$ relative to a full multi-fluid
+    (e.g. Boltzmann-code) growth calculation.
 
     Returns:
         Growth factor D(a) or tuple (D, dD/dloga) if return_both=True.
-        Returns NaN for invalid inputs instead of crashing.
+        Queries outside 1/139 <= a <= 1.01 return NaN. No extrapolation is
+        provided. Invalid neutrino inputs also return NaN.
     """
 
     # Parameter validation for non-JIT context
@@ -1204,31 +1214,42 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
         # In JIT context, skip validation and rely on clamping
         pass
 
+    # Never integrate an invalid thermal model. Return NaN below while using
+    # a finite placeholder here, including under jit/grad/vmap.
+    valid_neutrinos = _neutrinos.valid_parameters(mν, Neff, neutrino_prescription)
+    mν = jnp.where(valid_neutrinos, jnp.asarray(mν), jnp.zeros_like(jnp.asarray(mν)))
+    Neff = jnp.where(valid_neutrinos, Neff, 3.044)
+
     # Parameter clamping for numerical stability in JIT context
     Ωcb0 = jnp.maximum(Ωcb0, 1e-6)  # Ensure positive matter density
     h = jnp.maximum(h, 1e-6)  # Ensure positive Hubble parameter
 
     # Initial conditions following Effort.jl exactly
     amin = 1.0 / 139.0  # Deep matter domination
-    u0 = jnp.array([amin, amin])  # [D(amin), dD/d(log a)(amin)]
+    # The initial flux remains AD-tracked, even though D and D′ are specified
+    # independently of cosmology at the initial time.
+    initial_E = E_a(amin, Ωcb0, h, mν, w0, wa, Ωk0, Neff, neutrino_prescription)
+    u0 = jnp.array([amin, amin**3*initial_E])
 
     # Integration range in log(a) - more conservative for stability
     log_a_min = jnp.log(jnp.maximum(amin, 1e-4))  # Don't go too early
     log_a_max = jnp.log(1.01)  # Slightly past present day for normalization
 
-    # Define ODE system
+    # Resolve once; only numerical cosmological parameters enter Diffrax args.
+    _growth_source(species)  # preserve validation and its public error message
+    source_fn = _GROWTH_DENSITIES[species]
     def odefunc(log_a, u, args):
-        return growth_ode_system(log_a, u, *args)
+        return _growth_flux_rhs(log_a, u, args, source_fn, neutrino_prescription)
 
     # Integration arguments
-    args = (Ωcb0, h, mν, w0, wa, Ωk0)
+    args = (Ωcb0, h, mν, w0, wa, Ωk0, Neff)
 
     # Set up ODE problem with better stability
     term = diffrax.ODETerm(odefunc)
     solver = diffrax.Tsit5()  # Same as Effort.jl
 
     # More robust step size controller
-    stepsize_controller = diffrax.PIDController(rtol=1e-6, atol=1e-8)
+    stepsize_controller = diffrax.PIDController(rtol=reltol, atol=abstol)
 
     # Dense output for interpolation at requested points
     saveat = diffrax.SaveAt(dense=True)
@@ -1247,126 +1268,50 @@ def growth_solver(a_span, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0, return_b
         max_steps=10000,  # Increased from default
     )
 
-    # No normalization - return raw ODE solution to match Effort.jl
-    # (Effort.jl does not normalize D(z) to D(z=0) = 1)
+    # No extrapolation beyond the actual integration domain. Evaluate invalid
+    # queries at a finite placeholder before restoring their NaN mask.
+    def evaluate_single(a):
+        valid_a = jnp.isfinite(a) & (a >= amin) & (a <= 1.01)
+        safe_a = jnp.where(valid_a, a, 1.)
+        D, Q = solution.evaluate(jnp.log(safe_a))
+        valid = valid_a & valid_neutrinos
+        if not return_both:
+            return jnp.where(valid, D, jnp.nan)
+        e = E_a(safe_a, Ωcb0, h, mν, w0, wa, Ωk0, Neff, neutrino_prescription)
+        dD = Q/(safe_a**2*e)
+        return jnp.where(valid, D, jnp.nan), jnp.where(valid, dD, jnp.nan)
 
-    # Evaluate at requested scale factors without normalization
     a_span = jnp.asarray(a_span)
-    log_a_span = jnp.log(a_span)
-
-    # Handle both scalar and array inputs
-    if jnp.isscalar(a_span) or a_span.ndim == 0:
-        # Use JAX-compatible conditional logic
-        sol_min = solution.evaluate(log_a_min)
-        sol_max = solution.evaluate(log_a_max)
-        sol_normal = solution.evaluate(log_a_span)
-
-        # Early times: D ∝ a in matter domination
-        early_D = a_span / jnp.exp(log_a_min) * sol_min[0]
-        early_dD = sol_min[1]
-
-        # Late times: use latest solution value
-        late_D = sol_max[0]
-        late_dD = sol_max[1]
-
-        # Normal range: use interpolated solution
-        normal_D = sol_normal[0]
-        normal_dD = sol_normal[1]
-
-        # Use JAX conditional to select result
-        D_result = jax.lax.cond(
-            log_a_span < log_a_min,
-            lambda: early_D,
-            lambda: jax.lax.cond(
-                log_a_span > log_a_max, lambda: late_D, lambda: normal_D
-            ),
-        )
-
-        if return_both:
-            dD_dloga_result = jax.lax.cond(
-                log_a_span < log_a_min,
-                lambda: early_dD,
-                lambda: jax.lax.cond(
-                    log_a_span > log_a_max, lambda: late_dD, lambda: normal_dD
-                ),
-            )
-
-        # Handle potential numerical issues
-        D_result = jnp.where(jnp.isfinite(D_result), D_result, 0.0)
-        if return_both:
-            dD_dloga_result = jnp.where(
-                jnp.isfinite(dD_dloga_result), dD_dloga_result, 0.0
-            )
-            return (D_result, dD_dloga_result)
-        else:
-            return D_result
-    else:
-
-        def evaluate_single(log_a_val):
-            # For values outside integration range, extrapolate
-            early_condition = log_a_val < log_a_min
-            late_condition = log_a_val > log_a_max
-
-            sol_min = solution.evaluate(log_a_min)
-            sol_max = solution.evaluate(log_a_max)
-            sol_normal = solution.evaluate(log_a_val)
-
-            # Early times: D ∝ a in matter domination
-            early_D = jnp.exp(log_a_val) / jnp.exp(log_a_min) * sol_min[0]
-            early_dD = sol_min[1]
-
-            # Late times: use latest solution value
-            late_D = sol_max[0]
-            late_dD = sol_max[1]
-
-            # Normal range: interpolate from solution
-            normal_D = sol_normal[0]
-            normal_dD = sol_normal[1]
-
-            # Choose result based on conditions
-            D_result = jnp.where(
-                early_condition, early_D, jnp.where(late_condition, late_D, normal_D)
-            )
-
-            if return_both:
-                dD_result = jnp.where(
-                    early_condition,
-                    early_dD,
-                    jnp.where(late_condition, late_dD, normal_dD),
-                )
-                return (D_result, dD_result)
-            else:
-                return D_result
-
-        if return_both:
-            results = jax.vmap(evaluate_single)(log_a_span)
-            D_array = results[0]
-            dD_array = results[1]
-            # Handle potential numerical issues
-            D_array = jnp.where(jnp.isfinite(D_array), D_array, 0.0)
-            dD_array = jnp.where(jnp.isfinite(dD_array), dD_array, 0.0)
-            return (D_array, dD_array)
-        else:
-            result = jax.vmap(evaluate_single)(log_a_span)
-            # Handle potential numerical issues
-            result = jnp.where(jnp.isfinite(result), result, 0.0)
-            return result
+    result = evaluate_single(a_span) if a_span.ndim == 0 else jax.vmap(evaluate_single)(a_span)
+    return result
 
 
-@jax.jit
-def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.ndarray]:
+@partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
+def D_z(
+    z, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
+    Neff=3.044, neutrino_prescription="temperature", reltol=1e-6, abstol=1e-8,
+) -> Union[float, jnp.ndarray]:
     """
     Linear growth factor D(z).
 
-    The growth factor is normalized such that D(z=0) = 1.
-    It satisfies the differential equation given in growth_solver.
+    The growth factor uses the early-time normalization set by
+    :func:`growth_solver`, namely D(a_i) = a_i in matter domination. It is not
+    rescaled to D(z=0) = 1.
+
+    ``species`` selects the growth-equation source term, see
+    :func:`growth_solver`: ``"cb"`` (default) sources growth with the cold +
+    baryon density only (the smooth-neutrino approximation);
+    ``"m"`` adds the mass-induced neutrino source approximation. Neither
+    is a full scale-dependent growth prediction. The default retains the
+    historical cb-source equation, not bitwise outputs of older ODE solvers.
+    Queries outside 1/139 <= a <= 1.01 return NaN.
 
     Returns:
         jnp.ndarray: Linear growth factor D(z). Returns NaN for NaN inputs,
             handles invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
-    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0, Neff) | ~_neutrinos.valid_parameters(mν, Neff, neutrino_prescription)
 
     # If any input is NaN, return NaN immediately
     # Use lax.cond to handle this in a JIT-compatible way
@@ -1379,13 +1324,19 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
         # Handle both scalar and array inputs
         if jnp.isscalar(z) or z_array.ndim == 0:
             a_span = jnp.array([a])
-            D_result = growth_solver(a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+            D_result = growth_solver(
+                a_span, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, species=species,
+                Neff=Neff, neutrino_prescription=neutrino_prescription, reltol=reltol, abstol=abstol,
+            )
             return D_result[0]
         else:
             # For array inputs, solve once and interpolate.  Evaluate NaN
             # redshifts at a harmless placeholder and restore their mask below.
             a_array = a
-            return growth_solver(a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+            return growth_solver(
+                a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, species=species,
+                Neff=Neff, neutrino_prescription=neutrino_prescription, reltol=reltol, abstol=abstol,
+            )
 
     def return_nan():
         # Return NaN with appropriate shape
@@ -1404,8 +1355,11 @@ def D_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     return jnp.where(z_nan_mask, jnp.full_like(result, jnp.nan), result)
 
 
-@jax.jit
-def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.ndarray]:
+@partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
+def f_z(
+    z, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
+    Neff=3.044, neutrino_prescription="temperature", reltol=1e-6, abstol=1e-8,
+) -> Union[float, jnp.ndarray]:
     """
     Growth rate f(z) = d log D / d log a.
 
@@ -1415,12 +1369,16 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
 
     where D is the linear growth factor.
 
+    ``species`` selects the growth-equation source term used to compute D,
+    see :func:`growth_solver`: ``"cb"`` (historical default source) or ``"m"``.
+    Queries outside 1/139 <= a <= 1.01 return NaN.
+
     Returns:
         jnp.ndarray: Growth rate f(z). Returns NaN for NaN inputs, handles
             invalid parameters gracefully.
     """
     # Check for NaN inputs (JAX-compatible)
-    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0, Neff) | ~_neutrinos.valid_parameters(mν, Neff, neutrino_prescription)
 
     # Handle both scalar and array inputs
     z_array = jnp.asarray(z)
@@ -1430,7 +1388,16 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
         D, dD_dloga = growth_solver(
-            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+            a_array,
+            Ωcb0,
+            h,
+            mν=mν,
+            w0=w0,
+            wa=wa,
+            Ωk0=Ωk0,
+            return_both=True,
+            species=species,
+            Neff=Neff, neutrino_prescription=neutrino_prescription, reltol=reltol, abstol=abstol,
         )
 
         # Apply numerical stability check
@@ -1449,7 +1416,16 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
         D_array, dD_dloga_array = growth_solver(
-            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+            a_array,
+            Ωcb0,
+            h,
+            mν=mν,
+            w0=w0,
+            wa=wa,
+            Ωk0=Ωk0,
+            return_both=True,
+            species=species,
+            Neff=Neff, neutrino_prescription=neutrino_prescription, reltol=reltol, abstol=abstol,
         )
 
         # Apply numerical stability check element-wise
@@ -1468,11 +1444,19 @@ def f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0) -> Union[float, jnp.nda
         return jnp.where(input_nan, jnp.full_like(f_array, jnp.nan), f_array)
 
 
-@jax.jit
-def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
+@partial(jax.jit, static_argnames=("species", "neutrino_prescription"))
+def D_f_z(z, Ωcb0, h, mν=_neutrinos.MASSLESS, w0=-1.0, wa=0.0, Ωk0=0.0, species="cb",
+          Neff=3.044, neutrino_prescription="temperature", reltol=1e-6, abstol=1e-8):
+    """
+    Linear growth factor and growth rate (D(z), f(z)).
+
+    ``species`` selects the growth-equation source term, see
+    :func:`growth_solver`: ``"cb"`` (historical default source) or ``"m"``.
+    Queries outside 1/139 <= a <= 1.01 return NaN.
+    """
     # Check scalar parameters and scalar redshift for NaN inputs.  Array-valued
     # redshifts are masked element-wise below.
-    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0)
+    has_nan = _check_nan_inputs(z, Ωcb0, h, mν, w0, wa, Ωk0, Neff) | ~_neutrinos.valid_parameters(mν, Neff, neutrino_prescription)
 
     # Handle both scalar and array inputs
     z_array = jnp.asarray(z)
@@ -1482,7 +1466,16 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     if z_array.ndim == 0:
         # Scalar case - get both D and dD/dloga from growth solver
         D, dD_dloga = growth_solver(
-            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+            a_array,
+            Ωcb0,
+            h,
+            mν=mν,
+            w0=w0,
+            wa=wa,
+            Ωk0=Ωk0,
+            return_both=True,
+            species=species,
+            Neff=Neff, neutrino_prescription=neutrino_prescription, reltol=reltol, abstol=abstol,
         )
 
         # Apply numerical stability check for growth rate computation
@@ -1503,7 +1496,16 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
     else:
         # Array case - get both D and dD/dloga arrays from growth solver
         D_array, dD_dloga_array = growth_solver(
-            a_array, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, return_both=True
+            a_array,
+            Ωcb0,
+            h,
+            mν=mν,
+            w0=w0,
+            wa=wa,
+            Ωk0=Ωk0,
+            return_both=True,
+            species=species,
+            Neff=Neff, neutrino_prescription=neutrino_prescription, reltol=reltol, abstol=abstol,
         )
 
         # Apply numerical stability check element-wise
@@ -1523,21 +1525,24 @@ def D_f_z(z, Ωcb0, h, mν=0.0, w0=-1.0, wa=0.0, Ωk0=0.0):
         )
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def ρc_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     # Critical density: ρc(z) = 3H²(z)/(8πG) = ρc0 × h² × E²(z)
     # where ρc0 = 2.7754×10¹¹ M☉/Mpc³ (in h=1 units)
     rho_c0_h2 = 2.7754e11  # M☉/Mpc³ in h² units
-    E_z_val = E_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
-    return rho_c0_h2 * h**2 * E_z_val**2
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    E_z_val = E_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
+    return jnp.where(valid_neutrinos, rho_c0_h2 * h**2 * E_z_val**2, jnp.nan)
 
 
 @jax.jit
@@ -1545,25 +1550,28 @@ def Ωtot_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
 ) -> Union[float, jnp.ndarray]:
     # For flat universe: Ωtot = 1.0 exactly by construction
     # Return array of ones with same shape as input z
+    _neutrinos.check_mass_shape(mν)
     z_array = jnp.asarray(z)
     return jnp.ones_like(z_array)
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("neutrino_prescription",))
 def dL_z(
     z: Union[float, jnp.ndarray],
     Ωcb0: Union[float, jnp.ndarray],
     h: Union[float, jnp.ndarray],
-    mν: Union[float, jnp.ndarray] = 0.0,
+    mν: Union[tuple, jnp.ndarray] = _neutrinos.MASSLESS,
     w0: Union[float, jnp.ndarray] = -1.0,
     wa: Union[float, jnp.ndarray] = 0.0,
     Ωk0: Union[float, jnp.ndarray] = 0.0,
+    Neff=3.044,
+    neutrino_prescription="temperature",
 ) -> Union[float, jnp.ndarray]:
     """
     Luminosity distance at redshift z.
@@ -1575,7 +1583,7 @@ def dL_z(
         z: Redshift
         Ωcb0: Present-day matter density parameter (CDM + baryons)
         h: Dimensionless Hubble parameter (H0 = 100h km/s/Mpc)
-        mν: Sum of neutrino masses in eV
+        mν: Three neutrino masses (m1, m2, m3) in eV
         w0: Dark energy equation of state parameter
         wa: Dark energy equation of state evolution parameter
         Ωk0: Curvature density parameter
@@ -1584,7 +1592,8 @@ def dL_z(
         Luminosity distance in Mpc
     """
     # Get transverse comoving distance
-    dM = dM_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0)
+    valid_neutrinos, mν, Neff = _neutrinos.safe_parameters(mν, Neff, neutrino_prescription)
+    dM = dM_z(z, Ωcb0, h, mν=mν, w0=w0, wa=wa, Ωk0=Ωk0, Neff=Neff, neutrino_prescription=neutrino_prescription)
 
     # Apply (1+z) factor for luminosity distance
-    return dM * (1.0 + z)
+    return jnp.where(valid_neutrinos, dM * (1.0 + z), jnp.nan)

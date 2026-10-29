@@ -19,9 +19,9 @@ cosmo = jaxace.w0waCDMCosmology(
     ln10As=3.044,      # ln(10^10 A_s)
     ns=0.9649,         # Scalar spectral index
     h=0.6736,          # Hubble parameter
-    omega_b=0.02237,   # Baryon density
-    omega_c=0.1200,    # CDM density
-    m_nu=0.06,         # Sum of neutrino masses in eV
+    omega_b=0.02237,   # physical baryon density Ω_b h²
+    omega_c=0.1200,    # physical CDM density Ω_c h²
+    m_nu=(0.02, 0.02, 0.02),  # three physical neutrino masses in eV
     w0=-1.0,           # Dark energy equation of state
     wa=0.0             # Dark energy evolution parameter
 )
@@ -55,6 +55,11 @@ f = cosmo.f_z(z)
 # We can also get both at once for efficiency
 D_both, f_both = cosmo.D_f_z(z)
 ```
+
+These growth factors retain D(aᵢ)=aᵢ at aᵢ=1/139, not D(0)=1. The default
+source is cold+baryon matter with smooth neutrinos. Use explicit tighter
+`reltol`/`abstol` and check convergence when differentiating small mass effects;
+neither source option is a full scale-dependent perturbation calculation.
 
 ### Visualizing the Results
 
@@ -122,7 +127,7 @@ def compute_distances_fast(z_array, omega_c, omega_b, h):
     cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044, ns=0.9649, h=h,
         omega_b=omega_b, omega_c=omega_c,
-        m_nu=0.06, w0=-1.0, wa=0.0
+        m_nu=(0.02, 0.02, 0.02), w0=-1.0, wa=0.0
     )
     return cosmo.r_z(z_array)
 
@@ -156,7 +161,7 @@ def growth_factor_function(params, z):
         h=h,
         omega_b=omega_b,
         omega_c=omega_c,
-        m_nu=m_nu,
+        m_nu=(m_nu,) * 3,  # per-species mass: three degenerate masses
         w0=w0,
         wa=wa
     )
@@ -167,7 +172,7 @@ fiducial_params = jnp.array([
     0.1200,   # omega_c
     0.02237,  # omega_b
     0.6736,   # h
-    0.06,     # m_nu (eV)
+    0.02,     # m_nu (eV, per species)
     -1.0,     # w0
     0.0       # wa
 ])
@@ -224,7 +229,7 @@ def growth_functions(params, z):
     cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044, ns=0.9649,
         h=h, omega_b=omega_b, omega_c=omega_c,
-        m_nu=m_nu, w0=w0, wa=wa
+        m_nu=(m_nu,) * 3, w0=w0, wa=wa
     )
     D, f = cosmo.D_f_z(z)
     return jnp.stack([D, f])  # Stack to get shape (2, n_z)
@@ -280,7 +285,7 @@ for name, params in cosmologies.items():
     cosmo_test = jaxace.w0waCDMCosmology(
         ln10As=3.044, ns=0.9649, h=0.6736,
         omega_b=0.02237, omega_c=0.1200,
-        m_nu=0.06, **params
+        m_nu=(0.02, 0.02, 0.02), **params
     )
 
     D_test = cosmo_test.D_z(z)

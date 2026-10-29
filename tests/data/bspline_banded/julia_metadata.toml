@@ -1,0 +1,11 @@
+ace_commit = "132a6e52175628990896dd07c3abd5418f200d8a"
+cases = [4, 5, 6, 8, 81]
+dtype = "Float64"
+julia_version = "1.12.6"
+n81_grid_sha256 = "84f0d9dc536320eb80daf49fff6db323a0bb7e1e0f5748917cfa93e10211dd74"
+rhs_columns = 3
+
+[source_sha256]
+"src/chainrules.jl" = "d6afc8d26d3690ebfe9e3d677ad1825d7dcbf1df2ef100e5f1a2a68de58b4240"
+"src/cubic_b_spline.jl" = "4cd40925bf1087939c3f8c2ba81a2cee68a1699542e294606e1a6b7c5052f577"
+"src/threads.jl" = "4ba4d39f1d2acbba1eb68fbc359e09f4c90fdb08e34190ec35d6e5bc9322cc50"

@@ -1,0 +1,14 @@
+{
+  "source_commit": "368596b916ae11265883cfa5f8ce3d65f70693cf",
+  "utils_sha256": "7bc002c1ebad80f2e3d281b959488aef1ea6e3469ad554aed0882ce254354d22",
+  "jax_version": "0.6.2",
+  "x64": true,
+  "rhs_columns": 3,
+  "cases": [
+    4,
+    5,
+    6,
+    8,
+    81
+  ]
+}

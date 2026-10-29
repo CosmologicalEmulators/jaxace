@@ -24,108 +24,8 @@ def _central_finite_difference(fn, x, eps):
     return (fn(x + eps) - fn(x - eps)) / (2 * eps)
 
 
-class TestCLASSComparison3Curvature:
-    """
-    CLASS comparison tests - cosmology 3 with curvature.
-
-    Parameters: h = 1.0, Ωb h² = 0.02, Ωc h² = 0.18,
-                mν = 0.34 eV, w0 = -0.2, wa = -2.6, Ωk h² = 0.1
-    """
-
-    @pytest.fixture
-    def cosmo_params(self):
-        """Set up cosmology parameters."""
-        return {
-            'Ωcb0': (0.02 + 0.18) / 1.0**2,
-            'h': 1.0,
-            'mν': 0.34,
-            'w0': -0.2,
-            'wa': -2.6,
-            'Ωk0': 0.1 / 1.0**2
-        }
-
-    @pytest.fixture
-    def cosmo(self):
-        """Set up cosmology object."""
-        return w0waCDMCosmology(
-            ln10As=3.0, ns=0.96, h=1.0,
-            omega_b=0.02, omega_c=0.18,
-            omega_k=0.1,
-            m_nu=0.34, w0=-0.2, wa=-2.6
-        )
-
-    def test_z0_values(self, cosmo_params, cosmo):
-        """Test values at z = 0.0."""
-        z = 0.0
-
-        # D(z=0) normalization
-        D0 = cosmo.D_z(z)
-        assert np.isclose(D0 / D0, 1.0, rtol=1e-6)
-
-        # Growth rate at z=0
-        f0 = cosmo.f_z(z)
-        assert np.isclose(f0, 0.398474183923441, rtol=2e-4)
-
-        # Hubble parameter H(z=0) = H0
-        H0 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H0, 100.0, rtol=1e-6)
-
-        # Distances at z=0 should be zero
-        assert np.isclose(cosmo.r_z(z), 0.0, atol=1e-10)
-        assert np.isclose(cosmo.dL_z(z), 0.0, atol=1e-10)
-        assert np.isclose(cosmo.dA_z(z), 0.0, atol=1e-10)
-
-    def test_z1_values(self, cosmo_params, cosmo):
-        """Test values at z = 1.0."""
-        z = 1.0
-        D0 = cosmo.D_z(0.0)
-
-        # Linear growth factor (normalized)
-        D1 = cosmo.D_z(z)
-        assert np.isclose(D1 / D0, 0.689689041142467, rtol=4e-5)
-
-        # Growth rate
-        f1 = cosmo.f_z(z)
-        assert np.isclose(f1, 0.727435001392173, rtol=2e-4)
-
-        # Hubble parameter
-        H1 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H1, 168.660901702244558, rtol=1e-4)
-
-        # Line-of-sight comoving distance
-        assert np.isclose(cosmo.r_z(z), 2207.200798324237894, rtol=1e-4)
-
-        # Luminosity distance
-        assert np.isclose(cosmo.dL_z(z), 4454.390532901412371, rtol=1e-4)
-
-        # Angular diameter distance
-        assert np.isclose(cosmo.dA_z(z), 1113.597633225352638, rtol=1e-4)
-
-    def test_z2_values(self, cosmo_params, cosmo):
-        """Test values at z = 2.0."""
-        z = 2.0
-        D0 = cosmo.D_z(0.0)
-
-        # Linear growth factor (normalized)
-        D2 = cosmo.D_z(z)
-        assert np.isclose(D2 / D0, 0.495032404840887, rtol=1e-4)
-
-        # Growth rate
-        f2 = cosmo.f_z(z)
-        assert np.isclose(f2, 0.882324793082423, rtol=2e-4)
-
-        # Hubble parameter
-        H2 = cosmo.E_z(z) * 100 * cosmo.h
-        assert np.isclose(H2, 259.543469580456815, rtol=2e-4)
-
-        # Line-of-sight comoving distance
-        assert np.isclose(cosmo.r_z(z), 3655.526633299333753, rtol=1e-4)
-
-        # Luminosity distance
-        assert np.isclose(cosmo.dL_z(z), 11240.362895970827594, rtol=1e-4)
-
-        # Angular diameter distance
-        assert np.isclose(cosmo.dA_z(z), 1248.929210663426375, rtol=1e-4)
+# The scalar-mν CLASS comparison for this curved cosmology was removed with the scalar
+# mode; CLASS/CAMB three-mass references live in tests/test_neutrino_neff.py.
 
 
 class TestCurvaturePhysics:
@@ -168,7 +68,7 @@ class TestCurvaturePhysics:
         h = 1.0
         Ωcb0 = 0.20
         Ωk0 = 0.1
-        m_nu = 0.34
+        m_nu = (0.1, 0.12, 0.12)
         w0 = -0.2
         wa = -2.6
         z = 1.5

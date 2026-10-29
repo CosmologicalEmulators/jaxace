@@ -21,7 +21,7 @@ def main():
         h=0.6736,          # Hubble parameter
         omega_b=0.02237,   # Baryon density
         omega_c=0.1200,    # CDM density
-        m_nu=0.06,         # Sum of neutrino masses in eV
+        m_nu=(0.02, 0.02, 0.02),  # three physical masses in eV
         w0=-1.0,           # Dark energy equation of state
         wa=0.0             # Dark energy evolution parameter
     )

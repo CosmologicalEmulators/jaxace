@@ -1,5 +1,28 @@
 # Migration notes
 
+## 0.8.0: explicit masses in analytic cosmology
+
+Analytic background and growth functions now require exactly three physical
+neutrino masses in eV. This also applies to `w0waCDMCosmology.m_nu`.
+Scalar inputs, including zero and traced scalars, raise `ValueError`; they are
+not silently interpreted as a total mass or split into equal masses.
+
+```python
+# Choose the physical splitting explicitly; these are different models.
+E = jaxace.E_z(1.0, 0.3, 0.67, mν=(0.02, 0.02, 0.02), Neff=3.044)
+E_one_massive = jaxace.E_z(1.0, 0.3, 0.67, mν=(0.06, 0.0, 0.0), Neff=3.044)
+```
+
+Omitting the masses selects `(0.0, 0.0, 0.0)`: three massless species with
+the documented Neff prescription. The retired scalar model represented only
+one species, so even its zero-mass result is not the new default radiation
+model. Existing explicit-three-mass calculations retain their conventions.
+
+Neural emulator inputs are unchanged: they still accept the total mass, with
+the splitting fixed by the training data. This change neither retrains nor
+reinterprets existing artifacts. The old scalar quadrature helpers and their
+unused `quadax` dependency have been removed.
+
 ## 0.7.0
 
 ### New reusable interpolation objects

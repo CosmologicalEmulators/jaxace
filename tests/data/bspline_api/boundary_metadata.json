@@ -1,0 +1,72 @@
+{
+  "scipy_version": "1.18.0",
+  "generator_sha256": "69c16f5396e1278d0104b06c99d18caa1c0763a439b04e086846aa7ee4c12ff1",
+  "convention": "interior derivative at endpoints; right span at interior knots; zero outside",
+  "julia_issue": "ForwardDiff 1.4.6 Dual(hi,1)>hi changes basis_row to the outside-zero branch",
+  "cases": {
+    "polynomial": {
+      "right_endpoint": 1.0,
+      "saved_julia_gradient": [
+        0.0
+      ],
+      "interior_gradient": [
+        1.3836375087419253
+      ],
+      "inputs_sha256": {
+        "knots": "1471c8611348f172cf59498f530b321aa470ca7bd67e6d4b815f0572e01b2114",
+        "query": "c378ca459ed4931cf1094fe988c5ea710a5e946b049aae9669f32f592139b794",
+        "query_cotangent": "72715485184493c47e502810bf34132236bd45c60efbebfe8b2738c1bca4e0ce",
+        "grad_query": "867b7e7fcc3488f9e70bd2e323bd2e149b1c741aa0f437c02ed8cd2c4f8521e8",
+        "matrix": "803d50c31f1fd3877e8ec820eb5d61aebee397cd2fbbd9cc73153a445b52d329"
+      }
+    },
+    "simple": {
+      "right_endpoint": 2.0,
+      "saved_julia_gradient": [
+        0.0
+      ],
+      "interior_gradient": [
+        -1.6498826483713853
+      ],
+      "inputs_sha256": {
+        "knots": "94e9e04756ccb8291adbaa9c0fbfece9ad1aa1d9534336a69e633d3894493e7d",
+        "query": "127df0a4ea6441b4c9880f0df70548d18acfd8d1275e592405c1aefa8fd9bef9",
+        "query_cotangent": "1d9c1b228bd48a04d243a36a196c4706efc6399382b4aa6c28c86c8ee7aef231",
+        "grad_query": "67f3ec3bc9fc7da074c34ea459d3c3ad392f5624c2d47848edcb8641e33e6ea5",
+        "matrix": "0297224cc93bb4ba9ede61168dbf6dbd0a024e1441c2445855238d7ce87a6f79"
+      }
+    },
+    "double": {
+      "right_endpoint": 1.0,
+      "saved_julia_gradient": [
+        0.0
+      ],
+      "interior_gradient": [
+        -2.0005623275111466
+      ],
+      "inputs_sha256": {
+        "knots": "82f091fc1fd515e228f012dc912811916d44f20b7c0f89748fe5dd43632c588f",
+        "query": "2735a9a4a0b245d9dda21b744c913df6f01a30e13a1fa3abde3be3c7a5364f24",
+        "query_cotangent": "bf5bc6444b320d1300a7f1014811fb78688d20a77ee3702415d35acc4b3ef62d",
+        "grad_query": "2ea78f1c6c4989bc6b4311cd0f6b546b954c51f4e3c03bc2eebb3643f78c3d50",
+        "matrix": "4bdd170bd978bf98a217abb548563db0a06d43f2a37e31fc4182a447cb6c7952"
+      }
+    },
+    "triple": {
+      "right_endpoint": 1.0,
+      "saved_julia_gradient": [
+        0.0
+      ],
+      "interior_gradient": [
+        -5.832221210362007
+      ],
+      "inputs_sha256": {
+        "knots": "d4d35fb219957a17d1c6e7e4fcffd6a12df7cbab68e90e42fd5aed79dc9e9984",
+        "query": "e045aa98a9981766c61cb5b877d3f677fb6b195fcf5ef0435c5be3fa835d17c8",
+        "query_cotangent": "272f3f4f0aa12939b191a8f2be4b32ac775c1aa2e3221ad9c38711eadefd9a1f",
+        "grad_query": "998a79c788088e3248a703dc1d339db4bc480b9e5c8968048e0459b25c03b306",
+        "matrix": "fb122e0c3bf085c70ed2eea164157b2f242b8189b0e0f8910e209132e84a37b8"
+      }
+    }
+  }
+}
