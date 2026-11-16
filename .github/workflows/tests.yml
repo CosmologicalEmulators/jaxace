@@ -53,7 +53,7 @@ jobs:
       - name: Cache reference fixtures
         uses: actions/cache@v6
         with:
-          path: ~/.fetch_artifacts/57b2eb88f55763a47273e26b1b88c3c539539c8a
+          path: ~/.fetch_artifacts/08de6f5a262a2967a4b2c96a29c5bd8349f1e37e
           key: reference-fixtures-${{ runner.os }}-${{ hashFiles('tests/Artifacts.toml') }}
 
       - name: Download and verify reference fixtures
@@ -175,7 +175,7 @@ jobs:
       - name: Cache reference fixtures
         uses: actions/cache@v6
         with:
-          path: ~/.fetch_artifacts/57b2eb88f55763a47273e26b1b88c3c539539c8a
+          path: ~/.fetch_artifacts/08de6f5a262a2967a4b2c96a29c5bd8349f1e37e
           key: reference-fixtures-${{ runner.os }}-${{ hashFiles('tests/Artifacts.toml') }}
 
       - name: Download and verify reference fixtures
