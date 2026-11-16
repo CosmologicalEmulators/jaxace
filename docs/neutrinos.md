@@ -3,7 +3,8 @@
 The analytic background treats **three explicit physical neutrino masses** with
 zero-chemical-potential Fermi–Dirac distributions, plus a massless radiation
 remainder. Changing `Neff` is not enough to specify how that massive-neutrino
-sector changes: jaxace provides two distinct thermal prescriptions.
+sector changes: jaxace provides two thermal prescriptions and an explicit
+piecewise combination of them.
 
 This page describes the analytic model, **not** the frozen neural-emulator
 training labels. Neural emulators still take total neutrino mass with the
@@ -156,6 +157,31 @@ values they have the same relativistic-limit energy density but generally
 different massive-neutrino backgrounds. If all three masses are exactly zero,
 their total neutrino-sector density remains identical at every scale factor
 for the same `Neff`.
+
+## Hybrid: cooling below the reference, radiation above
+
+The opt-in `neutrino_prescription="hybrid"` selects `"temperature"` for
+`Neff < 3.044` and `"radiation"` for `Neff >= 3.044`. It keeps all three
+physical masses fixed and accepts finite positive `Neff`. Equal masses give
+the three-degenerate-species approximation. Unequal and zero masses are also
+supported; no species count is inferred from the number of positive masses.
+
+This follows the piecewise strategy of the Planck 2018 joint mass/radiation
+analysis ([section 7.5.3](https://arxiv.org/abs/1807.06209)), retaining our CLASS
+temperature anchor and small reference remainder. It does not exactly reproduce
+Planck's historical 3.046 normalization: below the switch our remainder scales
+with `Neff` rather than vanishing.
+
+The two branches coincide at 3.044, but for nonzero masses their `Neff`
+derivatives generally differ. At equality, JAX selects the radiation-side
+derivative; this is not a two-sided derivative. `Neff` remains a dynamic input
+under `jit`, `grad` and `vmap`; only the prescription string is static. Do not
+compare AD with a centred finite difference spanning the switch. No smoothing
+or artificial zero-gradient rule is used. With all masses zero the two physical
+densities agree at all `Neff`.
+
+A joint BBN analysis also needs a compatible thermal-history model; equality of
+final `Neff` alone is insufficient. The default remains `"temperature"`.
 
 ## Expansion rate and closure
 

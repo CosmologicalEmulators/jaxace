@@ -210,7 +210,10 @@ class w0waCDMCosmology:
     the three temperatures by (Neff/3.044)**0.25 from Tnu/Tgamma=0.71611, and
     scales the reference massless remainder by Neff/3.044. ``"radiation"``
     fixes the temperatures and varies only massless radiation (Neff >= 3.0396
-    approximately). Masses and the photon temperature, 2.7255 K, stay fixed.
+    approximately). ``"hybrid"`` selects temperature rescaling below 3.044
+    and radiation at or above 3.044. Values are continuous; Neff derivatives
+    generally have a kink, with the radiation-side derivative selected at
+    equality. Masses and the photon temperature, 2.7255 K, stay fixed.
 
     Methods accept scalar redshifts or redshift arrays. Distances are in Mpc,
     E is H/H0, and growth is not normalized to D(0)=1. Prefer ``D_f_z`` when

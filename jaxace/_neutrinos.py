@@ -92,8 +92,8 @@ def check_mass_shape(masses):
 
 def valid_parameters(masses, Neff, prescription):
     masses = check_mass_shape(masses)
-    if prescription not in ("temperature", "radiation"):
-        raise ValueError("neutrino_prescription must be 'temperature' or 'radiation'")
+    if prescription not in ("temperature", "radiation", "hybrid"):
+        raise ValueError("neutrino_prescription must be 'temperature', 'radiation' or 'hybrid'")
     valid = jnp.isfinite(Neff) & (Neff > 0)
     valid = valid & jnp.all(jnp.isfinite(masses) & (masses >= 0))
     if prescription == "radiation":
@@ -119,7 +119,15 @@ def thermal_parameters(Neff, prescription):
         return TREF*scale**.25, N_UR_REF*scale
     if prescription == "radiation":
         return TREF, Neff-3*N_PER_SPECIES
-    raise ValueError("neutrino_prescription must be 'temperature' or 'radiation'")
+    if prescription == "hybrid":
+        # Neff stays dynamic under jit/vmap. At equality select the radiation
+        # derivative explicitly, rather than the tie rule of minimum/maximum.
+        # Public callers sanitize invalid inputs before this arithmetic.
+        cool = Neff < NREF
+        scale = jnp.where(cool, Neff/NREF, 1.0)
+        return (TREF*scale**.25,
+                jnp.where(cool, N_UR_REF*scale, Neff-3*N_PER_SPECIES))
+    raise ValueError("neutrino_prescription must be 'temperature', 'radiation' or 'hybrid'")
 
 
 def density(a, omega_gamma, masses, Neff, prescription):
