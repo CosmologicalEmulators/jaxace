@@ -227,11 +227,17 @@ three-argument form.
 ## Test reference data
 
 The numerical text fixtures are stored in the versioned
-[Zenodo archive (10.5281/zenodo.23718377)](https://doi.org/10.5281/zenodo.23718377).
-Generators, tests and provenance metadata remain in this repository; the archive
-also preserves their complete source snapshots. `tests/Artifacts.toml` pins the
+[Zenodo archive (10.5281/zenodo.24269888)](https://doi.org/10.5281/zenodo.24269888).
+Tests and checksum manifests remain in this repository; the archive preserves
+generators, provenance and source snapshots. Version 3 adds the hybrid-neutrino
+CLASS fixture and its independent generator, with `HYBRID_PROVENANCE.json`
+identifying the new source snapshots. `tests/Artifacts.toml` pins the
 download URL, archive SHA256 and artifact tree hash. `tests/fixtures.sha256`
 lists the individual files restored into ignored paths under `tests/`.
+
+Generated numerical fixtures belong in versioned Zenodo archives, except for
+small, simple files deliberately kept in git. Downloaded generators are never
+executed by tests; complete restoration is tested in an empty checkout.
 
 Ordinary `pytest` runs restore missing fixtures before test collection. CI does
 the same explicitly and caches the artifact. To prepare standalone comparison

@@ -53,3 +53,24 @@ def test_reject_unsafe_paths(tmp_path, name):
     manifest.write_text("0"*64+"  "+name+"\n")
     with pytest.raises(ValueError, match="Unsafe fixture path"):
         loader.ensure_fixtures(tmp_path / "root", manifest)
+
+
+def test_complete_pinned_archive_restoration(tmp_path, monkeypatch):
+    """Exercise the real archive, including hybrid data, in an empty checkout."""
+    entries = [line.split("  ", 1)
+               for line in (loader.HERE / "fixtures.sha256").read_text().splitlines()]
+    names = [name for _, name in entries]
+    assert len(set(names)) == len(names)
+    assert names.count("tests/data/hybrid_class_reference.tsv") == 1
+    root = tmp_path / "checkout"
+    loader.ensure_fixtures(root)
+    for expected, name in entries:
+        assert hashlib.sha256((root / name).read_bytes()).hexdigest() == expected
+    restored = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+    assert restored == sorted(names)
+
+    def offline(*args, **kwargs):
+        raise RuntimeError("Complete local fixtures must not need artifact access")
+
+    monkeypatch.setattr(loader, "artifact", offline)
+    loader.ensure_fixtures(root)

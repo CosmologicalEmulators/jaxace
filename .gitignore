@@ -192,6 +192,7 @@ cython_debug/
 
 # Ruff stuff:
 .ruff_cache/
+/tests/data/hybrid_class_reference.tsv
 
 # PyPI configuration file
 .pypirc
