@@ -233,7 +233,7 @@ class TestGaussLegendreEdgeCases:
     def test_with_massive_neutrinos(self):
         """Test with massive neutrinos."""
         cosmo = w0waCDMCosmology(ln10As=3.0, ns=0.96, h=0.7,
-                                 omega_b=0.04, omega_c=0.0825, m_nu=0.06)
+                                 omega_b=0.04, omega_c=0.0825, m_nu=(0.02, 0.02, 0.02))
         z = 1.0
         result = cosmo.r̃_z(z)
         assert jnp.isfinite(result)

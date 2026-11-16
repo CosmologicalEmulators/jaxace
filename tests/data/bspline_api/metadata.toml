@@ -1,0 +1,27 @@
+ace_commit = "c5f9ca06d1cd00a6b224ea505bb36f612477004e"
+dtype = "Float64"
+forwarddiff_version = "1.4.6"
+generator_sha256 = "9a1469657f149f4b0e1dd6aae4071fab998db9417e6de92f376156452d35f3ec"
+index_base = 1
+julia_version = "1.12.6"
+loading = "Exact original threads/cubic_b_spline files in isolated module; existing ACE supplies dependencies only"
+
+[cases.double]
+multiplicities = [2, 1]
+nbasis = 7
+
+[cases.polynomial]
+multiplicities = []
+nbasis = 4
+
+[cases.simple]
+multiplicities = [1, 1, 1]
+nbasis = 7
+
+[cases.triple]
+multiplicities = [3, 2]
+nbasis = 9
+
+[source_sha256]
+"src/cubic_b_spline.jl" = "824b1f806270ac87b4702f68f6f7f8f91f4ab0e2f07dc67e3c81727da25a55c5"
+"src/threads.jl" = "e0b5aeca150adaad398bc934d5e4dc3c6aae8ee9f1fde87b5947a6d5b005d3d3"

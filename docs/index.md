@@ -2,6 +2,10 @@
 
 JAX/Flax implementation of cosmological emulators with automatic JIT compilation.
 
+For the analytic neutrino model, its two $N_{\mathrm{eff}}$ prescriptions and
+the jaxace-only comparison against CLASS, see
+[Neutrino thermal prescriptions](neutrinos.md).
+
 !!! info "Key Features"
     - ⚡ **Automatic JIT compilation** for optimal performance
     - 🔢 **Full JAX integration** with grad, vmap, and jit
@@ -31,7 +35,7 @@ import numpy as np
 cosmo = jaxace.w0waCDMCosmology(
     ln10As=3.044, ns=0.9649, h=0.6736,
     omega_b=0.02237, omega_c=0.1200,
-    m_nu=0.06, w0=-1.0, wa=0.0
+    m_nu=(0.02, 0.02, 0.02), w0=-1.0, wa=0.0
 )
 
 # Compute background quantities

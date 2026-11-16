@@ -7,6 +7,15 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 
+from ._bspline import (
+    CubicBSplineBasis, CubicBSplineRow, CubicBSplineStencil,
+    knot_vector, internal_knots, nbasis, bspline_domain, basis_support,
+    basis_row, basis_stencil, basis_matrix,
+    CubicBSpline, CubicBSplinePlan, bspline_basis, bspline_coefficients,
+    cubic_b_spline_interpolation, prepare_cubic_b_spline,
+    evaluate_cubic_b_spline, prepare_cubic_b_spline_plan,
+)
+
 
 def maximin(input_data: Union[np.ndarray, jnp.ndarray],
             minmax: Union[np.ndarray, jnp.ndarray]) -> Union[np.ndarray, jnp.ndarray]:
@@ -537,7 +546,6 @@ def _akima_coefficients(t, m):
     else:
         # 2D case: m has shape (n+3, n_cols)
         n = len(t)
-        n_cols = m.shape[1]
         dt = jnp.diff(t)
 
         # Initial b values (average of surrounding slopes) for all columns
@@ -649,9 +657,6 @@ def _akima_eval(u, t, b, c, d, tq):
         return result[0] if is_scalar_tq else result
     else:
         # 2D case: u has shape (n, n_cols)
-        n_cols = u.shape[1]
-        n_query = len(tq_arr)
-
         # Vectorized interval finding (same for all columns)
         idx = jnp.searchsorted(t, tq_arr, side='right') - 1
         idx = jnp.clip(idx, 0, n - 2)
@@ -962,11 +967,6 @@ def _cubic_spline_eval(u, t, h, z, tq):
     # We use akima's interval finder logic
     idx = jnp.searchsorted(t, tq_arr, side='right') - 1
 
-    # We create masks for extrapolation
-    mask_left = tq_arr < t[0]
-    mask_right = tq_arr > t[-1]
-    mask_inside = ~(mask_left | mask_right)
-
     idx = jnp.clip(idx, 0, n - 2)
 
     if is_1d:
@@ -982,8 +982,6 @@ def _cubic_spline_eval(u, t, h, z, tq):
 
         return val_inside[0] if is_scalar_tq else val_inside
     else:
-        n_cols = u.shape[1]
-
         dt = tq_arr - t[idx]
         dt_next = t[idx+1] - tq_arr
         h_i = h[idx+1]

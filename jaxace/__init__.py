@@ -10,7 +10,7 @@ computations.
 import os
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from fetch_artifacts import load_artifacts
 
@@ -68,6 +68,25 @@ from .utils import (
     prepare_akima_spline_plan,
     CubicSplinePlan,
     prepare_cubic_spline_plan,
+    cubic_b_spline_interpolation,
+    CubicBSpline,
+    prepare_cubic_b_spline,
+    evaluate_cubic_b_spline,
+    CubicBSplinePlan,
+    prepare_cubic_b_spline_plan,
+    CubicBSplineBasis,
+    CubicBSplineRow,
+    CubicBSplineStencil,
+    knot_vector,
+    internal_knots,
+    nbasis,
+    bspline_domain,
+    basis_support,
+    basis_row,
+    basis_stencil,
+    basis_matrix,
+    bspline_basis,
+    bspline_coefficients,
 )
 from .chebyshev import (
     ChebyshevPlan,
@@ -77,7 +96,7 @@ from .chebyshev import (
     chebyshev_decomposition,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 # Initialize the trained_emulators dictionary
 trained_emulators: Dict[str, GenericEmulator] = {}
@@ -204,6 +223,25 @@ __all__ = [
     "prepare_akima_spline_plan",
     "CubicSplinePlan",
     "prepare_cubic_spline_plan",
+    "cubic_b_spline_interpolation",
+    "CubicBSpline",
+    "prepare_cubic_b_spline",
+    "evaluate_cubic_b_spline",
+    "CubicBSplinePlan",
+    "prepare_cubic_b_spline_plan",
+    "CubicBSplineBasis",
+    "CubicBSplineRow",
+    "CubicBSplineStencil",
+    "knot_vector",
+    "internal_knots",
+    "nbasis",
+    "bspline_domain",
+    "basis_support",
+    "basis_row",
+    "basis_stencil",
+    "basis_matrix",
+    "bspline_basis",
+    "bspline_coefficients",
     # Chebyshev optimization
     "ChebyshevPlan",
     "chebpoints",

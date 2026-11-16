@@ -3,14 +3,13 @@ Benchmark tests comparing Gauss-Legendre quadrature with reference implementatio
 
 This test suite compares the GL implementation against:
 1. High-precision reference values from AbstractCosmologicalEmulators.jl
-2. Performance metrics (speed and accuracy tradeoffs)
+2. Synchronized runtime measurements, without hardware-dependent CI deadlines
 """
 
 import pytest
 import jax
 import jax.numpy as jnp
 import numpy as np
-import time
 from jaxace.background import r̃_z, E_z, w0waCDMCosmology
 
 
@@ -46,71 +45,30 @@ class TestIntegrationAccuracy:
 
 
 class TestPerformanceBenchmark:
-    """Benchmark performance of GL quadrature."""
+    """Record timings; enforce numerical correctness, not shared-runner speed."""
 
-    def test_vectorized_performance(self):
-        """Test performance of vectorized computation."""
-        cosmo = w0waCDMCosmology(ln10As=3.0, ns=0.96, h=0.7,
-                                 omega_b=0.04, omega_c=0.0825)
-
-        # Generate array of redshifts
-        z_array = jnp.linspace(0.1, 5.0, 100)
-
-        # JIT compile
-        compute_distances = jax.jit(lambda z: cosmo.r̃_z(z))
-
-        # Warmup
-        _ = compute_distances(z_array)
-
-        # Time the computation
-        start = time.time()
-        result = compute_distances(z_array)
-        # Block until computation completes
-        result.block_until_ready()
-        elapsed = time.time() - start
-
-        # Should be very fast (< 0.1s for 100 points)
-        assert elapsed < 0.1, f"Computation took {elapsed}s, expected < 0.1s"
-        assert len(result) == 100
-
-    def test_jit_compilation_benefit(self):
-        """Test that JIT compilation provides speedup."""
+    @pytest.mark.parametrize("redshifts", [
+        pytest.param(np.linspace(0.1, 5.0, 100), id="vector-100"),
+        pytest.param(np.linspace(0.1, 5.0, 50), id="vector-50"),
+        pytest.param([0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0], id="wide-redshift"),
+    ])
+    def test_compiled_distances(self, benchmark, redshifts):
+        """Compare compiled vector evaluation with scalar evaluation and time it."""
         cosmo = w0waCDMCosmology(ln10As=3.0, ns=0.96, h=0.7, omega_b=0.04, omega_c=0.0825)
-        z_array = jnp.linspace(0.1, 5.0, 50)
-
-        # With JIT
+        z_array = jnp.asarray(redshifts)
+        expected = jnp.stack([cosmo.r̃_z(z) for z in z_array])
         compute_jit = jax.jit(lambda z: cosmo.r̃_z(z))
-
-        # Warmup JIT
-        _ = compute_jit(z_array)
-
-        # Time JIT version
-        start_jit = time.time()
-        result_jit = compute_jit(z_array)
-        result_jit.block_until_ready()
-        elapsed_jit = time.time() - start_jit
-
-        # Should be fast
-        assert elapsed_jit < 0.1, f"JIT computation took {elapsed_jit}s"
-
-    def test_consistent_point_efficiency(self):
-        """Test that 9-point GL is efficient across all redshifts."""
-        cosmo = w0waCDMCosmology(ln10As=3.0, ns=0.96, h=0.7, omega_b=0.04, omega_c=0.0825)
-
-        # Mix of low and high z, all using 9 points
-        z_array = jnp.array([0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0])
-
-        # JIT compile first
-        compute_jit = jax.jit(lambda z: cosmo.r̃_z(z))
-        _ = compute_jit(z_array)  # Warmup
-
-        start = time.time()
-        result = compute_jit(z_array)
-        result.block_until_ready()
-        elapsed = time.time() - start
-
-        # Should be very fast with 9 points after JIT
-        assert elapsed < 0.5, f"Computation took {elapsed}s"
+        jax.block_until_ready((expected, compute_jit(z_array)))
+        result = benchmark.pedantic(
+            lambda: compute_jit(z_array).block_until_ready(),
+            rounds=30, iterations=1, warmup_rounds=5,
+        )
+        benchmark.extra_info.update({"jax_version": jax.__version__,
+                                     "device": str(jax.devices()[0]),
+                                     "n_redshifts": len(redshifts)})
+        assert result.shape == z_array.shape
+        assert np.all(np.isfinite(result))
+        np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-13)
 
 
 class TestConsistencyWithDerivedQuantities:

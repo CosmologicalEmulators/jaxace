@@ -42,7 +42,7 @@ def generate_main_cosmology_plots():
         h=0.6736,
         omega_b=0.02237,
         omega_c=0.1200,
-        m_nu=0.06,
+        m_nu=(0.02, 0.02, 0.02),
         w0=-1.0,
         wa=0.0
     )
@@ -105,7 +105,7 @@ def generate_omega_m_plot():
     cosmo = jaxace.w0waCDMCosmology(
         ln10As=3.044, ns=0.9649, h=0.6736,
         omega_b=0.02237, omega_c=0.1200,
-        m_nu=0.06, w0=-1.0, wa=0.0
+        m_nu=(0.02, 0.02, 0.02), w0=-1.0, wa=0.0
     )
 
     z = jnp.linspace(0.01, 3.0, 100)
@@ -142,7 +142,7 @@ def generate_cosmology_comparison():
         cosmo_test = jaxace.w0waCDMCosmology(
             ln10As=3.044, ns=0.9649, h=0.6736,
             omega_b=0.02237, omega_c=0.1200,
-            m_nu=0.06, w0=params['w0'], wa=params['wa']
+            m_nu=(0.02, 0.02, 0.02), w0=params['w0'], wa=params['wa']
         )
 
         D_test = cosmo_test.D_z(z)
@@ -181,7 +181,7 @@ def generate_growth_jacobian():
             h=h,
             omega_b=omega_b,
             omega_c=omega_c,
-            m_nu=m_nu,
+            m_nu=(m_nu,) * 3,  # per-species mass: three degenerate masses
             w0=w0,
             wa=wa
         )
@@ -192,7 +192,7 @@ def generate_growth_jacobian():
         0.1200,   # omega_c
         0.02237,  # omega_b
         0.6736,   # h
-        0.06,     # m_nu (eV)
+        0.02,     # m_nu (eV, per species)
         -1.0,     # w0
         0.0       # wa
     ])
@@ -230,7 +230,7 @@ def generate_growth_jacobian_comparison():
         cosmo = jaxace.w0waCDMCosmology(
             ln10As=3.044, ns=0.9649,
             h=h, omega_b=omega_b, omega_c=omega_c,
-            m_nu=m_nu, w0=w0, wa=wa
+            m_nu=(m_nu,) * 3, w0=w0, wa=wa
         )
         D, f = cosmo.D_f_z(z)
         return jnp.stack([D, f])  # Stack to get shape (2, n_z)
@@ -240,7 +240,7 @@ def generate_growth_jacobian_comparison():
         0.1200,   # omega_c
         0.02237,  # omega_b
         0.6736,   # h
-        0.06,     # m_nu (eV)
+        0.02,     # m_nu (eV, per species)
         -1.0,     # w0
         0.0       # wa
     ])

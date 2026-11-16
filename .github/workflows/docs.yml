@@ -36,6 +36,9 @@ jobs:
           pip install matplotlib
 
       # 3 — need existing gh-pages branch for mike
+      - name: Test documentation JavaScript
+        run: node --test tests/test_mathjax_config.cjs
+
       - name: Fetch gh-pages history
         run: git fetch origin gh-pages --depth=1 || true
 

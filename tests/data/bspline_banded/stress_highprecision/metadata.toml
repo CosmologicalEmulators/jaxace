@@ -1,0 +1,8 @@
+generator_sha256 = "c2c7aa6cdb71112c7e6dad72b23f07fb6af2837bcabce379abf68fd9029caee8"
+julia_version = "1.12.6"
+precision_bits = 256
+source_sha256 = "4cd40925bf1087939c3f8c2ba81a2cee68a1699542e294606e1a6b7c5052f577"
+
+[input_sha256]
+clustered = "f7ce0611eb70a49d19c3fb53c02eaf8826a29de1ee74c045ef3a16b5dbf42e92"
+raw_k = "28b0ea94b52115f00498ce70d1abcbc4d315e773b91036579fb1449ae343659f"
