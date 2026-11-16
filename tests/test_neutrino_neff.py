@@ -15,16 +15,10 @@ H = .67
 OCB = .1424/H**2
 
 
-@pytest.mark.parametrize("policy", ["temperature", "radiation"])
-@pytest.mark.parametrize("bad", ["neff", "nan_neff", "mass", "nan_mass"])
-def test_masked_invalid_models_do_not_poison_shared_gradients(policy, bad):
-    invalid_neff = jnp.nan if bad == "nan_neff" else (2. if policy == "radiation" else -1.)
-    def models(x):
-        masses, neff = x[6:9], x[9]
-        invalid_mass = masses.at[0].set(jnp.nan if bad == "nan_mass" else -.01)
-        ns = jnp.array([neff, invalid_neff if "neff" in bad else neff])
-        ms = jnp.stack([masses, invalid_mass if "mass" in bad else masses])
-        return ms, ns
+@pytest.fixture(scope="module", params=["temperature", "radiation"])
+def masked_background_case(request):
+    """One valid-only oracle and one executable for all invalid rows per policy."""
+    policy = request.param
     def observables(x, m, n):
         h, ocb, w0, wa, curvature, z = x[:6]
         kw = dict(mν=m, Neff=n, neutrino_prescription=policy, w0=w0, wa=wa, Ωk0=curvature)
@@ -35,16 +29,32 @@ def test_masked_invalid_models_do_not_poison_shared_gradients(policy, bad):
                           bg.ρc_z(z, ocb, h, **kw)/1e11,
                           bg.dlogEdloga(a, ocb, h, **kw),
                           bg.Ωm_a(a, ocb, h, **kw), bg.Ωm_a_total(a, ocb, h, **kw)])
-    def masked(x):
-        ms, ns = models(x)
+    def masked(x, replace_mass, bad_mass, bad_neff):
+        masses, neff = x[6:9], x[9]
+        # Non-replaced entries in the bad row MUST remain connected to x:
+        # these shared derivatives are precisely the NaN-poisoning regression.
+        invalid_mass = masses.at[0].set(bad_mass)
+        ms = jnp.stack([masses, jnp.where(replace_mass, invalid_mass, masses)])
+        ns = jnp.array([neff, jnp.where(replace_mass, neff, bad_neff)])
         values = jax.vmap(lambda m, n: observables(x, m, n))(ms, ns)
         return jnp.where(jnp.array([True, False])[:, None], values, 0.).sum(axis=0)
     x = jnp.array([.67, .31, -1., .05, .01, 1., .01, .02, .03, 3.5])
-    ms, ns = models(x)
-    assert np.all(np.isnan(observables(x, ms[1], ns[1])))
     expected = jax.jacrev(lambda v: observables(v, v[6:9], v[9]))(x)
-    for derivative in (jax.jacrev(masked), jax.jit(jax.jacrev(masked))):
-        actual = derivative(x)
+    derivative = jax.jacrev(masked, argnums=0)
+    return policy, x, observables, expected, (derivative, jax.jit(derivative))
+
+
+@pytest.mark.parametrize("bad", ["neff", "nan_neff", "mass", "nan_mass"])
+def test_masked_invalid_models_do_not_poison_shared_gradients(masked_background_case, bad):
+    policy, x, observables, expected, derivatives = masked_background_case
+    replace_mass = "mass" in bad
+    bad_mass = jnp.nan if bad == "nan_mass" else -.01
+    bad_neff = jnp.nan if bad == "nan_neff" else (2. if policy == "radiation" else -1.)
+    mass = x[6:9].at[0].set(bad_mass) if replace_mass else x[6:9]
+    neff = x[9] if replace_mass else bad_neff
+    assert np.all(np.isnan(observables(x, mass, neff)))
+    for derivative in derivatives:
+        actual = derivative(x, replace_mass, bad_mass, bad_neff)
         assert np.all(np.isfinite(actual))
         np.testing.assert_allclose(actual, expected, rtol=1e-11, atol=1e-10)
 

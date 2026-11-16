@@ -35,8 +35,9 @@ def test_frozen_julia_and_dense_jax_references(n):
     np.testing.assert_allclose(factors, np.loadtxt(DATA / f"julia_n{n}_factors.txt"), rtol=2e-13, atol=2e-14)
     np.testing.assert_allclose(factor_solve(factors, g, transpose=True),
                                np.loadtxt(DATA / f"julia_n{n}_transpose.txt"), rtol=2e-12, atol=2e-13)
+    run = jax.jit(lambda x, y: CubicBSpline(x, y).coefficients)
     actual = {
-        "coefficients": jax.jit(lambda x, y: CubicBSpline(x, y).coefficients)(u, t),
+        "coefficients": run(u, t),
         "values": jax.jit(lambda x, y, z: CubicBSplinePlan(y, z)(x))(u, t, q),
         "grad_sites": jax.jit(jax.grad(lambda x: jnp.sum(CubicBSpline(u, x).coefficients * g)))(t),
         "grad_values": jax.jit(jax.grad(lambda x: jnp.sum(CubicBSpline(x, t).coefficients * g)))(u),
@@ -46,8 +47,8 @@ def test_frozen_julia_and_dense_jax_references(n):
             np.testing.assert_allclose(value, np.loadtxt(DATA / f"{origin}_n{n}_{name}.txt"),
                                        rtol=2e-11, atol=2e-12, err_msg=f"{origin} N{n} {name}")
     # A second dynamic value input must not be folded into the compiled plan.
-    run = jax.jit(lambda x, y: CubicBSpline(x, y).coefficients)
     np.testing.assert_allclose(run(1.7 * u, t), 1.7 * actual["coefficients"], rtol=2e-12, atol=2e-13)
+    np.testing.assert_allclose(run(u, t), actual["coefficients"], rtol=2e-12, atol=2e-13)
 
 
 @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
@@ -58,10 +59,15 @@ def test_public_jvp_vjp_and_mixed_dtypes(dtype, matrix):
     u = u if matrix else u[:, 0]
     f = lambda x, y: CubicBSpline(x, y).coefficients
     tangent_u, tangent_t = jnp.full_like(u, .03), jnp.linspace(.01, .02, len(t)).astype(dtype)
-    for values in (u, u.astype(jnp.float64)):
+    jvp = jax.jit(lambda x, y, dx, dy: jax.jvp(f, (x, y), (dx, dy)))
+    vjp = jax.jit(jax.grad(lambda x, y: jnp.sum(f(x, y)**2), argnums=(0, 1)))
+    # Float64 -> Float64 would repeat the identical case. Keep both actual
+    # Float32 paths: same precision and mixed Float32 geometry/Float64 values.
+    inputs = (u, u.astype(jnp.float64)) if dtype == jnp.float32 else (u,)
+    for values in inputs:
         tol = 8e-5 if dtype == jnp.float32 else 2e-11
         directions = (tangent_u.astype(values.dtype), tangent_t)
-        actual, tangent = jax.jit(lambda x, y, dx, dy: jax.jvp(f, (x, y), (dx, dy)))(values, t, *directions)
+        actual, tangent = jvp(values, t, *directions)
         expected, expected_tangent = jax.jvp(dense_coefficients, (values, t), directions)
         np.testing.assert_allclose(actual, expected, rtol=tol, atol=tol * .1)
         np.testing.assert_allclose(tangent, expected_tangent, rtol=tol, atol=tol * .1)
@@ -72,7 +78,7 @@ def test_public_jvp_vjp_and_mixed_dtypes(dtype, matrix):
         reference_gradient = jax.grad(
             lambda x, y: jnp.sum(dense_coefficients(x, y)**2), argnums=(0, 1)
         )(values.astype(jnp.float64), t.astype(jnp.float64))
-        gradient = jax.jit(jax.grad(lambda x, y: jnp.sum(f(x, y)**2), argnums=(0, 1)))(values, t)
+        gradient = vjp(values, t)
         for a, b in zip(gradient, reference_gradient):
             np.testing.assert_allclose(a, b, rtol=tol, atol=tol * .1)
 
@@ -84,11 +90,12 @@ def test_general_factor_guard_and_nonfinite_fallback():
     general = factor.at[1, 5].set(1e-25)
     assert not bool(is_bordered(general))
     for transpose in (False, True):
+        run = jax.jit(lambda x: factor_solve(factor, x, transpose=transpose))
         np.testing.assert_array_equal(factor_solve(general, u, transpose=transpose),
                                       full_solve(general, u, transpose=transpose))
         for bad in (np.nan, np.inf, -np.inf):
             values = u.at[2, 1].set(bad)
-            result = jax.jit(lambda x: factor_solve(factor, x, transpose=transpose))(values)
+            result = run(values)
             expected = full_solve(factor, values, transpose=transpose)
             np.testing.assert_array_equal(np.isfinite(result), np.isfinite(expected))
             np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
