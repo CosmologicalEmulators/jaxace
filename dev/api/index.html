@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -2101,7 +2101,10 @@ are separate and still take total mass with their training-time splitting.</p>
 the three temperatures by (Neff/3.044)**0.25 from Tnu/Tgamma=0.71611, and
 scales the reference massless remainder by Neff/3.044. <code>"radiation"</code>
 fixes the temperatures and varies only massless radiation (Neff &gt;= 3.0396
-approximately). Masses and the photon temperature, 2.7255 K, stay fixed.</p>
+approximately). <code>"hybrid"</code> selects temperature rescaling below 3.044
+and radiation at or above 3.044. Values are continuous; Neff derivatives
+generally have a kink, with the radiation-side derivative selected at
+equality. Masses and the photon temperature, 2.7255 K, stay fixed.</p>
 <p>Methods accept scalar redshifts or redshift arrays. Distances are in Mpc,
 E is H/H0, and growth is not normalized to D(0)=1. Prefer <code>D_f_z</code> when
 both growth factor and rate are needed. Neither growth source is a full
@@ -6116,7 +6119,7 @@ mapped to <code>[-1, 1]</code> from <code>[x_min, x_max]</code>.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.top", "navigation.footer", "toc.follow", "toc.integrate", "search.suggest", "search.highlight", "content.tabs.link", "content.code.copy", "content.code.annotate", "header.autohide"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../javascripts/mathjax.js"></script>
       

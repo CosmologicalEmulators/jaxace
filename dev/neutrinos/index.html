@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -650,6 +650,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hybrid-cooling-below-the-reference-radiation-above" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hybrid: cooling below the reference, radiation above
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#expansion-rate-and-closure" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -901,7 +912,8 @@
 <p>The analytic background treats <strong>three explicit physical neutrino masses</strong> with
 zero-chemical-potential Fermi–Dirac distributions, plus a massless radiation
 remainder. Changing <code>Neff</code> is not enough to specify how that massive-neutrino
-sector changes: jaxace provides two distinct thermal prescriptions.</p>
+sector changes: jaxace provides two thermal prescriptions and an explicit
+piecewise combination of them.</p>
 <p>This page describes the analytic model, <strong>not</strong> the frozen neural-emulator
 training labels. Neural emulators still take total neutrino mass with the
 splitting used in their training data. See <a href="../api/">Cosmology API</a>
@@ -1023,6 +1035,26 @@ values they have the same relativistic-limit energy density but generally
 different massive-neutrino backgrounds. If all three masses are exactly zero,
 their total neutrino-sector density remains identical at every scale factor
 for the same <code>Neff</code>.</p>
+<h2 id="hybrid-cooling-below-the-reference-radiation-above">Hybrid: cooling below the reference, radiation above<a class="headerlink" href="#hybrid-cooling-below-the-reference-radiation-above" title="Permanent link">&para;</a></h2>
+<p>The opt-in <code>neutrino_prescription="hybrid"</code> selects <code>"temperature"</code> for
+<code>Neff &lt; 3.044</code> and <code>"radiation"</code> for <code>Neff &gt;= 3.044</code>. It keeps all three
+physical masses fixed and accepts finite positive <code>Neff</code>. Equal masses give
+the three-degenerate-species approximation. Unequal and zero masses are also
+supported; no species count is inferred from the number of positive masses.</p>
+<p>This follows the piecewise strategy of the Planck 2018 joint mass/radiation
+analysis (<a href="https://arxiv.org/abs/1807.06209">section 7.5.3</a>), retaining our CLASS
+temperature anchor and small reference remainder. It does not exactly reproduce
+Planck's historical 3.046 normalization: below the switch our remainder scales
+with <code>Neff</code> rather than vanishing.</p>
+<p>The two branches coincide at 3.044, but for nonzero masses their <code>Neff</code>
+derivatives generally differ. At equality, JAX selects the radiation-side
+derivative; this is not a two-sided derivative. <code>Neff</code> remains a dynamic input
+under <code>jit</code>, <code>grad</code> and <code>vmap</code>; only the prescription string is static. Do not
+compare AD with a centred finite difference spanning the switch. No smoothing
+or artificial zero-gradient rule is used. With all masses zero the two physical
+densities agree at all <code>Neff</code>.</p>
+<p>A joint BBN analysis also needs a compatible thermal-history model; equality of
+final <code>Neff</code> alone is insufficient. The default remains <code>"temperature"</code>.</p>
 <h2 id="expansion-rate-and-closure">Expansion rate and closure<a class="headerlink" href="#expansion-rate-and-closure" title="Permanent link">&para;</a></h2>
 <p>Neutrinos enter the background through their full energy density:</p>
 <div class="arithmatex">\[
@@ -1242,7 +1274,7 @@ The Julia evaluator is needed only for the Julia figure.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.top", "navigation.footer", "toc.follow", "toc.integrate", "search.suggest", "search.highlight", "content.tabs.link", "content.code.copy", "content.code.annotate", "header.autohide"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../javascripts/mathjax.js"></script>
       
